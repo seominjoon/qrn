@@ -73,10 +73,14 @@ def _word2idx(word2idx_dict, word):
 
 def _save_data(word2idx_dict, data, target_dir):
     X, Q, S, Y = data
+    max_fact_size = max(len(sent) for para in X for sent in para)
+    max_ques_size = max(len(ques) for ques in Q)
     metadata = {'vocab_size': len(word2idx_dict),
-                'max_sent_size': max(len(sent) for para in X for sent in para),
-                'max_ques_size': max(len(ques) for ques in Q),
-                'max_num_sents': max(len(para) for para in X)}
+                'max_fact_size': max_fact_size,
+                'max_ques_size': max_ques_size,
+                'max_sent_size': max(max_fact_size, max_ques_size),
+                'max_num_sents': max(len(para) for para in X),
+                'max_num_sups': max(len(sups) for sups in S)}
     word2idx_path = os.path.join(target_dir, "word2idx.json")
     data_path = os.path.join(target_dir, "data.json")
     metadata_path = os.path.join(target_dir, "metadata.json")

@@ -105,10 +105,12 @@ def load_meta_data(config):
 
     # TODO: set other parameters, e.g.
     # config.max_sent_size = meta_data['max_sent_size']
-    config.max_sent_size = metadata['max_sent_size']
+    config.max_fact_size = metadata['max_fact_size']
     config.max_ques_size = metadata['max_ques_size']
+    config.max_sent_size = metadata['max_sent_size']
     config.vocab_size = metadata['vocab_size']
     config.max_num_sents = metadata['max_num_sents']
+    config.max_num_sups = metadata['max_num_sups']
 
 
 def main(_):
