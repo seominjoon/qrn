@@ -54,40 +54,26 @@ class DataSet(object):
 
 
 def read_data(params, mode):
-    data_dir = params.data_dir
+    task = params.task
+    task_dir = os.path.join(params.data_dir, task.zfill(2))
     batch_size = params.batch_size
 
     print("loading {} data ... ".format(mode))
 
-    data = None
-    idxs = None
-    idx2id_dict = None
-    # TODO : these need to be defined. See examples below.
-    """
-    mode2ids_path = os.path.join(data_dir, "mode2ids.json")
-    mode2ids_dict = json.load(open(mode2ids_path, 'r'))
-    idx2id_path = os.path.join(data_dir, "idx2id.json")
-    idx2id_dict = json.load(open(idx2id_path, 'r'))
-    idx2id_dict = {int(idx): id_ for idx, id_ in idx2id_dict.items()}
-    id2idx_dict = {id_: int(idx) for idx, id_ in idx2id_dict.items()}
-    ids = mode2ids_dict[mode]
-    idxs = [id2idx_dict[id_] for id_ in ids]
-
-    sents_path = os.path.join(data_dir, "sents.json")
-    scores_path = os.path.join(data_dir, "scores.json")
-    sents = json.load(open(sents_path, 'r'))
-    scores = json.load(open(scores_path, 'r'))
-    data = [sents, scores]
-    """
-
-    data_set = DataSet(mode, batch_size, data, idxs, idx2id_dict)
+    mode2idxs_path = os.path.join(task_dir, "mode2idxs.json")
+    data_path = os.path.join(task_dir, "data.json")
+    mode2idxs_dict = json.load(open(mode2idxs_path, 'r'))
+    data = json.load(open(data_path, 'r'))
+    idxs = mode2idxs_dict[mode]
+    data_set = DataSet(mode, batch_size, data, idxs)
     print("done")
     return data_set
 
 
 def main():
     config = Config()
-    config.data_dir = "data/mydata"
+    config.data_dir = "data/babi-tasks"
+    config.task = "1"
     config.batch_size = 100
     data_set = read_data(config, 'dev')
     print(data_set.get_num_batches(True))

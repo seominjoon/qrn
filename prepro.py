@@ -25,16 +25,18 @@ def get_args():
     parser.add_argument("--lang", default="en")
     parser.add_argument("--task", default="1")
     parser.add_argument("--large", type=bool_, default=False)
+    parser.add_argument("--dev_ratio", type=float, default=0.1)
     args = parser.parse_args()
     return args
 
 
-def prepro_babi_tasks(args):
+def prepro(args):
     source_dir = args.source_dir
     target_dir = args.target_dir
     lang = args.lang
     task = args.task
     is_large = args.large
+    dev_ratio = args.dev_ratio
 
     source_train_path, source_test_path = _get_source_paths(source_dir, lang, is_large, task)
     target_parent_dir = os.path.join(target_dir, lang + "-10k" if is_large else "", task.zfill(2))
@@ -42,7 +44,9 @@ def prepro_babi_tasks(args):
     test_raw_data = _get_data(source_test_path)
     raw_data = [list(itertools.chain(*each)) for each in zip(train_raw_data, test_raw_data)]
     train_size, test_size = len(train_raw_data[0]), len(test_raw_data[0])
-    mode2idxs_dict = {'train': list(range(train_size)),
+    dev_size = int(train_size * dev_ratio)
+    mode2idxs_dict = {'dev': list(range(0, dev_size)),
+                      'train': list(range(dev_size, train_size)),
                       'test': list(range(train_size, train_size + test_size))}
     word2idx_dict = _get_word2idx_dict(train_raw_data)
     data = _apply_word2idx(word2idx_dict, raw_data)
@@ -112,6 +116,7 @@ def _get_data(file_path):
     with open(file_path, 'r') as fh:
         lines = fh.readlines()
     paragraph = []
+    num2idx_dict = {}
     for line_num, line in enumerate(lines):
         sm = _s_re.match(line)
         qm = _q_re.match(line)
@@ -121,13 +126,15 @@ def _get_data(file_path):
             paragraphs.append(paragraph[:])
             questions.append(question)
             answers.append(answer)
-            support = [int(str_num) - 1 for str_num in raw_support.split(" ")]
+            support = [num2idx_dict[str_num] for str_num in raw_support.split(" ")]
             supports.append(support)
         elif sm:
             id_, raw_sentence = sm.groups()
             sentence = _tokenize(raw_sentence)
             if id_ == '1':
                 paragraph = []
+                num2idx_dict = {}
+            num2idx_dict[id_] = len(paragraph)
             paragraph.append(sentence)
         else:
             logging.error("Line %d is invalid at %s." % (line_num + 1, file_path))
@@ -158,7 +165,7 @@ def _get_source_paths(source_dir, lang, is_large, task):
 
 def main():
     args = get_args()
-    prepro_babi_tasks(args)
+    prepro(args)
 
 if __name__ == "__main__":
     main()

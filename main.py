@@ -3,28 +3,27 @@ import os
 import shutil
 from pprint import pprint
 
-import h5py
 import tensorflow as tf
 
 from configs.get_config import get_config_from_file, get_config
-from base_model import BaseTower, BaseRunner
+from base_model import BaseRunner
+from model import Tower
 from read_data import read_data
 
 flags = tf.app.flags
 
 # File directories
-flags.DEFINE_string("model_name", "mymodel", "Model name. This will be used for save, log, and eval names. [mymodel]")
-flags.DEFINE_string("data_dir", "data/mydata", "Data directory [data/mydata]")
-flags.DEFINE_string("fold_path", "data/mydata/folds/fold00.json", "fold json path [data/mydata/folds/fold00.json]")
+flags.DEFINE_string("model_name", "bur", "Model name. This will be used for save, log, and eval names. [bur]")
+flags.DEFINE_string("data_dir", "data/babi-tasks", "Data directory [data/babi-tasks]")
 
 # Training parameters
-flags.DEFINE_integer("batch_size", 100, "Batch size for each tower. [100]")
+flags.DEFINE_integer("batch_size", 32, "Batch size for each tower. [32]")
 flags.DEFINE_float("init_mean", 0, "Initial weight mean [0]")
 flags.DEFINE_float("init_std", 0.1, "Initial weight std [0.1]")
-flags.DEFINE_float("init_lr", 0.1, "Initial learning rate [0.01]")
-flags.DEFINE_integer("anneal_period", 20, "Anneal period [20]")
-flags.DEFINE_float("anneal_ratio", 0.5, "Anneal ratio [0.5")
-flags.DEFINE_integer("num_epochs", 200, "Total number of epochs for training [200]")
+flags.DEFINE_float("init_lr", 0.1, "Initial learning rate [0.1]")
+flags.DEFINE_integer("lr_anneal_period", 20, "Anneal period [20]")
+flags.DEFINE_float("lr_anneal_ratio", 0.5, "Anneal ratio [0.5")
+flags.DEFINE_integer("num_epochs", 100, "Total number of epochs for training [100]")
 flags.DEFINE_string("opt", 'basic', 'Optimizer: basic | adagrad [basic]')
 
 # Training and testing options
@@ -38,7 +37,7 @@ flags.DEFINE_string("device_type", 'cpu', "cpu | gpu [cpu]")
 flags.DEFINE_integer("num_devices", 1, "Number of devices to use. Only for multi-GPU. [1]")
 flags.DEFINE_integer("val_period", 5, "Validation period (for display purpose only) [5]")
 flags.DEFINE_integer("save_period", 10, "Save period [10]")
-flags.DEFINE_string("configs", 'None', "Config name (e.g. local) to load. 'None' to use configs here. [None]")
+flags.DEFINE_string("config", 'None', "Config name (e.g. local) to load. 'None' to use configs here. [None]")
 flags.DEFINE_string("config_ext", ".json", "Config file extension: .json | .tsv [.json]")
 
 # Debugging
@@ -46,6 +45,8 @@ flags.DEFINE_boolean("draft", False, "Draft? (quick initialize) [False]")
 
 # App-specific options
 # TODO : Any other options
+flags.DEFINE_string("task", "1", "Task number. [1]")
+flags.DEFINE_integer("hidden_size", 50, "Hidden size. [50]")
 
 FLAGS = flags.FLAGS
 
@@ -99,11 +100,15 @@ def mkdirs(config):
 
 
 def load_meta_data(config):
-    metadata_path = os.path.join(config.data_dir, "metadata.json")
+    metadata_path = os.path.join(config.data_dir, config.task.zfill(2), "metadata.json")
     metadata = json.load(open(metadata_path, "r"))
 
     # TODO: set other parameters, e.g.
-    # configs.max_sent_size = meta_data['max_sent_size']
+    # config.max_sent_size = meta_data['max_sent_size']
+    config.max_sent_size = metadata['max_sent_size']
+    config.max_ques_size = metadata['max_ques_size']
+    config.vocab_size = metadata['vocab_size']
+    config.max_num_sents = metadata['max_num_sents']
 
 
 def main(_):
@@ -118,9 +123,6 @@ def main(_):
     mkdirs(config)
 
     # load other files
-    init_emb_mat_path = os.path.join(config.data_dir, 'init_emb_mat.h5')
-    config.init_emb_mat = h5py.File(init_emb_mat_path, 'r')['data'][:]
-
     if config.train:
         train_ds = read_data(config, 'train')
         dev_ds = read_data(config, 'dev')
@@ -144,7 +146,7 @@ def main(_):
 
     graph = tf.Graph()
     # TODO : initialize BaseTower-subclassed objects
-    towers = [BaseTower(config) for _ in range(config.num_devices)]
+    towers = [Tower(config) for _ in range(config.num_devices)]
     sess = tf.Session(graph=graph, config=tf.ConfigProto(allow_soft_placement=True))
     # TODO : initialize BaseRunner-subclassed object
     runner = BaseRunner(config, sess, towers)
