@@ -1,0 +1,23 @@
+{
+  "gpu": {
+    "device_type": "gpu",
+    "num_devices": 4,
+  },
+  "local": {
+    "anneal_period": 10,
+    "anneal_ratio": 0.7,
+    "batch_size": 10,
+    "data_dir": "data/mydata",
+    "device_type": null,
+    "fold_path": "data/mydata/folds/fold00.json",
+    "init_lr": 0.01,
+    "init_mean": 0,
+    "init_std": 0.1,
+    "num_devices": null,
+    "num_epochs": 2,
+    "opt": "basic",
+    "save_period": 1,
+    "val_num_batches": null,
+    "val_period": 1
+  }
+}
