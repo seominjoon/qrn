@@ -6,6 +6,8 @@ import os
 import re
 from collections import OrderedDict
 
+import itertools
+
 
 def bool_(string):
     if string == "True":
@@ -35,19 +37,20 @@ def prepro_babi_tasks(args):
     is_large = args.large
 
     source_train_path, source_test_path = _get_source_paths(source_dir, lang, is_large, task)
-    target_common_dir = os.path.join(target_dir, lang + "-10k" if is_large else "", task)
-    target_train_dir = os.path.join(target_common_dir, "train")
-    target_test_dir = os.path.join(target_common_dir, "test")
+    target_parent_dir = os.path.join(target_dir, lang + "-10k" if is_large else "", task.zfill(2))
     train_raw_data = _get_data(source_train_path)
     test_raw_data = _get_data(source_test_path)
+    raw_data = [list(itertools.chain(*each)) for each in zip(train_raw_data, test_raw_data)]
+    train_size, test_size = len(train_raw_data[0]), len(test_raw_data[0])
+    mode2idxs_dict = {'train': list(range(train_size)),
+                      'test': list(range(train_size, train_size + test_size))}
     word2idx_dict = _get_word2idx_dict(train_raw_data)
-    train_data = _apply_word2idx(word2idx_dict, train_raw_data)
-    test_data = _apply_word2idx(word2idx_dict, test_raw_data)
-    os.makedirs(target_common_dir)
-    os.mkdir(target_train_dir)
-    os.mkdir(target_test_dir)
-    _save_data(word2idx_dict, train_data, target_train_dir)
-    _save_data(word2idx_dict, test_data, target_test_dir)
+    data = _apply_word2idx(word2idx_dict, raw_data)
+    if not os.path.exists(target_parent_dir):
+        os.makedirs(target_parent_dir)
+    _save_data(word2idx_dict, data, target_parent_dir)
+    mode2idxs_path = os.path.join(target_parent_dir, "mode2idxs.json")
+    json.dump(mode2idxs_dict, open(mode2idxs_path, 'w'))
 
 
 def _apply_word2idx(word2idx_dict, raw_data):
@@ -64,15 +67,15 @@ def _word2idx(word2idx_dict, word):
     return word2idx_dict[word] if word in word2idx_dict else 0
 
 
-def _save_data(word2idx_dict, data, dir):
+def _save_data(word2idx_dict, data, target_dir):
     X, Q, S, Y = data
     metadata = {'vocab_size': len(word2idx_dict),
                 'max_sent_size': max(len(sent) for para in X for sent in para),
                 'max_ques_size': max(len(ques) for ques in Q),
                 'max_num_sents': max(len(para) for para in X)}
-    word2idx_path = os.path.join(dir, "word2idx.json")
-    data_path = os.path.join(dir, "data.json")
-    metadata_path = os.path.join(dir, "metadata.json")
+    word2idx_path = os.path.join(target_dir, "word2idx.json")
+    data_path = os.path.join(target_dir, "data.json")
+    metadata_path = os.path.join(target_dir, "metadata.json")
     json.dump(word2idx_dict, open(word2idx_path, 'w'))
     json.dump(data, open(data_path, 'w'))
     json.dump(metadata, open(metadata_path, 'w'))
