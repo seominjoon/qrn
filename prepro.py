@@ -90,7 +90,8 @@ def _save_data(word2idx_dict, data, target_dir):
 
 
 def _normalize(word):
-    return word.lower()
+    # return word.lower()
+    return word
 
 
 def _get_word2idx_dict(data):

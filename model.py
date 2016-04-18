@@ -29,16 +29,19 @@ class Tower(BaseTower):
             C = tf.get_variable("C", dtype='float', shape=[V, d])
             Cx = tf.nn.embedding_lookup(C, x, name='Ax')  # [N, S, J, d]
 
-        with tf.name_scope("encoding"):
+        with tf.variable_scope("encoding"):
             l_tensor = self._get_l_tensor()  # [J, d]
             f = tf.reduce_sum(Cx * l_tensor * tf.expand_dims(tf.cast(x_mask, 'float'), -1), 2, name='f')  # [N, S, d]
-            f_sum = tf.reduce_sum(f, 1, name='f_sum')  # [N, d]
             u = tf.reduce_sum(Aq * l_tensor * tf.expand_dims(tf.cast(q_mask, 'float'), -1), 1, name='u')  # [N, d]
-            u_f_sum = tf.add(f_sum, u, name='sum')
+
+        with tf.variable_scope("rule"):
+            f_flat = tf.reshape(f, [N, S * d], name='f_flat')
+            f_red = tf.tanh(linear([f_flat], d, True), name='f_red')
 
         with tf.name_scope("class"):
+            u_f = linear([f_red, u], d, True, name='u_f')
             W = tf.transpose(A, name='W')
-            logits = tf.matmul(u_f_sum, W, name='logits')
+            logits = tf.matmul(u_f, W, name='logits')
             correct = tf.equal(tf.argmax(logits, 1), tf.argmax(y, 1))
             tensors['correct'] = correct
 
