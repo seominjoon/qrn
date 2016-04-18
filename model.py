@@ -4,6 +4,54 @@ from my.tensorflow.nn import linear
 import numpy as np
 
 
+class Embedder(object):
+    def __call__(self, content):
+        raise Exception()
+
+
+class VariableEmbedder(Embedder):
+    def __init__(self, params, name="variable_embedder"):
+        V, d = params.vocab_size, params.hidden_size
+        with tf.variable_scope(name):
+            self.emb_mat = tf.get_variable("emb_mat", dtype='float', shape=[V, d])
+
+    def __call__(self, word, name="embedded_content"):
+        out = tf.nn.embedding_lookup(self.emb_mat, word, name=name)
+        return out
+
+
+class SentenceEncoder(object):
+    def __call__(self, embedder, word, mask, name="encoded_sentence"):
+        raise Exception()
+
+
+class PositionEncoder(SentenceEncoder):
+    @staticmethod
+    def _get_l_tensor(J, d, name='l'):
+        def f(JJ, jj, dd, kk):
+            return (1-float(jj)/JJ) - (float(kk)/dd)*(1-2.0*jj/JJ)
+        def g(jj):
+            return [f(J, jj, d, k) for k in range(d)]
+        l = [g(j) for j in range(J)]
+        l_tensor = tf.constant(l, shape=[J, d], name=name)
+        return l_tensor
+
+    def __init__(self, params):
+        self.params = params
+        J, d = params.max_sent_size, params.hidden_size
+        with tf.name_scope("position_encoder"):
+            self._l = PositionEncoder._get_l_tensor(J, d)
+
+    def __call__(self, embedder, word, mask, name="encoded_sentence"):
+        assert isinstance(embedder, Embedder)
+        Ax = embedder(word)
+        shape = Ax.get_shape().as_list()
+        length_dim_index = len(shape) - 2
+        mask_aug = tf.expand_dims(mask, -1)
+        f = tf.reduce_sum(Ax * self._l * tf.cast(mask_aug, 'float'), length_dim_index, name=name)  # [N, S, d]
+        return f
+
+
 class Tower(BaseTower):
     def initialize(self):
         params = self.params
@@ -24,15 +72,13 @@ class Tower(BaseTower):
             placeholders['y'] = y
 
         with tf.variable_scope("embedding"):
-            A = tf.get_variable("A", dtype='float', shape=[V, d])
-            Aq = tf.nn.embedding_lookup(A, q, name='Aq')  # [N, J, d]
-            C = tf.get_variable("C", dtype='float', shape=[V, d])
-            Cx = tf.nn.embedding_lookup(C, x, name='Ax')  # [N, S, J, d]
+            A = VariableEmbedder(params, name='A')
+            C = VariableEmbedder(params, name='C')
 
         with tf.variable_scope("encoding"):
-            l_tensor = self._get_l_tensor()  # [J, d]
-            f = tf.reduce_sum(Cx * l_tensor * tf.expand_dims(tf.cast(x_mask, 'float'), -1), 2, name='f')  # [N, S, d]
-            u = tf.reduce_sum(Aq * l_tensor * tf.expand_dims(tf.cast(q_mask, 'float'), -1), 1, name='u')  # [N, d]
+            pe = PositionEncoder(params)
+            u = pe(A, q, q_mask, name='u')
+            f = pe(C, x, x_mask, name='f')
 
         with tf.variable_scope("rule"):
             f_flat = tf.reshape(f, [N, S * d], name='f_flat')
@@ -40,7 +86,7 @@ class Tower(BaseTower):
 
         with tf.name_scope("class"):
             u_f = linear([f_red, u], d, True, name='u_f')
-            W = tf.transpose(A, name='W')
+            W = tf.transpose(A.emb_mat, name='W')
             logits = tf.matmul(u_f, W, name='logits')
             correct = tf.equal(tf.argmax(logits, 1), tf.argmax(y, 1))
             tensors['correct'] = correct
