@@ -48,7 +48,7 @@ def prepro(args):
     mode2idxs_dict = {'dev': list(range(0, dev_size)),
                       'train': list(range(dev_size, train_size)),
                       'test': list(range(train_size, train_size + test_size))}
-    word2idx_dict = _get_word2idx_dict(train_raw_data)
+    word2idx_dict = _get_word2idx_dict(raw_data)
     data = _apply_word2idx(word2idx_dict, raw_data)
     if not os.path.exists(target_parent_dir):
         os.makedirs(target_parent_dir)
@@ -68,7 +68,7 @@ def _apply_word2idx(word2idx_dict, raw_data):
 
 def _word2idx(word2idx_dict, word):
     word = _normalize(word)
-    return word2idx_dict[word] if word in word2idx_dict else 0
+    return word2idx_dict[word]
 
 
 def _save_data(word2idx_dict, data, target_dir):
@@ -97,8 +97,8 @@ def _get_word2idx_dict(data):
     paras, questions, supports, answers = data
     vocab_set = set(_normalize(word) for para in paras for sent in para for word in sent)
     vocab_set |= set(_normalize(word) for question in questions for word in question)
-    word2idx_dict = OrderedDict((word, idx + 1) for idx, word in enumerate(list(vocab_set)))
-    word2idx_dict['UNK'] = 0
+    vocab_set |= set(_normalize(word) for word in answers)
+    word2idx_dict = OrderedDict((word, idx) for idx, word in enumerate(list(vocab_set)))
     return word2idx_dict
 
 

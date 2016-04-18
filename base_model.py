@@ -67,6 +67,10 @@ class BaseRunner(object):
             correct_tensor = tf.concat(0, correct_tensors, name="correct")
             with tf.name_scope("average_gradients"):
                 grads_tensor = average_gradients(grads_tensors)
+                if params.max_grad_norm:
+                    grads_tensor = [(tf.clip_by_norm(grad, params.max_grad_norm), var) for grad, var in grads_tensor]
+
+
 
         self.tensors['loss'] = loss_tensor
         self.tensors['correct'] = correct_tensor
