@@ -82,12 +82,14 @@ def average_gradients(tower_grads):
     return average_grads
 
 
-def to2d(shape):
+def flatten(shape, dim=1):
     """
     [a, b, c, ... , z] -> [a*b*...*y, z]
     :param shape:
     :return:
     """
-    return [reduce(mul, shape[:-1], 1), shape[-1]]
-
+    assert len(shape) >= dim
+    keep = dim - 1
+    out = [reduce(mul, shape[:len(shape)-keep], 1)] + shape[len(shape)-keep:]
+    return out
 

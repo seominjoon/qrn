@@ -48,6 +48,8 @@ flags.DEFINE_boolean("draft", False, "Draft? (quick initialize) [False]")
 flags.DEFINE_string("task", "1", "Task number. [1]")
 flags.DEFINE_integer("hidden_size", 50, "Hidden size. [50]")
 flags.DEFINE_integer("max_grad_norm", 40, "Max grad norm. 0 for no clipping [40]")
+flags.DEFINE_integer("rnn_num_layers", 1, "RNN number of layers [1]")
+flags.DEFINE_float("keep_prob", 0.5, "Keep probability of RNN inputs [0.5]")
 
 FLAGS = flags.FLAGS
 
