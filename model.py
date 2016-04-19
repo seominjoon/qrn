@@ -127,8 +127,8 @@ class Tower(BaseTower):
             C = VariableEmbedder(params, name='C')
 
         with tf.variable_scope("encoding"):
-            # encoder = PositionEncoder(params)
-            encoder = LSTMEncoder(params, is_train)
+            encoder = PositionEncoder(params)
+            # encoder = LSTMEncoder(params, is_train)
             u = encoder(A, q, q_mask, name='u')
             f = encoder(C, x, x_mask, name='f')
 
@@ -137,9 +137,9 @@ class Tower(BaseTower):
             f_red = tf.tanh(linear([f_flat], d, True), name='f_red')
 
         with tf.name_scope("class"):
-            u_f = linear([f_red, u], d, True, name='u_f')
+            uf = tf.tanh(linear([f_red, u], d, True), name='u_f')  # [N, d]
             W = tf.transpose(A.emb_mat, name='W')
-            logits = tf.matmul(u_f, W, name='logits')
+            logits = tf.matmul(uf, W, name='logits')
             correct = tf.equal(tf.argmax(logits, 1), tf.argmax(y, 1))
             tensors['correct'] = correct
 
