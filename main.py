@@ -114,6 +114,7 @@ def load_meta_data(config):
     config.vocab_size = metadata['vocab_size']
     config.max_num_sents = metadata['max_num_sents']
     config.max_num_sups = metadata['max_num_sups']
+    config.eos_idx = metadata['eos_idx']
 
 
 def main(_):

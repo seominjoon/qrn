@@ -68,7 +68,8 @@ class BaseRunner(object):
             with tf.name_scope("average_gradients"):
                 grads_tensor = average_gradients(grads_tensors)
                 if params.max_grad_norm:
-                    grads_tensor = [(tf.clip_by_norm(grad, params.max_grad_norm), var) for grad, var in grads_tensor]
+                    grads_tensor = [(tf.clip_by_norm(grad, params.max_grad_norm), var)
+                                    for grad, var in grads_tensor]
 
 
 

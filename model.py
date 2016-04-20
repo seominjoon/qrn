@@ -26,12 +26,7 @@ class VariableEmbedder(Embedder):
         return out
 
 
-class SentenceEncoder(object):
-    def __call__(self, embedder, word, mask, name="encoded_sentence"):
-        raise Exception()
-
-
-class PositionEncoder(SentenceEncoder):
+class PositionEncoder(object):
     @staticmethod
     def _get_l_tensor(J, d, name='l'):
         def f(JJ, jj, dd, kk):
@@ -59,7 +54,7 @@ class PositionEncoder(SentenceEncoder):
             return f
 
 
-class LSTMEncoder(SentenceEncoder):
+class LSTM(object):
     def __init__(self, params, is_train):
         self.params = params
         d = params.hidden_size
@@ -79,26 +74,26 @@ class LSTMEncoder(SentenceEncoder):
         self.is_train = is_train
         self.used = False
 
-    def __call__(self, embedder, word, mask, name="encoded_sentence"):
+    def __call__(self, embedder, word, length, name="encoded_sentence"):
         with tf.name_scope(name):
             assert isinstance(embedder, Embedder)
             Ax = embedder(word)
             NN, J, d = flatten(Ax.get_shape().as_list(), 3)
             L = self.params.rnn_num_layers
             Ax_flat = tf.reshape(Ax, [NN, J, d])
-            mask_flat = tf.reshape(mask, [NN, J])
-            length = tf.reduce_sum(tf.cast(mask_flat, 'float'), 1, name='length')
+            length = tf.reshape(length, [NN])
 
             with tf.variable_scope(self.scope, reuse=self.used):
                 raw = dynamic_rnn(self.cell, Ax_flat, sequence_length=length, dtype='float')
                 tf.get_variable_scope().reuse_variables()
                 do = dynamic_rnn(self.do_cell, Ax_flat, sequence_length=length, dtype='float')
             o_flat, h_flat = tf.cond(self.is_train, lambda: do, lambda: raw)
+            o = tf.reshape(o_flat, [NN, J, d], name='o')
             h = tf.reshape(h_flat, [NN, 2*L*d], name='h')
-            v_flat = tf.slice(h, [0, (2*L-1)*d], [-1, -1])
+            v_flat = tf.slice(h, [0, (2*L-1)*d], [-1, -1])  # last h or multiRNN (excluding c)
             v = tf.reshape(v_flat, word.get_shape().as_list()[:-1] + [d], name='v')
             self.used = True
-            return v
+            return o, v
 
 
 class Tower(BaseTower):
@@ -110,14 +105,24 @@ class Tower(BaseTower):
         d = params.hidden_size
         with tf.name_scope("placeholders"):
             x = tf.placeholder('int32', shape=[N, S, J], name='x')
+            x_length = tf.placeholder('int32', shape=[N, S], name='x_length')
+            x_eos = tf.placeholder('int32', shape=[N, S, J+1], name='x_eos')
+            eos_x = tf.placeholder('int32', shape=[N, S, J+1], name='eos_x')
             x_mask = tf.placeholder('bool', shape=[N, S, J], name='x_mask')
+            x_eos_mask = tf.placeholder('bool', shape=[N, S, J+1], name='x_eos_mask')
             q = tf.placeholder('int32', shape=[N, J], name='q')
+            q_length = tf.placeholder('int32', shape=[N], name='q_length')
             q_mask = tf.placeholder('bool', shape=[N, J], name='q_mask')
             y = tf.placeholder('int32', shape=[N, V], name='y')
             is_train = tf.placeholder('bool', shape=[], name='is_train')
             placeholders['x'] = x
+            placeholders['x_length'] = x_length
+            placeholders['x_eos'] = x_eos
+            placeholders['eos_x'] = eos_x
             placeholders['x_mask'] = x_mask
+            placeholders['x_eos_mask'] = x_eos_mask
             placeholders['q'] = q
+            placeholders['q_length'] = q_length
             placeholders['q_mask'] = q_mask
             placeholders['y'] = y
             placeholders['is_train'] = is_train
@@ -127,10 +132,14 @@ class Tower(BaseTower):
             C = VariableEmbedder(params, name='C')
 
         with tf.variable_scope("encoding"):
-            encoder = PositionEncoder(params)
-            # encoder = LSTMEncoder(params, is_train)
-            u = encoder(A, q, q_mask, name='u')
-            f = encoder(C, x, x_mask, name='f')
+            # encoder = PositionEncoder(params)
+            encoder = LSTM(params, is_train)
+            _, u = encoder(A, q, q_length, name='u')
+            _, f = encoder(C, x, x_length, name='f')
+
+        with tf.variable_scope("decoding"):
+            decoder = LSTM(params, is_train)
+            # fo, _ = decoder(C, eos_x, x_length + 1, 'fo')
 
         with tf.variable_scope("rule"):
             f_flat = tf.reshape(f, [N, S * d], name='f_flat')
@@ -164,16 +173,24 @@ class Tower(BaseTower):
 
     def get_feed_dict(self, batch, mode, **kwargs):
         params = self.params
+        eos_idx = params.eos_idx
         N, J, V, S = params.batch_size, params.max_sent_size, params.vocab_size, params.max_num_sups
         x = np.zeros([N, S, J], dtype='int32')
+        x_length = np.zeros([N, S], dtype='int32')
+        eos_x = np.zeros([N, S, J+1], dtype='int32')
+        x_eos = np.zeros([N, S, J+1], dtype='int32')
         x_mask = np.zeros([N, S, J], dtype='bool')
+        x_eos_mask = np.zeros([N, S, J+1], dtype='bool')
         q = np.zeros([N, J], dtype='int32')
+        q_length = np.zeros([N], dtype='int32')
         q_mask = np.zeros([N, J], dtype='bool')
         y = np.zeros([N, V], dtype='bool')
 
         ph = self.placeholders
-        feed_dict = {ph['x']: x, ph['x_mask']: x_mask,
-                     ph['q']: q, ph['q_mask']: q_mask,
+        feed_dict = {ph['x']: x, ph['eos_x']: eos_x, ph['x_eos']: x_eos,
+                     ph['x_length']: x_length,
+                     ph['x_mask']: x_mask, ph['x_eos_mask']: x_eos_mask,
+                     ph['q']: q, ph['q_mask']: q_mask, ph['q_length']: q_length,
                      ph['y']: y,
                      ph['is_train']: mode == 'train'}
         if batch is None:
@@ -183,10 +200,19 @@ class Tower(BaseTower):
         for i, (para, supports) in enumerate(zip(X, S)):
             for j, support in enumerate(supports):
                 sent = para[support]
+                x_length[i, j] = len(sent)
                 for k, word in enumerate(sent):
                     x[i, j, k] = word
+                    x_eos[i, j, k] = word
+                    eos_x[i, j, k+1] = word
                     x_mask[i, j, k] = True
+                    x_eos_mask[i, j, k] = True
+                x_eos[i, j, -1] = eos_idx
+                x_eos_mask[i, j, -1] = True
+                eos_x[i, j, 0] = eos_idx
+
         for i, ques in enumerate(Q):
+            q_length[i] = len(ques)
             for j, word in enumerate(ques):
                 q[i, j] = word
                 q_mask[i, j] = True

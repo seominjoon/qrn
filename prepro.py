@@ -8,6 +8,8 @@ from collections import OrderedDict
 
 import itertools
 
+EOS = "<eos>"
+
 
 def bool_(string):
     if string == "True":
@@ -80,7 +82,8 @@ def _save_data(word2idx_dict, data, target_dir):
                 'max_ques_size': max_ques_size,
                 'max_sent_size': max(max_fact_size, max_ques_size),
                 'max_num_sents': max(len(para) for para in X),
-                'max_num_sups': max(len(sups) for sups in S)}
+                'max_num_sups': max(len(sups) for sups in S),
+                'eos_idx': word2idx_dict[EOS]}
     word2idx_path = os.path.join(target_dir, "word2idx.json")
     data_path = os.path.join(target_dir, "data.json")
     metadata_path = os.path.join(target_dir, "metadata.json")
@@ -99,6 +102,9 @@ def _get_word2idx_dict(data):
     vocab_set = set(_normalize(word) for para in paras for sent in para for word in sent)
     vocab_set |= set(_normalize(word) for question in questions for word in question)
     vocab_set |= set(_normalize(word) for word in answers)
+    # Add other vocabs
+    vocab_set.add(EOS)
+
     word2idx_dict = OrderedDict((word, idx) for idx, word in enumerate(list(vocab_set)))
     return word2idx_dict
 
