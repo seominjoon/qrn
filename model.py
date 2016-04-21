@@ -74,7 +74,7 @@ class LSTM(object):
         self.is_train = is_train
         self.used = False
 
-    def __call__(self, Ax, length, name="encoded_sentence"):
+    def __call__(self, Ax, length, initial_state=None, dtype=None, name="encoded_sentence"):
         with tf.name_scope(name):
             NN, J, d = flatten(Ax.get_shape().as_list(), 3)
             L = self.params.rnn_num_layers
@@ -82,15 +82,15 @@ class LSTM(object):
             length = tf.reshape(length, [NN])
 
             with tf.variable_scope(self.scope, reuse=self.used):
-                raw = dynamic_rnn(self.cell, Ax_flat, sequence_length=length, dtype='float')
+                raw = dynamic_rnn(self.cell, Ax_flat, sequence_length=length, initial_state=initial_state, dtype=dtype)
                 tf.get_variable_scope().reuse_variables()
-                do = dynamic_rnn(self.do_cell, Ax_flat, sequence_length=length, dtype='float')
+                do = dynamic_rnn(self.do_cell, Ax_flat, sequence_length=length, initial_state=initial_state, dtype=dtype)
             o_flat, h_flat = tf.cond(self.is_train, lambda: do, lambda: raw)
             o = tf.reshape(o_flat, Ax.get_shape(), name='o')
             s_flat = tf.slice(h_flat, [0, (2*L-1)*d], [-1, -1])  # last h or multiRNN (excluding c)
             s = tf.reshape(s_flat, Ax.get_shape().as_list()[:-2] + [d], name='s')
             self.used = True
-            return o, s
+            return o, h_flat, s
 
 
 class Tower(BaseTower):
@@ -134,12 +134,12 @@ class Tower(BaseTower):
         with tf.variable_scope("encoding"):
             # encoder = PositionEncoder(params)
             encoder = LSTM(params, is_train)
-            _, u = encoder(Aq, q_length, name='u')
-            _, f = encoder(Cx, x_length, name='f')
+            _, _, u = encoder(Aq, q_length, dtype='float', name='u')
+            _, h, f = encoder(Cx, x_length, dtype='float', name='f')
 
         with tf.variable_scope("decoding"):
             decoder = LSTM(params, is_train)
-            o, _ = decoder(C_eos_x, x_length + 1, 'o')  # [N, S, J+1, d]
+            o, _, _ = decoder(C_eos_x, x_length + 1, initial_state=h, name='o')  # [N, S, J+1, d]
 
         with tf.name_scope("gen"):
             gen_W = tf.transpose(C.emb_mat, name='gen_W')  # [d, V]
@@ -155,7 +155,6 @@ class Tower(BaseTower):
             # TODO : how do I generate output without rnn inputs?
             # og = decoder(g, 2*J*tf.ones([N]), 'og')
             # tensors['og'] = og
-
 
         with tf.name_scope("class"):
             uf = tf.tanh(linear([g, u], d, True), name='u_f')  # [N, d]
