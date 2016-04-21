@@ -1,10 +1,11 @@
 import tensorflow as tf
-from tensorflow.python.ops.rnn import dynamic_rnn
+# from tensorflow.python.ops.rnn import dynamic_rnn
 from tensorflow.python.ops.rnn_cell import DropoutWrapper, MultiRNNCell
 
 from base_model import BaseTower
 from my.tensorflow import flatten
 from my.tensorflow.nn import linear
+from my.tensorflow.rnn import dynamic_rnn
 import numpy as np
 
 from my.tensorflow.rnn_cell import BasicLSTMCell
@@ -74,7 +75,7 @@ class LSTM(object):
         self.is_train = is_train
         self.used = False
 
-    def __call__(self, Ax, length=None, initial_state=None, dtype=None, name="encoded_sentence"):
+    def __call__(self, Ax, length=None, initial_state=None, feed_prev_out=False, dtype=None, name="encoded_sentence"):
         with tf.name_scope(name):
             NN, J, d = flatten(Ax.get_shape().as_list(), 3)
             L = self.params.rnn_num_layers
@@ -83,9 +84,12 @@ class LSTM(object):
                 length = tf.reshape(length, [NN])
 
             with tf.variable_scope(self.scope, reuse=self.used):
-                raw = dynamic_rnn(self.cell, Ax_flat, sequence_length=length, initial_state=initial_state, dtype=dtype)
+                # Always True feed_prev_out, because this is for test time.
+                raw = dynamic_rnn(self.cell, Ax_flat, sequence_length=length, initial_state=initial_state, dtype=dtype,
+                                  feed_prev_out=True)
                 tf.get_variable_scope().reuse_variables()
-                do = dynamic_rnn(self.do_cell, Ax_flat, sequence_length=length, initial_state=initial_state, dtype=dtype)
+                do = dynamic_rnn(self.do_cell, Ax_flat, sequence_length=length, initial_state=initial_state, dtype=dtype,
+                                 feed_prev_out=feed_prev_out)
             o_flat, h_flat = tf.cond(self.is_train, lambda: do, lambda: raw)
             o = tf.reshape(o_flat, Ax.get_shape(), name='o')
             s_flat = tf.slice(h_flat, [0, (2*L-1)*d], [-1, -1])  # last h or multiRNN (excluding c)
@@ -140,7 +144,7 @@ class Tower(BaseTower):
 
         with tf.variable_scope("decoding"):
             decoder = LSTM(params, is_train)
-            o, _, _ = decoder(C_eos_x, initial_state=h, name='o')  # [N, S, J+1, d]
+            o, _, _ = decoder(C_eos_x, initial_state=h, feed_prev_out=True, name='o')  # [N, S, J+1, d]
 
         with tf.name_scope("gen"):
             gen_W = tf.transpose(C.emb_mat, name='gen_W')  # [d, V]

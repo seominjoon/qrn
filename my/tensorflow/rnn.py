@@ -19,6 +19,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from tensorflow import constant
 from tensorflow.python.framework import dtypes
 from tensorflow.python.framework import ops
 from tensorflow.python.framework import tensor_shape
@@ -352,7 +353,8 @@ def bidirectional_rnn(cell_fw, cell_bw, inputs,
 
 def dynamic_rnn(cell, inputs, sequence_length=None, initial_state=None,
                 dtype=None, parallel_iterations=None, swap_memory=False,
-                time_major=False, scope=None):
+                time_major=False, scope=None, feed_prev_out=False,
+                feed_exact=False):
   """Creates a recurrent neural network specified by RNNCell "cell".
   This function is functionally identical to the function `rnn` above, but
   performs fully dynamic unrolling of `inputs`.
@@ -389,6 +391,11 @@ def dynamic_rnn(cell, inputs, sequence_length=None, initial_state=None,
       most TensorFlow data is batch-major, so by default this function
       accepts input and emits output in batch-major form.
     scope: VariableScope for the created subgraph; defaults to "RNN".
+    feed_prev_out: If True, then inputs[1:] are ignored. Instead, output from
+      previous time step is used for input.
+    feed_exact: If True and feed_prev_out is True, then argmax on
+      prev out * vocab. Note that argmax is not trainable.
+
   Returns:
     A pair (outputs, state) where:
       outputs: The RNN output `Tensor`.
@@ -451,7 +458,7 @@ def dynamic_rnn(cell, inputs, sequence_length=None, initial_state=None,
 
     (outputs, final_state) = _dynamic_rnn_loop(
         cell, inputs, state, parallel_iterations=parallel_iterations,
-        swap_memory=swap_memory, sequence_length=sequence_length)
+        swap_memory=swap_memory, sequence_length=sequence_length, feed_prev_out=feed_prev_out)
 
     # Outputs of _dynamic_rnn_loop are always shaped [time, batch, depth].
     # If we are performing batch-major calculations, transpose output back
@@ -464,7 +471,7 @@ def dynamic_rnn(cell, inputs, sequence_length=None, initial_state=None,
 
 def _dynamic_rnn_loop(
     cell, inputs, initial_state, parallel_iterations, swap_memory,
-    sequence_length=None):
+    sequence_length=None, feed_prev_out=False):
   """Internal implementation of Dynamic RNN.
   Args:
     cell: An instance of RNNCell.
@@ -520,7 +527,9 @@ def _dynamic_rnn_loop(
 
   input_ta = input_ta.unpack(inputs)
 
-  def _time_step(time, state, output_ta_t):
+  prev_out = array_ops.squeeze(array_ops.slice(inputs, [0, 0, 0], [1, -1, -1]), [0], name='prev_out')
+
+  def _time_step(time, state, output_ta_t, prev_out):
     """Take a time step of the dynamic RNN.
     Args:
       time: int32 scalar Tensor.
@@ -529,8 +538,11 @@ def _dynamic_rnn_loop(
     Returns:
       The tuple (time + 1, new_state, output_ta_t with updated flow).
     """
+    if feed_prev_out:
+        input_t = prev_out
+    else:
+        input_t = input_ta.read(time)
 
-    input_t = input_ta.read(time)
     # Restore some shape information
     input_t.set_shape([const_batch_size, const_depth])
 
@@ -551,12 +563,12 @@ def _dynamic_rnn_loop(
 
     output_ta_t = output_ta_t.write(time, output)
 
-    return (time + 1, new_state, output_ta_t)
+    return (time + 1, new_state, output_ta_t, output)
 
-  (_, final_state, output_final_ta) = control_flow_ops.while_loop(
-      cond=lambda time, _1, _2: time < time_steps,
+  (_, final_state, output_final_ta, _) = control_flow_ops.while_loop(
+      cond=lambda time, _1, _2, _3: time < time_steps,
       body=_time_step,
-      loop_vars=(time, state, output_ta),
+      loop_vars=(time, state, output_ta, prev_out),
       parallel_iterations=parallel_iterations,
       swap_memory=swap_memory)
 
