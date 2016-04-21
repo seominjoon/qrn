@@ -74,10 +74,8 @@ class LSTM(object):
         self.is_train = is_train
         self.used = False
 
-    def __call__(self, embedder, word, length, name="encoded_sentence"):
+    def __call__(self, Ax, length, name="encoded_sentence"):
         with tf.name_scope(name):
-            assert isinstance(embedder, Embedder)
-            Ax = embedder(word)
             NN, J, d = flatten(Ax.get_shape().as_list(), 3)
             L = self.params.rnn_num_layers
             Ax_flat = tf.reshape(Ax, [NN, J, d])
@@ -88,12 +86,11 @@ class LSTM(object):
                 tf.get_variable_scope().reuse_variables()
                 do = dynamic_rnn(self.do_cell, Ax_flat, sequence_length=length, dtype='float')
             o_flat, h_flat = tf.cond(self.is_train, lambda: do, lambda: raw)
-            o = tf.reshape(o_flat, [NN, J, d], name='o')
-            h = tf.reshape(h_flat, [NN, 2*L*d], name='h')
-            v_flat = tf.slice(h, [0, (2*L-1)*d], [-1, -1])  # last h or multiRNN (excluding c)
-            v = tf.reshape(v_flat, word.get_shape().as_list()[:-1] + [d], name='v')
+            o = tf.reshape(o_flat, Ax.get_shape(), name='o')
+            s_flat = tf.slice(h_flat, [0, (2*L-1)*d], [-1, -1])  # last h or multiRNN (excluding c)
+            s = tf.reshape(s_flat, Ax.get_shape().as_list()[:-2] + [d], name='s')
             self.used = True
-            return o, v
+            return o, s
 
 
 class Tower(BaseTower):
@@ -130,16 +127,24 @@ class Tower(BaseTower):
         with tf.variable_scope("embedding"):
             A = VariableEmbedder(params, name='A')
             C = VariableEmbedder(params, name='C')
+            Aq = A(q, name='Ax')  # [N, S, J, d]
+            Cx = C(x, name='Cx')  # [N, S, J, d]
+            C_eos_x = C(eos_x, name='C_eos_x')  # [N, S, J+1, d]
 
         with tf.variable_scope("encoding"):
             # encoder = PositionEncoder(params)
             encoder = LSTM(params, is_train)
-            _, u = encoder(A, q, q_length, name='u')
-            _, f = encoder(C, x, x_length, name='f')
+            _, u = encoder(Aq, q_length, name='u')
+            _, f = encoder(Cx, x_length, name='f')
 
         with tf.variable_scope("decoding"):
             decoder = LSTM(params, is_train)
-            # fo, _ = decoder(C, eos_x, x_length + 1, 'fo')
+            o, _ = decoder(C_eos_x, x_length + 1, 'o')  # [N, S, J+1, d]
+
+        with tf.name_scope("gen"):
+            gen_W = tf.transpose(C.emb_mat, name='gen_W')  # [d, V]
+            o_flat = tf.reshape(o, [N*S*(J+1), d], name='o_flat')
+            gen_logits_flat = tf.matmul(o_flat, gen_W, name='gen_logits_flat')  # [N*S*(J+1), V]
 
         with tf.variable_scope("rule"):
             f_flat = tf.reshape(f, [N, S * d], name='f_flat')
@@ -153,23 +158,21 @@ class Tower(BaseTower):
             tensors['correct'] = correct
 
         with tf.name_scope("loss") as scope:
-            cross_entropy = tf.nn.softmax_cross_entropy_with_logits(logits, tf.cast(y, 'float'), name='cross_entropy')
-            avg_ce = tf.reduce_mean(cross_entropy, name='avg_ce')
-            tf.add_to_collection('losses', avg_ce)
+            with tf.name_scope("ans_loss"):
+                ce = tf.nn.softmax_cross_entropy_with_logits(logits, tf.cast(y, 'float'), name='ce')
+                avg_ce = tf.reduce_mean(ce, name='avg_ce')
+                tf.add_to_collection('losses', avg_ce)
+
+            with tf.name_scope("gen_loss"):
+                x_eos_flat = tf.reshape(x_eos, [N*S*(J+1)], name='x_eos_sparse_flat')  # [N*S*(J+1)]
+                gen_ce_flat = tf.nn.sparse_softmax_cross_entropy_with_logits(gen_logits_flat, x_eos_flat, name='gen_ce_flat')
+                x_eos_mask_flat = tf.reshape(tf.cast(x_eos_mask, 'float'), [N*S*(J+1)], name='x_eos_mask_flat')
+                gen_avg_ce = tf.div(tf.reduce_sum(gen_ce_flat * x_eos_mask_flat), tf.reduce_sum(x_eos_mask_flat), name='gen_avg_ce')
+                tf.add_to_collection('losses', gen_avg_ce)
+
             losses = tf.get_collection('losses', scope=scope)
             loss = tf.add_n(losses, name='loss')
             tensors['loss'] = loss
-
-    def _get_l_tensor(self, name='l'):
-        params = self.params
-        J, d = params.max_sent_size, params.hidden_size
-        def f(JJ, jj, dd, kk):
-            return (1-float(jj)/JJ) - (float(kk)/dd)*(1-2.0*jj/JJ)
-        def g(jj):
-            return [f(J, jj, d, k) for k in range(d)]
-        l = [g(j) for j in range(J)]
-        l_tensor = tf.constant(l, shape=[J, d], name=name)
-        return l_tensor
 
     def get_feed_dict(self, batch, mode, **kwargs):
         params = self.params
