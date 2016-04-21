@@ -145,6 +145,9 @@ class Tower(BaseTower):
             gen_W = tf.transpose(C.emb_mat, name='gen_W')  # [d, V]
             o_flat = tf.reshape(o, [N*S*(J+1), d], name='o_flat')
             gen_logits_flat = tf.matmul(o_flat, gen_W, name='gen_logits_flat')  # [N*S*(J+1), V]
+            gen_logits = tf.reshape(gen_logits_flat, [N, S, J+1, V])
+            fd = tf.argmax(gen_logits, 3, name='f_decoded')
+            tensors['fd'] = fd
 
         with tf.variable_scope("rule"):
             f_flat = tf.reshape(f, [N, S * d], name='f_flat')
