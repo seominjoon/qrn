@@ -74,12 +74,13 @@ class LSTM(object):
         self.is_train = is_train
         self.used = False
 
-    def __call__(self, Ax, length, initial_state=None, dtype=None, name="encoded_sentence"):
+    def __call__(self, Ax, length=None, initial_state=None, dtype=None, name="encoded_sentence"):
         with tf.name_scope(name):
             NN, J, d = flatten(Ax.get_shape().as_list(), 3)
             L = self.params.rnn_num_layers
             Ax_flat = tf.reshape(Ax, [NN, J, d])
-            length = tf.reshape(length, [NN])
+            if length is not None:
+                length = tf.reshape(length, [NN])
 
             with tf.variable_scope(self.scope, reuse=self.used):
                 raw = dynamic_rnn(self.cell, Ax_flat, sequence_length=length, initial_state=initial_state, dtype=dtype)
@@ -134,12 +135,12 @@ class Tower(BaseTower):
         with tf.variable_scope("encoding"):
             # encoder = PositionEncoder(params)
             encoder = LSTM(params, is_train)
-            _, _, u = encoder(Aq, q_length, dtype='float', name='u')
-            _, h, f = encoder(Cx, x_length, dtype='float', name='f')
+            _, _, u = encoder(Aq, length=q_length, dtype='float', name='u')
+            _, h, f = encoder(Cx, length=x_length, dtype='float', name='f')
 
         with tf.variable_scope("decoding"):
             decoder = LSTM(params, is_train)
-            o, _, _ = decoder(C_eos_x, x_length + 1, initial_state=h, name='o')  # [N, S, J+1, d]
+            o, _, _ = decoder(C_eos_x, initial_state=h, name='o')  # [N, S, J+1, d]
 
         with tf.name_scope("gen"):
             gen_W = tf.transpose(C.emb_mat, name='gen_W')  # [d, V]
@@ -216,8 +217,8 @@ class Tower(BaseTower):
                     eos_x[i, j, k+1] = word
                     x_mask[i, j, k] = True
                     x_eos_mask[i, j, k] = True
-                x_eos[i, j, -1] = eos_idx
-                x_eos_mask[i, j, -1] = True
+                x_eos[i, j, len(sent)] = eos_idx
+                x_eos_mask[i, j, len(sent)] = True
                 eos_x[i, j, 0] = eos_idx
 
         for i, ques in enumerate(Q):

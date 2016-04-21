@@ -1,6 +1,9 @@
 import json
 import os
+import argparse
 
+def get_args():
+    pass
 
 def list_results(model_name, config, epoch, mode, task, idx):
     eval_path = os.path.join("evals", model_name, config, "%s_%s.json" % (mode, str(epoch).zfill(4)))
@@ -34,7 +37,7 @@ def list_results(model_name, config, epoch, mode, task, idx):
 
 
 def main():
-    list_results("bur", "None", 40, "dev", 3, 2)
+    list_results("bur", "None", 30, "dev", 3, 2)
 
 
 if __name__ == "__main__":
