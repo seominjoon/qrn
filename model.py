@@ -8,7 +8,7 @@ from my.tensorflow.nn import linear
 from my.tensorflow.rnn import dynamic_rnn
 import numpy as np
 
-from my.tensorflow.rnn_cell import BasicLSTMCell
+from my.tensorflow.rnn_cell import BasicLSTMCell, GRUCell
 
 
 class Embedder(object):
@@ -55,7 +55,7 @@ class PositionEncoder(object):
             return f
 
 
-class LSTM(object):
+class GRU(object):
     def __init__(self, params, is_train):
         self.params = params
         d = params.hidden_size
@@ -63,7 +63,7 @@ class LSTM(object):
         rnn_num_layers = params.rnn_num_layers
         self.scope = tf.get_variable_scope()
 
-        cell = BasicLSTMCell(d)
+        cell = GRUCell(d)
         do_cell = cell
         if keep_prob:
             do_cell = DropoutWrapper(do_cell, input_keep_prob=keep_prob)
@@ -83,19 +83,21 @@ class LSTM(object):
             if length is not None:
                 length = tf.reshape(length, [NN])
 
+            h_zeros_up = tf.constant(0.0, shape=[NN, (L-1)*d])
+            h = None if initial_state is None else tf.concat(1, [tf.reshape(initial_state, [NN, d]), h_zeros_up], name='h')
             with tf.variable_scope(self.scope, reuse=self.used):
                 # Always True feed_prev_out, because this is for test time.
-                raw = dynamic_rnn(self.cell, Ax_flat, sequence_length=length, initial_state=initial_state, dtype=dtype,
-                                  feed_prev_out=True)
+                raw = dynamic_rnn(self.cell, Ax_flat, sequence_length=length, initial_state=h, dtype=dtype,
+                                  feed_prev_out=feed_prev_out)
                 tf.get_variable_scope().reuse_variables()
-                do = dynamic_rnn(self.do_cell, Ax_flat, sequence_length=length, initial_state=initial_state, dtype=dtype,
+                do = dynamic_rnn(self.do_cell, Ax_flat, sequence_length=length, initial_state=h, dtype=dtype,
                                  feed_prev_out=feed_prev_out)
             o_flat, h_flat = tf.cond(self.is_train, lambda: do, lambda: raw)
             o = tf.reshape(o_flat, Ax.get_shape(), name='o')
-            s_flat = tf.slice(h_flat, [0, (2*L-1)*d], [-1, -1])  # last h or multiRNN (excluding c)
+            s_flat = tf.slice(h_flat, [0, (L-1)*d], [-1, -1])  # last h or multiRNN (excluding c)
             s = tf.reshape(s_flat, Ax.get_shape().as_list()[:-2] + [d], name='s')
             self.used = True
-            return o, h_flat, s
+            return o, s
 
 
 class Tower(BaseTower):
@@ -138,13 +140,13 @@ class Tower(BaseTower):
 
         with tf.variable_scope("encoding"):
             # encoder = PositionEncoder(params)
-            encoder = LSTM(params, is_train)
-            _, _, u = encoder(Aq, length=q_length, dtype='float', name='u')
-            _, h, f = encoder(Cx, length=x_length, dtype='float', name='f')
+            encoder = GRU(params, is_train)
+            _, u = encoder(Aq, length=q_length, dtype='float', name='u')
+            _, f = encoder(Cx, length=x_length, dtype='float', name='f')
 
         with tf.variable_scope("decoding"):
-            decoder = LSTM(params, is_train)
-            o, _, _ = decoder(C_eos_x, initial_state=h, feed_prev_out=True, name='o')  # [N, S, J+1, d]
+            decoder = GRU(params, is_train)
+            o, _ = decoder(C_eos_x, initial_state=f, feed_prev_out=True, name='o')  # [N, S, J+1, d]
 
         with tf.name_scope("gen"):
             gen_W = tf.transpose(C.emb_mat, name='gen_W')  # [d, V]

@@ -71,7 +71,7 @@ def linear(args, output_size, bias, bias_start=0.0, scope=None, var_on_cpu=True,
 
 
 class BasicLSTMCell(RNNCell):
-    """Basic LSTM recurrent network cell.
+    """Basic GRU recurrent network cell.
 
     The implementation is based on: http://arxiv.org/abs/1409.2329.
 
@@ -85,12 +85,12 @@ class BasicLSTMCell(RNNCell):
     """
 
     def __init__(self, num_units, forget_bias=1.0, input_size=None, var_on_cpu=True, wd=0.0):
-        """Initialize the basic LSTM cell.
+        """Initialize the basic GRU cell.
 
         Args:
-          num_units: int, The number of units in the LSTM cell.
+          num_units: int, The number of units in the GRU cell.
           forget_bias: float, The bias added to forget gates (see above).
-          input_size: int, The dimensionality of the inputs into the LSTM cell,
+          input_size: int, The dimensionality of the inputs into the GRU cell,
             by default equal to num_units.
         """
         self._num_units = num_units
@@ -112,7 +112,7 @@ class BasicLSTMCell(RNNCell):
         return 2 * self._num_units
 
     def __call__(self, inputs, state, name_scope=None):
-        """Long short-term memory cell (LSTM)."""
+        """Long short-term memory cell (GRU)."""
         with tf.variable_scope(name_scope or type(self).__name__):  # "BasicLSTMCell"
             # Parameters of gates are concatenated into one multiply for efficiency.
             c, h = tf.split(1, 2, state)
@@ -125,3 +125,38 @@ class BasicLSTMCell(RNNCell):
             new_h = tf.tanh(new_c) * tf.sigmoid(o)
 
         return new_h, tf.concat(1, [new_c, new_h])
+
+
+class GRUCell(RNNCell):
+    """Gated Recurrent Unit cell (cf. http://arxiv.org/abs/1406.1078)."""
+
+    def __init__(self, num_units, input_size=None, var_on_cpu=True, wd=0.0):
+        self._num_units = num_units
+        self._input_size = num_units if input_size is None else input_size
+        self.var_on_cpu = var_on_cpu
+        self.wd = wd
+
+    @property
+    def input_size(self):
+        return self._input_size
+
+    @property
+    def output_size(self):
+        return self._num_units
+
+    @property
+    def state_size(self):
+        return self._num_units
+
+    def __call__(self, inputs, state, scope=None):
+        """Gated recurrent unit (GRU) with nunits cells."""
+        with tf.variable_scope(scope or type(self).__name__):  # "GRUCell"
+            with tf.variable_scope("Gates"):  # Reset gate and update gate.
+                # We start with bias of 1.0 to not reset and not update.
+                r, u = tf.split(1, 2, linear([inputs, state],
+                                                    2 * self._num_units, True, 1.0))
+                r, u = tf.sigmoid(r), tf.sigmoid(u)
+            with tf.variable_scope("Candidate"):
+                c = tf.tanh(linear([inputs, r * state], self._num_units, True, var_on_cpu=self.var_on_cpu, wd=self.wd))
+            new_h = u * state + (1 - u) * c
+        return new_h, new_h
