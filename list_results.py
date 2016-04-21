@@ -10,6 +10,7 @@ def list_results(model_name, config, epoch, mode, task, idx):
     eval = json.load(open(eval_path, 'r'))
     ids = eval['ids']
     fds = eval['values']['fd']
+    gds = eval['values']['gd']
 
     target_dir = os.path.join("data/babi-tasks", str(task).zfill(2))
     word2idx_path = os.path.join(target_dir, "word2idx.json")
@@ -22,6 +23,7 @@ def list_results(model_name, config, epoch, mode, task, idx):
     S = data[2]
 
     fd = fds[idx]
+    gd = gds[idx]
     id_ = ids[idx]
     x = X[id_]
     s = S[id_]
@@ -34,10 +36,12 @@ def list_results(model_name, config, epoch, mode, task, idx):
     helper(xx)
     print()
     helper(fd)
+    print()
+    helper([gd])
 
 
 def main():
-    list_results("bur", "None", 40, "dev", 3, 1)
+    list_results("bur", "None", 20, "dev", 2, 1)
 
 
 if __name__ == "__main__":

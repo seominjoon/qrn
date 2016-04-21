@@ -144,24 +144,30 @@ class Tower(BaseTower):
             _, u = encoder(Aq, length=q_length, dtype='float', name='u')
             _, f = encoder(Cx, length=x_length, dtype='float', name='f')
 
-        with tf.variable_scope("decoding"):
-            decoder = GRU(params, is_train)
-            o, _ = decoder(C_eos_x, initial_state=f, feed_prev_out=True, name='o')  # [N, S, J+1, d]
-
-        with tf.name_scope("gen"):
-            gen_W = tf.transpose(C.emb_mat, name='gen_W')  # [d, V]
-            o_flat = tf.reshape(o, [N*S*(J+1), d], name='o_flat')
-            gen_logits_flat = tf.matmul(o_flat, gen_W, name='gen_logits_flat')  # [N*S*(J+1), V]
-            gen_logits = tf.reshape(gen_logits_flat, [N, S, J+1, V])
-            fd = tf.argmax(gen_logits, 3, name='f_decoded')
-            tensors['fd'] = fd
-
         with tf.variable_scope("rule"):
             f_flat = tf.reshape(f, [N, S * d], name='f_flat')
             g = tf.tanh(linear([f_flat], d, True), name='g')
             # TODO : how do I generate output without rnn inputs?
-            # og = decoder(g, 2*J*tf.ones([N]), 'og')
-            # tensors['og'] = og
+
+        with tf.variable_scope("decoding"):
+            decoder = GRU(params, is_train)
+            of, _ = decoder(C_eos_x, initial_state=f, feed_prev_out=True, name='of')  # [N, S, J+1, d]
+            dummy = tf.squeeze(tf.slice(C_eos_x, [0, 0, 0, 0], [-1, 1, -1, -1]), [1])
+            og, _ = decoder(dummy, initial_state=g, feed_prev_out=True, name='og')
+
+        with tf.name_scope("gen"):
+            gen_W = tf.transpose(C.emb_mat, name='gen_W')  # [d, V]
+            of_flat = tf.reshape(of, [N*S*(J+1), d], name='o_flat')
+            gen_logits_flat = tf.matmul(of_flat, gen_W, name='gen_logits_flat')  # [N*S*(J+1), V]
+            gen_logits = tf.reshape(gen_logits_flat, [N, S, J+1, V])
+            fd = tf.argmax(gen_logits, 3, name='f_decoded')
+            tensors['fd'] = fd
+
+            og_flat = tf.reshape(og, [N*(J+1), d], name='og_flat')
+            og_logits_flat = tf.matmul(og_flat, gen_W, name='og_logits_flat')
+            og_logits = tf.reshape(og_logits_flat, [N, J+1, V])
+            gd = tf.argmax(og_logits, 2, name='g_decoded')
+            tensors['gd'] = gd
 
         with tf.name_scope("class"):
             uf = tf.tanh(linear([g, u], d, True), name='u_f')  # [N, d]
