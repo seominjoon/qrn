@@ -148,10 +148,14 @@ class Tower(BaseTower):
 
         with tf.variable_scope("rule"):
             f_flat = tf.reshape(f, [N, S * d], name='f_flat')
-            f_red = tf.tanh(linear([f_flat], d, True), name='f_red')
+            g = tf.tanh(linear([f_flat], d, True), name='g')
+            # TODO : how do I generate output without rnn inputs?
+            # og = decoder(g, 2*J*tf.ones([N]), 'og')
+            # tensors['og'] = og
+
 
         with tf.name_scope("class"):
-            uf = tf.tanh(linear([f_red, u], d, True), name='u_f')  # [N, d]
+            uf = tf.tanh(linear([g, u], d, True), name='u_f')  # [N, d]
             W = tf.transpose(A.emb_mat, name='W')
             logits = tf.matmul(uf, W, name='logits')
             correct = tf.equal(tf.argmax(logits, 1), tf.argmax(y, 1))
