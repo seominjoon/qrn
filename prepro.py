@@ -8,6 +8,8 @@ from collections import OrderedDict
 
 import itertools
 
+from qa2hypo import qa2hypo
+
 EOS = "<eos>"
 
 
@@ -62,11 +64,12 @@ def prepro(args):
 
 
 def _apply_word2idx(word2idx_dict, raw_data):
-    paras, questions, S, answers = raw_data
+    paras, questions, S, answers, hypos = raw_data
     X = [[[_word2idx(word2idx_dict, word) for word in sent] for sent in para] for para in paras]
     Q = [[_word2idx(word2idx_dict, word) for word in ques] for ques in questions]
     Y = [_word2idx(word2idx_dict, word) for word in answers]
-    data = [X, Q, S, Y]
+    H = [[_word2idx(word2idx_dict, word) for word in hypo] for hypo in hypos]
+    data = [X, Q, S, Y, H]
     return data
 
 
@@ -76,7 +79,7 @@ def _word2idx(word2idx_dict, word):
 
 
 def _save_data(word2idx_dict, data, target_dir):
-    X, Q, S, Y = data
+    X, Q, S, Y, H = data
     max_fact_size = max(len(sent) for para in X for sent in para)
     max_ques_size = max(len(ques) for ques in Q)
     metadata = {'vocab_size': len(word2idx_dict),
@@ -100,10 +103,11 @@ def _normalize(word):
 
 
 def _get_word2idx_dict(data):
-    paras, questions, supports, answers = data
+    paras, questions, supports, answers, hypos = data
     vocab_set = set(_normalize(word) for para in paras for sent in para for word in sent)
     vocab_set |= set(_normalize(word) for question in questions for word in question)
     vocab_set |= set(_normalize(word) for word in answers)
+    vocab_set |= set(_normalize(word) for hypo in hypos for word in hypo)
     # Add other vocabs
     vocab_set.add(EOS)
 
@@ -125,6 +129,7 @@ def _get_data(file_path):
     questions = []
     supports = []
     answers = []
+    hypos = []
 
     with open(file_path, 'r') as fh:
         lines = fh.readlines()
@@ -136,9 +141,12 @@ def _get_data(file_path):
         if qm:
             id_, raw_question, answer, raw_support = qm.groups()
             question = _tokenize(raw_question)
+            raw_hypo = qa2hypo(raw_question, answer)
+            hypo = _tokenize(raw_hypo)
             paragraphs.append(paragraph[:])
             questions.append(question)
             answers.append(answer)
+            hypos.append(hypo)
             support = [num2idx_dict[str_num] for str_num in raw_support.split(" ")]
             supports.append(support)
         elif sm:
@@ -153,7 +161,7 @@ def _get_data(file_path):
             logging.error("Line %d is invalid at %s." % (line_num + 1, file_path))
     print("Loaded %d examples from %s" % (len(paragraphs), os.path.basename(file_path)))
 
-    data = [paragraphs, questions, supports, answers]
+    data = [paragraphs, questions, supports, answers, hypos]
     return data
 
 
