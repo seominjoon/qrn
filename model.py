@@ -118,6 +118,9 @@ class Tower(BaseTower):
             q_length = tf.placeholder('int32', shape=[N], name='q_length')
             q_mask = tf.placeholder('bool', shape=[N, J], name='q_mask')
             y = tf.placeholder('int32', shape=[N, V], name='y')
+            h_eos = tf.placeholder('int32', shape=[N, J+1], name='h')
+            h_eos_mask = tf.placeholder('bool', shape=[N, J+1], name='h_eos_mask')
+            h_length = tf.placeholder('int32', shape=[N], name='h_length')
             is_train = tf.placeholder('bool', shape=[], name='is_train')
             placeholders['x'] = x
             placeholders['x_length'] = x_length
@@ -187,6 +190,12 @@ class Tower(BaseTower):
                 gen_ce_flat = tf.nn.sparse_softmax_cross_entropy_with_logits(gen_logits_flat, x_eos_flat, name='gen_ce_flat')
                 x_eos_mask_flat = tf.reshape(tf.cast(x_eos_mask, 'float'), [N*S*(J+1)], name='x_eos_mask_flat')
                 gen_avg_ce = tf.div(tf.reduce_sum(gen_ce_flat * x_eos_mask_flat), tf.reduce_sum(x_eos_mask_flat), name='gen_avg_ce')
+                tf.add_to_collection('losses', gen_avg_ce)
+
+                h_eos_flat = tf.reshape(h_eos, [N*S*(J+1)], name='h_eos_sparse_flat')  # [N*S*(J+1)]
+                gen_ce_flat = tf.nn.sparse_softmax_cross_entropy_with_logits(gen_logits_flat, h_eos_flat, name='gen_ce_flat')
+                h_eos_mask_flat = tf.reshape(tf.cast(h_eos_mask, 'float'), [N*S*(J+1)], name='h_eos_mask_flat')
+                gen_avg_ce = tf.div(tf.reduce_sum(gen_ce_flat * h_eos_mask_flat), tf.reduce_sum(h_eos_mask_flat), name='gen_avg_ce')
                 tf.add_to_collection('losses', gen_avg_ce)
 
             losses = tf.get_collection('losses', scope=scope)

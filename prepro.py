@@ -82,10 +82,12 @@ def _save_data(word2idx_dict, data, target_dir):
     X, Q, S, Y, H = data
     max_fact_size = max(len(sent) for para in X for sent in para)
     max_ques_size = max(len(ques) for ques in Q)
+    max_hypo_size = max(len(hypo) for hypo in H)
     metadata = {'vocab_size': len(word2idx_dict),
                 'max_fact_size': max_fact_size,
                 'max_ques_size': max_ques_size,
-                'max_sent_size': max(max_fact_size, max_ques_size),
+                'max_hypo_size': max_hypo_size,
+                'max_sent_size': max(max_fact_size, max_ques_size, max_hypo_size),
                 'max_num_sents': max(len(para) for para in X),
                 'max_num_sups': max(len(sups) for sups in S),
                 'eos_idx': word2idx_dict[EOS]}
