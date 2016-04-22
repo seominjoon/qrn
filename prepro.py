@@ -22,8 +22,10 @@ def bool_(string):
 
 def get_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--source_dir", default="~/data/babi-tasks")
-    parser.add_argument("--target_dir", default="data/babi-tasks")
+    home = os.path.expanduser("~")
+    source_dir = os.path.join(home, "data", "babi")
+    parser.add_argument("--source_dir", default=source_dir)
+    parser.add_argument("--target_dir", default="data/babi")
     parser.add_argument("--lang", default="en")
     parser.add_argument("--task", default="1")
     parser.add_argument("--large", type=bool_, default=False)

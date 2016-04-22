@@ -14,7 +14,7 @@ flags = tf.app.flags
 
 # File directories
 flags.DEFINE_string("model_name", "bur", "Model name. This will be used for save, log, and eval names. [bur]")
-flags.DEFINE_string("data_dir", "data/babi-tasks", "Data directory [data/babi-tasks]")
+flags.DEFINE_string("data_dir", "data/babi", "Data directory [data/babi]")
 
 # Training parameters
 flags.DEFINE_integer("batch_size", 32, "Batch size for each tower. [32]")
