@@ -41,7 +41,7 @@ def list_results(model_name, config, epoch, mode, task, idx):
 
 
 def main():
-    list_results("bur", "None", 20, "dev", 2, 1)
+    list_results("bur", "None", 20, "dev", 3, 1)
 
 
 if __name__ == "__main__":
