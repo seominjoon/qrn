@@ -13,17 +13,30 @@ regexs = {
     5.3: re.compile("^Who did (\w+) give ([\w+ ?]+) to\?$"),
     5.4: re.compile("^Who gave ([\w+ ?]+)\?$"),
     5.5: re.compile("^Who received ([\w+ ?]+)\?$"),
-    6: re.compile("^Is (\w+) in ([\w+ ?]+)\?$"),
+    6: re.compile("Is (\w+) in the (\w+)\?$"),
+    7: re.compile("^How many objects is (\w+) carrying\?$"),
+    8: re.compile("^What is (\w+) carrying\?$"),
+    # 9: same as 6
+    # 10: same as 6
+    # 11: same as 1
+    # 12: same as 1
+    # 13: same as 13
+    # 14: same as 3
+    15: re.compile("^What is (\w+) afraid of\?$"),
+    16: re.compile("^What color is (\w+)\?$"),
 }
+
 
 class C06(object):
     @staticmethod
     def format(containee, container, answer=None):
         if answer == "yes":
-            return "{} is in {}.".format(containee, container)
+            return "{} is in the {}.".format(containee, container)
         elif answer == "no":
-            return "{} is not in {}.".format(containee, container)
-        raise Exception("Unrecognized answer: {}".format(answer))
+            return "{} is not in the {}.".format(containee, container)
+        elif answer == "maybe":
+            return "{} is maybe in the {}.".format(containee, container)
+        raise Exception("Unrecognized answer {}".format(answer))
 
 out_strings = {
     1: "{0} is in the {answer}.",
@@ -36,6 +49,18 @@ out_strings = {
     5.4: "{0} gave {answer}.",
     5.5: "{answer} received {0}.",
     6: C06,
+    7: "{0} is carrying {answer} objects.",
+    8: "{0} is carrying {answer}.",
+    # 9: same as 6
+    # 10: same as 6
+    # 11: same as 1
+    # 12: same as 1
+    # 13: same as 13
+    # 14: same as 3
+    15: "{0} is afraid of {answer}.",
+    16: "{0} is {answer}.",
+
+
 }
 
 
