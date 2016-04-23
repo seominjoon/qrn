@@ -120,7 +120,7 @@ class Tower(BaseTower):
             y = tf.placeholder('int32', shape=[N, V], name='y')
             h_eos = tf.placeholder('int32', shape=[N, J+1], name='h')
             h_eos_mask = tf.placeholder('bool', shape=[N, J+1], name='h_eos_mask')
-            h_length = tf.placeholder('int32', shape=[N], name='h_length')
+            # h_length = tf.placeholder('int32', shape=[N], name='h_length')
             is_train = tf.placeholder('bool', shape=[], name='is_train')
             placeholders['x'] = x
             placeholders['x_length'] = x_length
@@ -132,6 +132,8 @@ class Tower(BaseTower):
             placeholders['q_length'] = q_length
             placeholders['q_mask'] = q_mask
             placeholders['y'] = y
+            placeholders['h_eos'] = h_eos
+            placeholders['h_eos_mask'] = h_eos_mask
             placeholders['is_train'] = is_train
 
         with tf.variable_scope("embedding"):
@@ -161,9 +163,9 @@ class Tower(BaseTower):
         with tf.name_scope("gen"):
             gen_W = tf.transpose(C.emb_mat, name='gen_W')  # [d, V]
             of_flat = tf.reshape(of, [N*S*(J+1), d], name='o_flat')
-            gen_logits_flat = tf.matmul(of_flat, gen_W, name='gen_logits_flat')  # [N*S*(J+1), V]
-            gen_logits = tf.reshape(gen_logits_flat, [N, S, J+1, V])
-            fd = tf.argmax(gen_logits, 3, name='f_decoded')
+            of_logits_flat = tf.matmul(of_flat, gen_W, name='gen_logits_flat')  # [N*S*(J+1), V]
+            of_logits = tf.reshape(of_logits_flat, [N, S, J+1, V])
+            fd = tf.argmax(of_logits, 3, name='f_decoded')
             tensors['fd'] = fd
 
             og_flat = tf.reshape(og, [N*(J+1), d], name='og_flat')
@@ -172,7 +174,7 @@ class Tower(BaseTower):
             gd = tf.argmax(og_logits, 2, name='g_decoded')
             tensors['gd'] = gd
 
-        with tf.name_scope("class"):
+        with tf.variable_scope("class"):
             uf = tf.tanh(linear([g, u], d, True), name='u_f')  # [N, d]
             W = tf.transpose(A.emb_mat, name='W')
             logits = tf.matmul(uf, W, name='logits')
@@ -187,16 +189,16 @@ class Tower(BaseTower):
 
             with tf.name_scope("gen_loss"):
                 x_eos_flat = tf.reshape(x_eos, [N*S*(J+1)], name='x_eos_sparse_flat')  # [N*S*(J+1)]
-                gen_ce_flat = tf.nn.sparse_softmax_cross_entropy_with_logits(gen_logits_flat, x_eos_flat, name='gen_ce_flat')
+                x_ce_flat = tf.nn.sparse_softmax_cross_entropy_with_logits(of_logits_flat, x_eos_flat, name='x_ce_flat')
                 x_eos_mask_flat = tf.reshape(tf.cast(x_eos_mask, 'float'), [N*S*(J+1)], name='x_eos_mask_flat')
-                gen_avg_ce = tf.div(tf.reduce_sum(gen_ce_flat * x_eos_mask_flat), tf.reduce_sum(x_eos_mask_flat), name='gen_avg_ce')
-                tf.add_to_collection('losses', gen_avg_ce)
+                x_avg_ce = tf.div(tf.reduce_sum(x_ce_flat * x_eos_mask_flat), tf.reduce_sum(x_eos_mask_flat), name='x_avg_ce')
+                tf.add_to_collection('losses', x_avg_ce)
 
-                h_eos_flat = tf.reshape(h_eos, [N*S*(J+1)], name='h_eos_sparse_flat')  # [N*S*(J+1)]
-                gen_ce_flat = tf.nn.sparse_softmax_cross_entropy_with_logits(gen_logits_flat, h_eos_flat, name='gen_ce_flat')
-                h_eos_mask_flat = tf.reshape(tf.cast(h_eos_mask, 'float'), [N*S*(J+1)], name='h_eos_mask_flat')
-                gen_avg_ce = tf.div(tf.reduce_sum(gen_ce_flat * h_eos_mask_flat), tf.reduce_sum(h_eos_mask_flat), name='gen_avg_ce')
-                tf.add_to_collection('losses', gen_avg_ce)
+                h_eos_flat = tf.reshape(h_eos, [N*(J+1)], name='h_eos_sparse_flat')
+                h_ce_flat = tf.nn.sparse_softmax_cross_entropy_with_logits(og_logits_flat, h_eos_flat, name='h_ce_flat')
+                h_eos_mask_flat = tf.reshape(tf.cast(h_eos_mask, 'float'), [N*(J+1)], name='h_eos_mask_flat')
+                h_avg_ce = tf.div(tf.reduce_sum(h_ce_flat * h_eos_mask_flat), tf.reduce_sum(h_eos_mask_flat), name='h_avg_ce')
+                tf.add_to_collection('losses', h_avg_ce)
 
             losses = tf.get_collection('losses', scope=scope)
             loss = tf.add_n(losses, name='loss')
@@ -216,6 +218,8 @@ class Tower(BaseTower):
         q_length = np.zeros([N], dtype='int32')
         q_mask = np.zeros([N, J], dtype='bool')
         y = np.zeros([N, V], dtype='bool')
+        h_eos = np.zeros([N, J+1], dtype='int32')
+        h_eos_mask = np.zeros([N, J+1], dtype='bool')
 
         ph = self.placeholders
         feed_dict = {ph['x']: x, ph['eos_x']: eos_x, ph['x_eos']: x_eos,
@@ -223,11 +227,12 @@ class Tower(BaseTower):
                      ph['x_mask']: x_mask, ph['x_eos_mask']: x_eos_mask,
                      ph['q']: q, ph['q_mask']: q_mask, ph['q_length']: q_length,
                      ph['y']: y,
+                     ph['h_eos']: h_eos, ph['h_eos_mask']: h_eos_mask,
                      ph['is_train']: mode == 'train'}
         if batch is None:
             return feed_dict
 
-        X, Q, S, Y = batch
+        X, Q, S, Y, H = batch
         for i, (para, supports) in enumerate(zip(X, S)):
             for j, support in enumerate(supports):
                 sent = para[support]
@@ -250,4 +255,11 @@ class Tower(BaseTower):
 
         for i, ans in enumerate(Y):
             y[i, ans] = True
+
+        for i, hypo in enumerate(H):
+            for j, word in enumerate(hypo):
+                h_eos[i, j] = word
+                h_eos_mask[i, j] = True
+            h_eos[i, len(hypo)] = eos_idx
+            h_eos_mask[i, len(hypo)] = True
         return feed_dict

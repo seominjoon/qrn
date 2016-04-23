@@ -66,11 +66,11 @@ def mkdirs(config):
         os.mkdir(saves_dir)
 
     eval_dir = os.path.join(evals_dir, config.model_name)
-    eval_subdir = os.path.join(eval_dir, "%s" % str(config.config).zfill(2))
+    eval_subdir = os.path.join(eval_dir, "%s-%s" % (str(config.config).zfill(2), config.task.zfill(2)))
     log_dir = os.path.join(logs_dir, config.model_name)
-    log_subdir = os.path.join(log_dir, "%s" % str(config.config).zfill(2))
+    log_subdir = os.path.join(log_dir, "%s-%s" % (str(config.config).zfill(2), config.task.zfill(2)))
     save_dir = os.path.join(saves_dir, config.model_name)
-    save_subdir = os.path.join(save_dir, "%s" % str(config.config).zfill(2))
+    save_subdir = os.path.join(save_dir, "%s-%s" % (str(config.config).zfill(2), config.task.zfill(2)))
     config.eval_dir = eval_subdir
     config.log_dir = log_subdir
     config.save_dir = save_subdir

@@ -3,16 +3,30 @@ import os
 import argparse
 
 def get_args():
-    pass
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model", default="bur")
+    parser.add_argument("--config", default="None")
+    parser.add_argument("--epoch", type=int, default=30)
+    parser.add_argument("--mode", default="dev")
+    parser.add_argument("--task", default="1")
+    args = parser.parse_args()
+    return args
 
-def list_results(model_name, config, epoch, mode, task, idx):
-    eval_path = os.path.join("evals", model_name, config, "%s_%s.json" % (mode, str(epoch).zfill(4)))
+def list_results(args):
+    model = args.model
+    config = args.config
+    mode = args.mode
+    epoch = args.epoch
+    task = args.task
+
+    eval_path = os.path.join("evals", model, "%s-%s" % (config.zfill(2), task.zfill(2)),
+                             "%s_%s.json" % (mode, str(epoch).zfill(4)))
     eval = json.load(open(eval_path, 'r'))
     ids = eval['ids']
     fds = eval['values']['fd']
     gds = eval['values']['gd']
 
-    target_dir = os.path.join("data/babi-tasks", str(task).zfill(2))
+    target_dir = os.path.join("data/babi", str(task).zfill(2))
     word2idx_path = os.path.join(target_dir, "word2idx.json")
     word2idx_dict = json.load(open(word2idx_path, 'r'))
     idx2word_dict = dict((idx, word) for word, idx in word2idx_dict.items())
@@ -22,26 +36,25 @@ def list_results(model_name, config, epoch, mode, task, idx):
     X = data[0]
     S = data[2]
 
-    fd = fds[idx]
-    gd = gds[idx]
-    id_ = ids[idx]
-    x = X[id_]
-    s = S[id_]
-
     def helper(idxss):
         for idxs in idxss:
             print(" ".join([idx2word_dict[idx] for idx in idxs]))
 
-    xx = [x[ss] for ss in s]
-    helper(xx)
-    print()
-    helper(fd)
-    print()
-    helper([gd])
+    for fd, gd, id_ in zip(fds, gds, ids):
+        x = X[id_]
+        s = S[id_]
 
+        xx = [x[ss] for ss in s]
+        helper(xx)
+        print()
+        helper(fd)
+        print()
+        helper([gd])
+        print("-"*10)
 
 def main():
-    list_results("bur", "None", 20, "dev", 3, 1)
+    args = get_args()
+    list_results(args)
 
 
 if __name__ == "__main__":
