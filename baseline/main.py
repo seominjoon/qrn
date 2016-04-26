@@ -5,9 +5,9 @@ from pprint import pprint
 
 import tensorflow as tf
 
-from configs.get_config import get_config_from_file, get_config
 from base_model import BaseRunner
-from model import Tower
+from baseline.model import Tower
+from configs.get_config import get_config_from_file, get_config
 from read_data import read_data
 
 flags = tf.app.flags
