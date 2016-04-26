@@ -45,12 +45,21 @@ def prepro(args):
     is_large = args.large
     dev_ratio = args.dev_ratio
 
-    source_train_path, source_test_path = _get_source_paths(source_dir, lang, is_large, task)
+    all_tasks = list(map(str, range(1, 21)))
+    tasks = all_tasks if task == 'all' else [task]
     target_parent_dir = os.path.join(target_dir, lang + "-10k" if is_large else "", task.zfill(2))
-    train_raw_data = _get_data(source_train_path)
-    test_raw_data = _get_data(source_test_path)
-    raw_data = [list(itertools.chain(*each)) for each in zip(train_raw_data, test_raw_data)]
-    train_size, test_size = len(train_raw_data[0]), len(test_raw_data[0])
+    train_raw_data_list = []
+    test_raw_data_list = []
+    train_size, test_size = 0, 0
+
+    for cur_task in tasks:
+        source_train_path, source_test_path = _get_source_paths(source_dir, lang, is_large, cur_task)
+        train_raw_data_list.append(_get_data(source_train_path))
+        test_raw_data_list.append(_get_data(source_test_path))
+        train_size += len(train_raw_data_list[-1][0])
+        test_size += len(test_raw_data_list[-1][0])
+
+    raw_data = [list(itertools.chain(*each)) for each in zip(*(train_raw_data_list + test_raw_data_list))]
     dev_size = int(train_size * dev_ratio)
     dev_idxs = sorted(random.sample(list(range(train_size)), dev_size))
     train_idxs = [a for a in range(train_size) if a not in dev_idxs]

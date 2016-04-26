@@ -5,7 +5,7 @@ import re
 regexs = {
     1: re.compile("^Where is (\w+)\?$"),
     2: re.compile("^Where is the (\w+)\?$"),
-    3: re.compile("^Where was the (\w+) before the (\w+)\?$"),
+    3: re.compile("^Where was ([\w ]+) before the (\w+)\?$"),
     4.1: re.compile("^What is ([\w ]+) (\w+) of\?$"),
     4.2: re.compile("^What is (\w+) of the (\w+)\?$"),
     5.1: re.compile("^What did (\w+) give to (\w+)\?$"),
