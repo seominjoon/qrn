@@ -2,6 +2,7 @@ import argparse
 import json
 import logging
 import os
+import random
 
 import re
 from collections import OrderedDict
@@ -51,9 +52,13 @@ def prepro(args):
     raw_data = [list(itertools.chain(*each)) for each in zip(train_raw_data, test_raw_data)]
     train_size, test_size = len(train_raw_data[0]), len(test_raw_data[0])
     dev_size = int(train_size * dev_ratio)
-    mode2idxs_dict = {'dev': list(range(0, dev_size)),
-                      'train': list(range(dev_size, train_size)),
-                      'test': list(range(train_size, train_size + test_size))}
+    dev_idxs = sorted(random.sample(list(range(train_size)), dev_size))
+    train_idxs = [a for a in range(train_size) if a not in dev_idxs]
+    test_idxs = list(range(train_size, train_size + test_size))
+
+    mode2idxs_dict = {'dev': dev_idxs,
+                      'train': train_idxs,
+                      'test': test_idxs}
     word2idx_dict = _get_word2idx_dict(raw_data)
     data = _apply_word2idx(word2idx_dict, raw_data)
     if not os.path.exists(target_parent_dir):
