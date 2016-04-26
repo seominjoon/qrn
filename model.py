@@ -138,30 +138,29 @@ class Tower(BaseTower):
 
         with tf.variable_scope("embedding"):
             A = VariableEmbedder(params, name='A')
-            C = VariableEmbedder(params, name='C')
             Aq = A(q, name='Ax')  # [N, S, J, d]
-            Cx = C(x, name='Cx')  # [N, S, J, d]
-            C_eos_x = C(eos_x, name='C_eos_x')  # [N, S, J+1, d]
+            Ax = A(x, name='Cx')  # [N, S, J, d]
+            A_eos_x = A(eos_x, name='C_eos_x')  # [N, S, J+1, d]
 
         with tf.variable_scope("encoding"):
             # encoder = PositionEncoder(params)
             encoder = GRU(params, is_train)
-            _, u = encoder(Aq, length=q_length, dtype='float', name='u')
-            _, f = encoder(Cx, length=x_length, dtype='float', name='f')
+            _, u = encoder(Aq, length=q_length, dtype='float', name='u')  # [N, d]
+            _, f = encoder(Ax, length=x_length, dtype='float', name='f')  # [N, S, d]
 
         with tf.variable_scope("rule"):
             f_flat = tf.reshape(f, [N, S * d], name='f_flat')
-            g = tf.tanh(linear([f_flat], d, True), name='g')
+            g = tf.tanh(linear([u, f_flat], d, True), name='g')
             # TODO : how do I generate output without rnn inputs?
 
         with tf.variable_scope("decoding"):
             decoder = GRU(params, is_train)
-            of, _ = decoder(C_eos_x, initial_state=f, feed_prev_out=True, name='of')  # [N, S, J+1, d]
-            dummy = tf.squeeze(tf.slice(C_eos_x, [0, 0, 0, 0], [-1, 1, -1, -1]), [1])
+            of, _ = decoder(A_eos_x, initial_state=f, feed_prev_out=True, name='of')  # [N, S, J+1, d]
+            dummy = tf.squeeze(tf.slice(A_eos_x, [0, 0, 0, 0], [-1, 1, -1, -1]), [1])
             og, _ = decoder(dummy, initial_state=g, feed_prev_out=True, name='og')
 
         with tf.name_scope("gen"):
-            gen_W = tf.transpose(C.emb_mat, name='gen_W')  # [d, V]
+            gen_W = tf.transpose(A.emb_mat, name='gen_W')  # [d, V]
             of_flat = tf.reshape(of, [N*S*(J+1), d], name='o_flat')
             of_logits_flat = tf.matmul(of_flat, gen_W, name='gen_logits_flat')  # [N*S*(J+1), V]
             of_logits = tf.reshape(of_logits_flat, [N, S, J+1, V])
@@ -175,7 +174,7 @@ class Tower(BaseTower):
             tensors['gd'] = gd
 
         with tf.variable_scope("class"):
-            uf = tf.tanh(linear([g, u], d, True), name='u_f')  # [N, d]
+            uf = tf.tanh(linear([g], d, True), name='u_f')  # [N, d]
             W = tf.transpose(A.emb_mat, name='W')
             logits = tf.matmul(uf, W, name='logits')
             correct = tf.equal(tf.argmax(logits, 1), tf.argmax(y, 1))
