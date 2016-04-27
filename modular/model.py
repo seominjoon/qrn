@@ -156,7 +156,7 @@ class Tower(BaseTower):
             p = tf.nn.softmax(linear([u, f_flat], O, True, scope='attention'), name='p')
             p_aug = tf.expand_dims(p, -1, name='p_aug')
             h = tf.reduce_sum(g * p_aug, 1, name='h')  # [N, d]
-            # TODO : how do I generate output without rnn inputs?
+            tensors['p'] = p
 
         with tf.variable_scope("class"):
             w = tf.tanh(linear([h], d, True), name='u_f')  # [N, d]
