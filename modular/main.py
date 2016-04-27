@@ -13,7 +13,7 @@ from read_data import read_data
 flags = tf.app.flags
 
 # File directories
-flags.DEFINE_string("model_name", "bur", "Model name. This will be used for save, log, and eval names. [bur]")
+flags.DEFINE_string("model_name", "modular", "Model name. This will be used for save, log, and eval names. [bur]")
 flags.DEFINE_string("data_dir", "data/babi", "Data directory [data/babi]")
 
 # Training parameters
@@ -50,6 +50,7 @@ flags.DEFINE_integer("hidden_size", 50, "Hidden size. [50]")
 flags.DEFINE_integer("max_grad_norm", 40, "Max grad norm. 0 for no clipping [40]")
 flags.DEFINE_integer("rnn_num_layers", 1, "RNN number of layers [1]")
 flags.DEFINE_float("keep_prob", 0.5, "Keep probability of RNN inputs [0.5]")
+flags.DEFINE_integer("num_ops", 3, "Number of different operators [3]")
 
 FLAGS = flags.FLAGS
 

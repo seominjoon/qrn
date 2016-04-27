@@ -155,7 +155,7 @@ class Tower(BaseTower):
             g = tf.reshape(g_flat, [N, O, d], name='g')
             p = tf.nn.softmax(linear([u, f_flat], O, True), name='p')
             p_aug = tf.expand_dims(p, -1, name='p_aug')
-            h = tf.reduce_sum(g * p_aug, 1, name='h')
+            h = tf.reduce_sum(g * p_aug, 1, name='h')  # [N, d]
             # TODO : how do I generate output without rnn inputs?
 
         with tf.variable_scope("class"):
