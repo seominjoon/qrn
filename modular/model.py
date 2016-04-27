@@ -151,9 +151,9 @@ class Tower(BaseTower):
 
         with tf.variable_scope("rule"):
             f_flat = tf.reshape(f, [N, S * d], name='f_flat')
-            g_flat = tf.tanh(linear([u, f_flat], O*d, True), name='g_flat')
+            g_flat = tf.tanh(linear([u, f_flat], O*d, True, scope='split'), name='g_flat')
             g = tf.reshape(g_flat, [N, O, d], name='g')
-            p = tf.nn.softmax(linear([u, f_flat], O, True), name='p')
+            p = tf.nn.softmax(linear([u, f_flat], O, True, scope='attention'), name='p')
             p_aug = tf.expand_dims(p, -1, name='p_aug')
             h = tf.reduce_sum(g * p_aug, 1, name='h')  # [N, d]
             # TODO : how do I generate output without rnn inputs?
