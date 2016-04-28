@@ -48,7 +48,13 @@
                         </tr>
                     </table>
                 </td>
-                <td>{{ row.surface }}</td>
+                <td>
+                    <ol>
+                        {% for each in row.surface %}
+                        <li>{{ each }}</li>
+                        {% endfor %}
+                    </ol>
+                </td>
                 {% if row.correct %}
                 <td bgcolor="#7fff00">{{ row.yp }}
                 </td>

@@ -154,8 +154,10 @@ class Tower(BaseTower):
             f_flat = tf.concat(2, [rf] + afs, name='f')  # [N, S, (C+1)*d]
             cru_cell = CRUCell(d, d, C)
             length = tf.reduce_sum(tf.reduce_max(tf.cast(x_mask, 'float'), 2), 1)
-            _, u_f_flat = dynamic_rnn(cru_cell, f_flat, sequence_length=length, initial_state=u_i_flat, dtype='float')
-            u_f = tf.reshape(u_f_flat, [N, C+1, d])
+            u_flat, u_f_flat = dynamic_rnn(cru_cell, f_flat, sequence_length=length, initial_state=u_i_flat, dtype='float')
+            u = tf.reshape(u_flat, [N, S, C+1, d], name='u')
+            u_f = tf.reshape(u_f_flat, [N, C+1, d], name='u_f')
+            au = tf.slice(u, [0, 0, 1, 0], [-1, -1, -1, -1], name='au')  # [N, S, C, d]
             ru_f = tf.squeeze(tf.slice(u_f, [0, 0, 0], [-1, 1, -1]), [1])
             au_f = tf.slice(u_f, [0, 1, 0], [-1, -1, -1], name='au_f')
 
@@ -170,11 +172,12 @@ class Tower(BaseTower):
             tensors['p'] = p
 
         with tf.name_scope("visualization"):
-            u_f_flat_2 = tf.reshape(u_f, [N*(C+1), d], name='u_f_flat_2')
-            u_logits_flat = tf.matmul(u_f_flat_2, W, name='u_logits_flat')  # [N*(C+1), V]
-            u_logits = tf.reshape(u_logits_flat, [N, C+1, V], name='u_logits')
-            u_surface = tf.argmax(u_logits, 2, name='u_surface')
+            u_flat_2 = tf.reshape(u, [N*S*(C+1), d], name='u_flat_2')
+            u_logits_flat = tf.matmul(u_flat_2, W, name='u_logits_flat')
+            u_logits = tf.reshape(u_logits_flat, [N, S, C+1, V], name='u_logits')
+            u_surface = tf.argmax(u_logits, 3, name='u_surface')
             tensors['u_surface'] = u_surface
+
 
         with tf.name_scope("loss") as scope:
             with tf.name_scope("ans_loss"):
