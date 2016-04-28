@@ -205,5 +205,5 @@ class CRUCell(RNNCell):
                 a_aug = tf.tile(tf.expand_dims(a, 1), [1, C, 1, 1], name='a_aug')
                 au_out = tf.reduce_sum(a_aug * tf.expand_dims(p, -1), 2, name='au_out')  # [N, C, A]
                 au_out_flat = tf.reshape(au_out, [N, C*A], name='au_out_flat')
-                out = tf.concat(1, [ru_out, au_out_flat], name='out')
+                out = tf.concat(1, [ru_out, au_out_flat], name='out')  # [N, R+A*C]
         return out, out

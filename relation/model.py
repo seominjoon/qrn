@@ -8,7 +8,7 @@ from my.tensorflow.nn import linear
 from my.tensorflow.rnn import dynamic_rnn
 import numpy as np
 
-from my.tensorflow.rnn_cell import BasicLSTMCell, GRUCell
+from my.tensorflow.rnn_cell import BasicLSTMCell, GRUCell, CRUCell
 
 
 class Embedder(object):
@@ -56,20 +56,21 @@ class PositionEncoder(object):
 
 
 class GRU(object):
-    def __init__(self, params, is_train):
-        self.params = params
-        d = params.hidden_size
-        keep_prob = params.keep_prob
-        rnn_num_layers = params.rnn_num_layers
-        self.scope = tf.get_variable_scope()
+    def __init__(self, num_layers, hidden_size, keep_prob, is_train, scope=None):
+        self.num_layers = num_layers
+        self.hidden_size = hidden_size
+        self.keep_prob = keep_prob
+        d = hidden_size
+        with tf.variable_scope(scope or self.__class__.__name__):
+            self.scope = tf.get_variable_scope()
 
         cell = GRUCell(d)
         do_cell = cell
         if keep_prob:
             do_cell = DropoutWrapper(do_cell, input_keep_prob=keep_prob)
-        if rnn_num_layers > 1:
-            cell = MultiRNNCell([cell] * rnn_num_layers)
-            do_cell = MultiRNNCell([do_cell] * rnn_num_layers)
+        if num_layers > 1:
+            cell = MultiRNNCell([cell] * num_layers)
+            do_cell = MultiRNNCell([do_cell] * num_layers)
         self.cell = cell
         self.do_cell = do_cell
         self.is_train = is_train
@@ -78,7 +79,7 @@ class GRU(object):
     def __call__(self, Ax, length=None, initial_state=None, feed_prev_out=False, dtype=None, name="encoded_sentence"):
         with tf.name_scope(name):
             NN, J, d = flatten(Ax.get_shape().as_list(), 3)
-            L = self.params.rnn_num_layers
+            L = self.num_layers
             Ax_flat = tf.reshape(Ax, [NN, J, d])
             if length is not None:
                 length = tf.reshape(length, [NN])
@@ -86,7 +87,6 @@ class GRU(object):
             h_zeros_up = tf.constant(0.0, shape=[NN, (L-1)*d])
             h = None if initial_state is None else tf.concat(1, [tf.reshape(initial_state, [NN, d]), h_zeros_up], name='h')
             with tf.variable_scope(self.scope, reuse=self.used):
-                # Always True feed_prev_out, because this is for test time.
                 raw = dynamic_rnn(self.cell, Ax_flat, sequence_length=length, initial_state=h, dtype=dtype,
                                   feed_prev_out=feed_prev_out)
                 tf.get_variable_scope().reuse_variables()
@@ -106,60 +106,62 @@ class Tower(BaseTower):
         placeholders = self.placeholders
         tensors = self.tensors
         N, J, V, Q, S = params.batch_size, params.max_sent_size, params.vocab_size, params.max_ques_size, params.max_num_sups
-        O = params.num_ops
+        L = params.rnn_num_layers
+        C = params.num_args
         d = params.hidden_size
         with tf.name_scope("placeholders"):
             x = tf.placeholder('int32', shape=[N, S, J], name='x')
             x_length = tf.placeholder('int32', shape=[N, S], name='x_length')
-            x_eos = tf.placeholder('int32', shape=[N, S, J+1], name='x_eos')
-            eos_x = tf.placeholder('int32', shape=[N, S, J+1], name='eos_x')
             x_mask = tf.placeholder('bool', shape=[N, S, J], name='x_mask')
-            x_eos_mask = tf.placeholder('bool', shape=[N, S, J+1], name='x_eos_mask')
             q = tf.placeholder('int32', shape=[N, J], name='q')
             q_length = tf.placeholder('int32', shape=[N], name='q_length')
             q_mask = tf.placeholder('bool', shape=[N, J], name='q_mask')
             y = tf.placeholder('int32', shape=[N, V], name='y')
-            h_eos = tf.placeholder('int32', shape=[N, J+1], name='h')
-            h_eos_mask = tf.placeholder('bool', shape=[N, J+1], name='h_eos_mask')
             # h_length = tf.placeholder('int32', shape=[N], name='h_length')
             is_train = tf.placeholder('bool', shape=[], name='is_train')
             placeholders['x'] = x
             placeholders['x_length'] = x_length
-            placeholders['x_eos'] = x_eos
-            placeholders['eos_x'] = eos_x
             placeholders['x_mask'] = x_mask
-            placeholders['x_eos_mask'] = x_eos_mask
             placeholders['q'] = q
             placeholders['q_length'] = q_length
             placeholders['q_mask'] = q_mask
             placeholders['y'] = y
-            placeholders['h_eos'] = h_eos
-            placeholders['h_eos_mask'] = h_eos_mask
             placeholders['is_train'] = is_train
 
         with tf.variable_scope("embedding"):
             A = VariableEmbedder(params, name='A')
             Aq = A(q, name='Ax')  # [N, S, J, d]
             Ax = A(x, name='Cx')  # [N, S, J, d]
-            A_eos_x = A(eos_x, name='C_eos_x')  # [N, S, J+1, d]
 
         with tf.variable_scope("encoding"):
-            # encoder = PositionEncoder(params)
-            encoder = GRU(params, is_train)
-            _, u = encoder(Aq, length=q_length, dtype='float', name='u')  # [N, d]
-            _, f = encoder(Ax, length=x_length, dtype='float', name='f')  # [N, S, d]
+            rel_encoder = GRU(L, d, params.keep_prob, is_train)
+            _, ru = rel_encoder(Aq, length=q_length, dtype='float', name='ru')  # [N, d]
+            _, rf = rel_encoder(Ax, length=x_length, dtype='float', name='rf')  # [N, S, d]
+            arg_encoders = []
+            aus = []
+            afs = []
+            for arg_idx in range(C):
+                with tf.variable_scope("arg_{}".format(arg_idx)):
+                    arg_encoder = GRU(L, d, params.keep_prob, is_train)
+                    au = arg_encoder(Aq, length=q_length, dtype='float', name='au')  # [N, d]
+                    af = arg_encoder(Ax, length=x_length, dtype='float', name='af')  # [N, S, d]
+                    arg_encoders.append(arg_encoder)
+                    aus.append(au)
+                    afs.append(af)
 
-        with tf.variable_scope("rule"):
-            f_flat = tf.reshape(f, [N, S * d], name='f_flat')
-            g_flat = tf.tanh(linear([u, f_flat], O*d, True, scope='split'), name='g_flat')
-            g = tf.reshape(g_flat, [N, O, d], name='g')
-            p = tf.nn.softmax(linear([u, f_flat], O, True, scope='attention'), name='p')
-            p_aug = tf.expand_dims(p, -1, name='p_aug')
-            h = tf.reduce_sum(g * p_aug, 1, name='h')  # [N, d]
-            tensors['p'] = p
+        with tf.variable_scope("reasoning"):
+            u_i_flat = tf.concat(1, [ru] + aus, name='u_i')  # [N, (C+1)*d]
+            f_flat = tf.concat(1, [rf] + afs, name='f')  # [N, S, (C+1)*d]
+            cru_cell = CRUCell(d, d, C)
+            length = tf.reduce_sum(tf.reduce_max(x_mask, 2), 1)
+            u_f_flat = dynamic_rnn(cru_cell, f_flat, sequence_length=length, initial_state=u_i_flat, dtype='float')
+            u_f = tf.reshape(u_f_flat, [N, C+1, d])
+            ru_f = tf.squeeze(tf.slice(u_f, [0, 0, 0], [-1, 1, -1]), [1])
 
         with tf.variable_scope("class"):
-            w = tf.tanh(linear([h], d, True), name='u_f')  # [N, d]
+            p = tf.nn.softmax(linear([ru_f], C+1, True), name='p')  # [N, C+1]
+            p_aug = tf.expand_dims(p, -1, name='p_aug')
+            w = tf.reduce_sum(p_aug * u_f, 1, name='w')
             W = tf.transpose(A.emb_mat, name='W')
             logits = tf.matmul(w, W, name='logits')
             correct = tf.equal(tf.argmax(logits, 1), tf.argmax(y, 1))
@@ -177,28 +179,21 @@ class Tower(BaseTower):
 
     def get_feed_dict(self, batch, mode, **kwargs):
         params = self.params
-        eos_idx = params.eos_idx
         N, J, V, S = params.batch_size, params.max_sent_size, params.vocab_size, params.max_num_sups
         x = np.zeros([N, S, J], dtype='int32')
         x_length = np.zeros([N, S], dtype='int32')
-        eos_x = np.zeros([N, S, J+1], dtype='int32')
-        x_eos = np.zeros([N, S, J+1], dtype='int32')
         x_mask = np.zeros([N, S, J], dtype='bool')
-        x_eos_mask = np.zeros([N, S, J+1], dtype='bool')
         q = np.zeros([N, J], dtype='int32')
         q_length = np.zeros([N], dtype='int32')
         q_mask = np.zeros([N, J], dtype='bool')
         y = np.zeros([N, V], dtype='bool')
-        h_eos = np.zeros([N, J+1], dtype='int32')
-        h_eos_mask = np.zeros([N, J+1], dtype='bool')
 
         ph = self.placeholders
-        feed_dict = {ph['x']: x, ph['eos_x']: eos_x, ph['x_eos']: x_eos,
+        feed_dict = {ph['x']: x,
                      ph['x_length']: x_length,
-                     ph['x_mask']: x_mask, ph['x_eos_mask']: x_eos_mask,
+                     ph['x_mask']: x_mask,
                      ph['q']: q, ph['q_mask']: q_mask, ph['q_length']: q_length,
                      ph['y']: y,
-                     ph['h_eos']: h_eos, ph['h_eos_mask']: h_eos_mask,
                      ph['is_train']: mode == 'train'}
         if batch is None:
             return feed_dict
@@ -210,13 +205,7 @@ class Tower(BaseTower):
                 x_length[i, j] = len(sent)
                 for k, word in enumerate(sent):
                     x[i, j, k] = word
-                    x_eos[i, j, k] = word
-                    eos_x[i, j, k+1] = word
                     x_mask[i, j, k] = True
-                    x_eos_mask[i, j, k] = True
-                x_eos[i, j, len(sent)] = eos_idx
-                x_eos_mask[i, j, len(sent)] = True
-                eos_x[i, j, 0] = eos_idx
 
         for i, ques in enumerate(Q):
             q_length[i] = len(ques)
@@ -227,10 +216,4 @@ class Tower(BaseTower):
         for i, ans in enumerate(Y):
             y[i, ans] = True
 
-        for i, hypo in enumerate(H):
-            for j, word in enumerate(hypo):
-                h_eos[i, j] = word
-                h_eos_mask[i, j] = True
-            h_eos[i, len(hypo)] = eos_idx
-            h_eos_mask[i, len(hypo)] = True
         return feed_dict
