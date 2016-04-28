@@ -164,8 +164,16 @@ class Tower(BaseTower):
             w = tf.reduce_sum(p_aug * u_f, 1, name='w')
             W = tf.transpose(A.emb_mat, name='W')
             logits = tf.matmul(w, W, name='logits')
-            correct = tf.equal(tf.argmax(logits, 1), tf.argmax(y, 1))
+            correct = tf.equal(tf.argmax(logits, 1), tf.argmax(y, 1), name='correct')
             tensors['correct'] = correct
+            tensors['p'] = p
+
+        with tf.name_scope("visualization"):
+            u_f_flat_2 = tf.reshape(u_f, [N*(C+1), d], name='u_f_flat_2')
+            u_logits_flat = tf.matmul(u_f_flat_2, W, name='u_logits_flat')  # [N*(C+1), V]
+            u_logits = tf.reshape(u_logits_flat, [N, C+1, V], name='u_logits')
+            u_surface = tf.argmax(u_logits, 2, name='u_surface')
+            tensors['u_surface'] = u_surface
 
         with tf.name_scope("loss") as scope:
             with tf.name_scope("ans_loss"):

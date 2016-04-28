@@ -172,6 +172,7 @@ class CRUCell(RNNCell):
         self._num_args = num_args
         self._size = rel_size + arg_size * num_args
         self._cell = GRUCell(rel_size, var_on_cpu=var_on_cpu, wd=wd)
+        self.tensors = {}
 
     @property
     def input_size(self):
@@ -186,10 +187,12 @@ class CRUCell(RNNCell):
         return self._size
 
     def __call__(self, inputs, state, scope=None):
-        with tf.variable_scope(scope or type(self).__name__):
+        scope = scope or type(self).__name__
+        with tf.variable_scope(scope):
+            tensors = self.tensors
+            N, _ = state.get_shape().as_list()
+            R, A, C = self._rel_size, self._arg_size, self._num_args
             with tf.name_scope("Split"):
-                N, _ = state.get_shape().as_list()
-                R, A, C = self._rel_size, self._arg_size, self._num_args
                 ru = tf.slice(state, [0, 0], [-1, R], name='ru')  # [N, d]
                 au_flat = tf.slice(state, [0, R], [-1, -1], name='au_flat')
                 au = tf.reshape(au_flat, [N, C, A], name='au')
@@ -200,7 +203,10 @@ class CRUCell(RNNCell):
 
             with tf.variable_scope("Attention"):
                 p_flat = tf.nn.softmax(linear([ru, rf], 2*C**2, True), name='p_flat')
-                p = tf.reshape(p_flat, [N, C, 2*C])
+                p = tf.reshape(p_flat, [N, C, 2*C], name='p')
+                p_key = "{}/{}".format(scope, 'p')
+                assert p_key not in tensors
+                tensors[p_key] = p
 
             with tf.name_scope("Out"):
                 ru_out, _ = self._cell(rf, ru)  # [N, R]

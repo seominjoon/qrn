@@ -13,7 +13,7 @@ from my.utils import get_pbar
 
 def get_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model_name", type=str, default='modular')
+    parser.add_argument("--model_name", type=str, default='relation')
     parser.add_argument("--config_name", type=str, default='None')
     parser.add_argument("--task", type=str, default='1,2,3')
     parser.add_argument("--data_type", type=str, default='test')
@@ -44,7 +44,7 @@ def list_results(args):
     target_dir = os.path.join(data_dir, task.zfill(2))
 
     epoch = args.epoch
-    evals_dir = os.path.join("evals", model_name, "{}-{}".format(config_name.zfill(2), task))
+    evals_dir = os.path.join("evals", model_name, "{}-{}".format(config_name.zfill(2), task.zfill(2)))
     evals_name = "%s_%s.json" % (data_type, str(epoch).zfill(4))
     evals_path = os.path.join(evals_dir, evals_name)
     evals = json.load(open(evals_path, 'r'))
@@ -90,10 +90,12 @@ def list_results(args):
         facts = [_decode(idx2word_dict, X[id_][s]) for s in S[id_]]
         correct = eval_d['correct']
         attention = eval_d['p']
+        surface = _decode(idx2word_dict, eval_d['u_surface'])
         row = {'id': id_,
                'facts': facts,
                'question': question,
                'attention': attention,
+               'surface': surface,
                'correct': correct}
         rows.append(row)
 
