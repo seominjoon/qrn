@@ -157,11 +157,12 @@ class Tower(BaseTower):
             _, u_f_flat = dynamic_rnn(cru_cell, f_flat, sequence_length=length, initial_state=u_i_flat, dtype='float')
             u_f = tf.reshape(u_f_flat, [N, C+1, d])
             ru_f = tf.squeeze(tf.slice(u_f, [0, 0, 0], [-1, 1, -1]), [1])
+            au_f = tf.slice(u_f, [0, 1, 0], [-1, -1, -1], name='au_f')
 
         with tf.variable_scope("class"):
-            p = tf.nn.softmax(linear([ru_f], C+1, True), name='p')  # [N, C+1]
+            p = tf.nn.softmax(linear([ru_f], C, True), name='p')  # [N, C]
             p_aug = tf.expand_dims(p, -1, name='p_aug')
-            w = tf.reduce_sum(p_aug * u_f, 1, name='w')
+            w = tf.reduce_sum(p_aug * au_f, 1, name='w')
             W = tf.transpose(A.emb_mat, name='W')
             logits = tf.matmul(w, W, name='logits')
             correct = tf.equal(tf.argmax(logits, 1), tf.argmax(y, 1), name='correct')
