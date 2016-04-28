@@ -160,3 +160,50 @@ class GRUCell(RNNCell):
                 c = tf.tanh(linear([inputs, r * state], self._num_units, True, var_on_cpu=self.var_on_cpu, wd=self.wd))
             new_h = u * state + (1 - u) * c
         return new_h, new_h
+
+
+class CRUCell(RNNCell):
+    """Combinatorial Recurrent Unit Implementation
+
+    """
+    def __init__(self, rel_size, arg_size, num_args, var_on_cpu=True, wd=0.0):
+        self._rel_size = rel_size
+        self._arg_size = arg_size
+        self._num_args = num_args
+        self._size = rel_size + arg_size * num_args
+        self._cell = GRUCell(rel_size, var_on_cpu=var_on_cpu, wd=wd)
+
+    def input_size(self):
+        return self._size
+
+    def output_size(self):
+        return self._size
+
+    def state_size(self):
+        return self._size
+
+    def __call__(self, inputs, state, scope=None):
+        with tf.variable_scope(scope or type(self).__name__):
+            with tf.name_scope("Split"):
+                N, _ = state.get_shape().as_list()
+                R, A, C = self._rel_size, self._arg_size, self._num_args
+                ru = tf.slice(state, [0, 0], [-1, R], name='ru')  # [N, d]
+                au_flat = tf.slice(state, [0, R], [-1, -1], name='au_flat')
+                au = tf.reshape(au_flat, [N, C, A], name='au')
+
+                rf = tf.slice(inputs, [0, 0], [-1, R], name='rf')
+                af_flat = tf.slice(inputs, [0, R], [-1, -1], name='af_flat')
+                af = tf.reshape(af_flat, [N, C, A], name='af')
+
+            with tf.variable_scope("Attention"):
+                p_flat = tf.nn.softmax(linear([ru, rf], 2*C**2, True), name='p_flat')
+                p = tf.reshape(p_flat, [N, C, 2*C])
+
+            with tf.name_scope("Out"):
+                ru_out, _ = self._cell(rf, ru)  # [N, R]
+                a = tf.concat(1, [au, af], name='a')
+                a_aug = tf.tile(tf.expand_dims(a, 1), [1, C, 1, 1], name='a_aug')
+                au_out = tf.reduce_sum(a_aug * tf.expand_dims(p, -1), 2, name='au_out')  # [N, C, A]
+                au_out_flat = tf.reshape(au_out, [N, C*A], name='au_out_flat')
+                out = tf.concat(1, [ru_out, au_out_flat], name='out')
+        return out, out
