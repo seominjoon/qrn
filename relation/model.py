@@ -143,18 +143,18 @@ class Tower(BaseTower):
             for arg_idx in range(C):
                 with tf.variable_scope("arg_{}".format(arg_idx)):
                     arg_encoder = GRU(L, d, params.keep_prob, is_train)
-                    au = arg_encoder(Aq, length=q_length, dtype='float', name='au')  # [N, d]
-                    af = arg_encoder(Ax, length=x_length, dtype='float', name='af')  # [N, S, d]
+                    _, au = arg_encoder(Aq, length=q_length, dtype='float', name='au')  # [N, d]
+                    _, af = arg_encoder(Ax, length=x_length, dtype='float', name='af')  # [N, S, d]
                     arg_encoders.append(arg_encoder)
                     aus.append(au)
                     afs.append(af)
 
         with tf.variable_scope("reasoning"):
             u_i_flat = tf.concat(1, [ru] + aus, name='u_i')  # [N, (C+1)*d]
-            f_flat = tf.concat(1, [rf] + afs, name='f')  # [N, S, (C+1)*d]
+            f_flat = tf.concat(2, [rf] + afs, name='f')  # [N, S, (C+1)*d]
             cru_cell = CRUCell(d, d, C)
-            length = tf.reduce_sum(tf.reduce_max(x_mask, 2), 1)
-            u_f_flat = dynamic_rnn(cru_cell, f_flat, sequence_length=length, initial_state=u_i_flat, dtype='float')
+            length = tf.reduce_sum(tf.reduce_max(tf.cast(x_mask, 'float'), 2), 1)
+            _, u_f_flat = dynamic_rnn(cru_cell, f_flat, sequence_length=length, initial_state=u_i_flat, dtype='float')
             u_f = tf.reshape(u_f_flat, [N, C+1, d])
             ru_f = tf.squeeze(tf.slice(u_f, [0, 0, 0], [-1, 1, -1]), [1])
 

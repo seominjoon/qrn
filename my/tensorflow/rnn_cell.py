@@ -173,12 +173,15 @@ class CRUCell(RNNCell):
         self._size = rel_size + arg_size * num_args
         self._cell = GRUCell(rel_size, var_on_cpu=var_on_cpu, wd=wd)
 
+    @property
     def input_size(self):
         return self._size
 
+    @property
     def output_size(self):
         return self._size
 
+    @property
     def state_size(self):
         return self._size
 

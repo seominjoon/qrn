@@ -6,7 +6,7 @@ from pprint import pprint
 import tensorflow as tf
 
 from base_model import BaseRunner
-from modular.model import Tower
+from relation.model import Tower
 from configs.get_config import get_config_from_file, get_config
 from read_data import read_data
 
@@ -51,6 +51,7 @@ flags.DEFINE_integer("max_grad_norm", 40, "Max grad norm. 0 for no clipping [40]
 flags.DEFINE_integer("rnn_num_layers", 1, "RNN number of layers [1]")
 flags.DEFINE_float("keep_prob", 0.5, "Keep probability of RNN inputs [0.5]")
 flags.DEFINE_integer("num_hops", 3, "Number of hops [3]")
+flags.DEFINE_integer("num_args", 2, "Number of arguments [2]")
 
 FLAGS = flags.FLAGS
 
