@@ -90,12 +90,16 @@ def list_results(args):
         facts = [_decode(idx2word_dict, X[id_][s]) for s in S[id_]]
         correct = eval_d['correct']
         attention = eval_d['p']
-        surface = [_decode(idx2word_dict, each) for each in eval_d['u_surface']]
+        u = [_decode(idx2word_dict, each) for each in eval_d['u']]
+        f = [_decode(idx2word_dict, each) for each in eval_d['f']]
+        u_i = _decode(idx2word_dict, eval_d['u_i'])
         row = {'id': id_,
                'facts': facts,
                'question': question,
                'attention': attention,
-               'surface': surface,
+               'u': u,
+               'f': f,
+               'u_i': u_i,
                'correct': correct}
         rows.append(row)
 

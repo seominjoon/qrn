@@ -27,7 +27,9 @@
             <th>Question</th>
             <th>Facts</th>
             <th>Attention</th>
-            <th>Surface</th>
+            <th>Question</th>
+            <th>Outputs</th>
+            <th>Inputs</th>
             <th>Correct?</th>
         </tr>
         {% for row in rows %}
@@ -48,10 +50,18 @@
                         </tr>
                     </table>
                 </td>
+                <td>{{ row.u_i }}</td>
                 <td>
                     <ol>
-                        {% for each in row.surface %}
+                        {% for each in row.f %}
                         <li>{{ each }}</li>
+                        {% endfor %}
+                    </ol>
+                </td>
+                <td>
+                    <ol>
+                        {% for each in row.u %}
+                            <li>{{ each }}</li>
                         {% endfor %}
                     </ol>
                 </td>

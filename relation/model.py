@@ -150,7 +150,7 @@ class Tower(BaseTower):
                     afs.append(af)
 
         with tf.variable_scope("reasoning"):
-            u_i_flat = tf.concat(1, [ru] + aus, name='u_i')  # [N, (C+1)*d]
+            u_i_flat = tf.concat(1, [ru] + aus, name='u_i_flat')  # [N, (C+1)*d]
             f_flat = tf.concat(2, [rf] + afs, name='f')  # [N, S, (C+1)*d]
             cru_cell = CRUCell(d, d, C)
             length = tf.reduce_sum(tf.reduce_max(tf.cast(x_mask, 'float'), 2), 1)
@@ -176,7 +176,19 @@ class Tower(BaseTower):
             u_logits_flat = tf.matmul(u_flat_2, W, name='u_logits_flat')
             u_logits = tf.reshape(u_logits_flat, [N, S, C+1, V], name='u_logits')
             u_surface = tf.argmax(u_logits, 3, name='u_surface')
-            tensors['u_surface'] = u_surface
+            tensors['u'] = u_surface
+
+            u_i_flat_2 = tf.reshape(u_i_flat, [N*(C+1), d], name='u_i_flat_2')
+            u_i_logits_flat = tf.matmul(u_i_flat_2, W, name='u_i_logits_flat')
+            u_i_logits = tf.reshape(u_i_logits_flat, [N, C+1, V], name='u_i_logits')
+            u_i_surface = tf.argmax(u_i_logits, 2, name='u_i_surface')
+            tensors['u_i'] = u_i_surface
+
+            f_flat_2 = tf.reshape(f_flat, [N*S*(C+1), d], name='f_flat_2')
+            f_logits_flat = tf.matmul(f_flat_2, W, name='f_logits_flat')
+            f_logits = tf.reshape(f_logits_flat, [N, S, C+1, V], name='f_logits')
+            f_surface = tf.argmax(f_logits, 3, name='f_logits')
+            tensors['f'] = f_surface
 
 
         with tf.name_scope("loss") as scope:
