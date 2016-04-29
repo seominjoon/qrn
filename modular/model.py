@@ -2,7 +2,7 @@ import tensorflow as tf
 # from tensorflow.python.ops.rnn import dynamic_rnn
 from tensorflow.python.ops.rnn_cell import DropoutWrapper, MultiRNNCell
 
-from base_model import BaseTower
+from modular.base_model import BaseTower
 from my.tensorflow import flatten
 from my.tensorflow.nn import linear
 from my.tensorflow.rnn import dynamic_rnn
@@ -105,6 +105,7 @@ class Tower(BaseTower):
         params = self.params
         placeholders = self.placeholders
         tensors = self.tensors
+        variables_dict = self.variables_dict
         N, J, V, Q, S = params.batch_size, params.max_sent_size, params.vocab_size, params.max_ques_size, params.max_num_sups
         O = params.num_ops
         d = params.hidden_size
@@ -149,14 +150,17 @@ class Tower(BaseTower):
             _, u = encoder(Aq, length=q_length, dtype='float', name='u')  # [N, d]
             _, f = encoder(Ax, length=x_length, dtype='float', name='f')  # [N, S, d]
 
-        with tf.variable_scope("rule"):
+        with tf.variable_scope("inference"):
             f_flat = tf.reshape(f, [N, S * d], name='f_flat')
             g_flat = tf.tanh(linear([u, f_flat], O*d, True, scope='split'), name='g_flat')
             g = tf.reshape(g_flat, [N, O, d], name='g')
+
+        with tf.variable_scope("selection") as scope:
             p = tf.nn.softmax(linear([u, f_flat], O, True, scope='attention'), name='p')
             p_aug = tf.expand_dims(p, -1, name='p_aug')
             h = tf.reduce_sum(g * p_aug, 1, name='h')  # [N, d]
             tensors['p'] = p
+            variables_dict['sel'] = tf.get_collection(tf.GraphKeys.VARIABLES, scope=scope.name)
 
         with tf.variable_scope("class"):
             w = tf.tanh(linear([h], d, True), name='u_f')  # [N, d]
@@ -174,6 +178,9 @@ class Tower(BaseTower):
             losses = tf.get_collection('losses', scope=scope)
             loss = tf.add_n(losses, name='loss')
             tensors['loss'] = loss
+
+        variables_dict['all'] = tf.all_variables()
+
 
     def get_feed_dict(self, batch, mode, **kwargs):
         params = self.params
