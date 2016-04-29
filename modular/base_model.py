@@ -1,6 +1,7 @@
 import itertools
 import json
 import os
+from collections import defaultdict
 
 import numpy as np
 import tensorflow as tf
@@ -49,7 +50,7 @@ class BaseRunner(object):
         else:
             raise Exception()
 
-        grads_tensors = []
+        grads_pairs_dict = defaultdict(list)
         correct_tensors = []
         loss_tensors = []
         for device_id, tower in enumerate(self.towers):
@@ -61,37 +62,38 @@ class BaseRunner(object):
                 correct_tensor = tower.get_correct_tensor()
                 correct_tensors.append(correct_tensor)
 
-
-                grads_tensor = opt.compute_gradients(loss_tensor)
-                grads_tensors.append(grads_tensor)
+                for key, variables in tower.variables_dict.items():
+                    grads_pair = opt.compute_gradients(loss_tensor, var_list=variables)
+                    grads_pairs_dict[key].append(grads_pair)
 
         with tf.name_scope("gpu_sync"):
             loss_tensor = tf.reduce_mean(tf.pack(loss_tensors), 0, name='loss')
             correct_tensor = tf.concat(0, correct_tensors, name="correct")
             with tf.name_scope("average_gradients"):
-                grads_tensor = average_gradients(grads_tensors)
+                grads_pair_dict = {key: average_gradients(grads_pairs)
+                                   for key, grads_pairs in grads_pairs_dict.items()}
                 if params.max_grad_norm:
-                    grads_tensor = [(tf.clip_by_norm(grad, params.max_grad_norm), var)
-                                    for grad, var in grads_tensor]
-
-
+                    grads_pair_dict = {key: [(tf.clip_by_norm(grad, params.max_grad_norm), var)
+                                             for grad, var in grads_pair]
+                                       for key, grads_pair in grads_pair_dict.items()}
 
         self.tensors['loss'] = loss_tensor
         self.tensors['correct'] = correct_tensor
         summaries.append(tf.scalar_summary(loss_tensor.op.name, loss_tensor))
 
-        for grad, var in grads_tensor:
-            if grad is not None:
-                summaries.append(tf.histogram_summary(var.op.name+'/gradients', grad))
-        self.tensors['grads'] = grads_tensor
+        for key, grads_pair in grads_pair_dict.items():
+            for grad, var in grads_pair:
+                if grad is not None:
+                    summaries.append(tf.histogram_summary(var.op.name+'/gradients/'+key, grad))
 
         for var in tf.trainable_variables():
             summaries.append(tf.histogram_summary(var.op.name, var))
 
-        apply_grads_op = opt.apply_gradients(grads_tensor, global_step=global_step)
+        apply_grads_op_dict = {key: opt.apply_gradients(grads_pair, global_step=global_step)
+                               for key, grads_pair in grads_pair_dict.items()}
 
-        train_op = tf.group(apply_grads_op)
-        self.tensors['train'] = train_op
+        self.train_ops = {key: tf.group(apply_grads_op)
+                          for key, apply_grads_op in apply_grads_op_dict.items()}
 
         saver = tf.train.Saver(tf.all_variables())
         self.saver = saver
@@ -115,11 +117,12 @@ class BaseRunner(object):
             feed_dict.update(cur_feed_dict)
         return feed_dict
 
-    def _train_batches(self, batches, **kwargs):
+    def _train_batches(self, batches, train_op_key='all', **kwargs):
         sess = self.sess
         tensors = self.tensors
         feed_dict = self._get_feed_dict(batches, 'train', **kwargs)
-        ops = [tensors[name] for name in ['train', 'summary', 'global_step']]
+        train_op = self.train_ops[train_op_key]
+        ops = [train_op, tensors['summary'], tensors['global_step']]
         train, summary, global_step = sess.run(ops, feed_dict=feed_dict)
         return train, summary, global_step
 
@@ -139,16 +142,16 @@ class BaseRunner(object):
 
         return (num_corrects, loss, summary, global_step), valuess
 
-    def train(self, train_data_set, val_data_set=None, eval_tensor_names=()):
+    def train(self, train_data_set, num_epochs, val_data_set=None,
+              eval_tensor_names=(), train_op_key='all', num_batches=None, val_num_batches=None):
         assert isinstance(train_data_set, DataSet)
         assert self.initialized, "Initialize tower before training."
-        # TODO : allow partial batch
 
         sess = self.sess
         writer = self.writer
         params = self.params
-        num_epochs = params.num_epochs
-        num_batches = params.train_num_batches if params.train_num_batches >= 0 else train_data_set.get_num_batches(partial=False)
+        # if num batches is specified, then train only that many
+        num_batches = num_batches or train_data_set.get_num_batches(partial=False)
         num_iters_per_epoch = int(num_batches / self.num_towers)
         num_digits = int(np.log10(num_batches))
 
@@ -162,7 +165,7 @@ class BaseRunner(object):
             pbar = get_pbar(num_iters_per_epoch, "epoch %s|" % str(epoch+1).zfill(num_digits)).start()
             for iter_idx in range(num_iters_per_epoch):
                 batches = [train_data_set.get_next_labeled_batch() for _ in range(self.num_towers)]
-                _, summary, global_step = self._train_batches(batches, **train_args)
+                _, summary, global_step = self._train_batches(batches, train_op_key=train_op_key, **train_args)
                 writer.add_summary(summary, global_step)
                 pbar.update(iter_idx)
             pbar.finish()
@@ -172,22 +175,20 @@ class BaseRunner(object):
             _, epoch = sess.run([assign_op, epoch_op])
 
             if val_data_set and epoch % params.val_period == 0:
-                self.eval(train_data_set, is_val=True, eval_tensor_names=eval_tensor_names)
-                self.eval(val_data_set, is_val=True, eval_tensor_names=eval_tensor_names)
+                self.eval(train_data_set, eval_tensor_names=eval_tensor_names, num_batches=val_num_batches)
+                self.eval(val_data_set, eval_tensor_names=eval_tensor_names, num_batches=val_num_batches)
 
             if epoch % params.save_period == 0:
                 self.save()
 
-    def eval(self, data_set, is_val=False, eval_tensor_names=()):
+    def eval(self, data_set, eval_tensor_names=(), num_batches=None):
         assert isinstance(data_set, DataSet)
         assert self.initialized, "Initialize tower before training."
 
         params = self.params
         sess = self.sess
         epoch_op = self.tensors['epoch']
-        dn = data_set.get_num_batches(partial=True)
-        pn = params.val_num_batches if is_val else params.test_num_batches
-        num_batches = pn if 0 <= pn <= dn else dn
+        num_batches = num_batches or data_set.get_num_batches(partial=True)
         num_iters = int(np.ceil(num_batches / self.num_towers))
         num_corrects, total, total_loss = 0, 0, 0.0
         eval_values = []

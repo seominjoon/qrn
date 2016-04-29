@@ -5,7 +5,7 @@ from pprint import pprint
 
 import tensorflow as tf
 
-from base_model import BaseRunner
+from modular.base_model import BaseRunner
 from modular.model import Tower
 from configs.get_config import get_config_from_file, get_config
 from read_data import read_data
@@ -28,9 +28,9 @@ flags.DEFINE_string("opt", 'basic', 'Optimizer: basic | adagrad [basic]')
 
 # Training and testing options
 flags.DEFINE_boolean("train", False, "Train? Test if False [False]")
-flags.DEFINE_integer("val_num_batches", -1, "Val num batches. -1 for max possible. [-1]")
-flags.DEFINE_integer("train_num_batches", -1, "Train num batches. -1 for max possible [-1]")
-flags.DEFINE_integer("test_num_batches", -1, "Test num batches. -1 for max possible [-1]")
+flags.DEFINE_integer("val_num_batches", 0, "Val num batches. 0 for max possible. [0]")
+flags.DEFINE_integer("train_num_batches", 0, "Train num batches. 0 for max possible [0]")
+flags.DEFINE_integer("test_num_batches", 0, "Test num batches. 0 for max possible [0]")
 flags.DEFINE_boolean("load", False, "Load from saved model? [False]")
 flags.DEFINE_boolean("progress", True, "Show progress bar? [True]")
 flags.DEFINE_string("device_type", 'cpu', "cpu | gpu [cpu]")
@@ -162,10 +162,12 @@ def main(_):
         if config.train:
             if config.load:
                 runner.load()
-            runner.train(train_ds, dev_ds, eval_tensor_names=eval_tensor_names)
+            runner.train(train_ds, config.num_epochs, val_data_set=dev_ds, eval_tensor_names=eval_tensor_names,
+                         num_batches=config.train_num_batches, val_num_batches=config.val_num_batches)
         else:
             runner.load()
-            runner.eval(test_ds, eval_tensor_names=eval_tensor_names)
+            runner.eval(test_ds, eval_tensor_names=eval_tensor_names,
+                        num_batches=config.test_num_batches)
 
 
 if __name__ == "__main__":

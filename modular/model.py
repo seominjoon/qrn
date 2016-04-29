@@ -160,7 +160,7 @@ class Tower(BaseTower):
             p_aug = tf.expand_dims(p, -1, name='p_aug')
             h = tf.reduce_sum(g * p_aug, 1, name='h')  # [N, d]
             tensors['p'] = p
-            variables_dict['sel'] = tf.get_collection(tf.GraphKeys.VARIABLES, scope=scope.name)
+            variables_dict['sel'] = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=scope.name)
 
         with tf.variable_scope("class"):
             w = tf.tanh(linear([h], d, True), name='u_f')  # [N, d]
@@ -179,8 +179,7 @@ class Tower(BaseTower):
             loss = tf.add_n(losses, name='loss')
             tensors['loss'] = loss
 
-        variables_dict['all'] = tf.all_variables()
-
+        variables_dict['all'] = tf.trainable_variables()
 
     def get_feed_dict(self, batch, mode, **kwargs):
         params = self.params
