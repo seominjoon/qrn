@@ -2,6 +2,9 @@ import tensorflow as tf
 from functools import reduce
 from operator import mul
 
+VERY_SMALL_NUMBER = -1e-10
+VERY_BIG_NUMBER = 1e10
+
 
 def variable_on_cpu(name, shape, initializer):
     """Helper to create a Variable stored on CPU memory.
@@ -93,3 +96,17 @@ def flatten(shape, dim=1):
     out = [reduce(mul, shape[:len(shape)-keep], 1)] + shape[len(shape)-keep:]
     return out
 
+
+def exp_mask(val, mask, name="masked_val"):
+    """Give very negative number to unmasked elements in val.
+    For example, [-3, -2, 10], [True, True, False] -> [-3, -2, -1e10].
+    Typically, this effectively masks in exponential space (e.g. softmax)
+    Args:
+        val: values to be masked
+        mask: masking boolean tensor, same shape as tensor
+        name: name for output tensor
+
+    Returns:
+        Same shape as val, where some elements are very small (exponentially zero)
+    """
+    return tf.add(val, (1 - tf.cast(mask, 'float')) * VERY_SMALL_NUMBER, name=name)

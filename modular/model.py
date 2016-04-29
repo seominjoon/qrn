@@ -2,13 +2,15 @@ import tensorflow as tf
 # from tensorflow.python.ops.rnn import dynamic_rnn
 from tensorflow.python.ops.rnn_cell import DropoutWrapper, MultiRNNCell
 
-from modular.base_model import BaseTower
-from my.tensorflow import flatten
+from modular.base_model import BaseTower, BaseRunner
+from my.tensorflow import flatten, exp_mask
 from my.tensorflow.nn import linear
 from my.tensorflow.rnn import dynamic_rnn
 import numpy as np
 
 from my.tensorflow.rnn_cell import BasicLSTMCell, GRUCell
+from my.utils import get_pbar
+from read_data import DataSet
 
 
 class Embedder(object):
@@ -107,7 +109,7 @@ class Tower(BaseTower):
         tensors = self.tensors
         variables_dict = self.variables_dict
         N, J, V, Q, S = params.batch_size, params.max_sent_size, params.vocab_size, params.max_ques_size, params.max_num_sups
-        O = params.num_ops
+        O = params.num_modules
         d = params.hidden_size
         with tf.name_scope("placeholders"):
             x = tf.placeholder('int32', shape=[N, S, J], name='x')
@@ -123,6 +125,7 @@ class Tower(BaseTower):
             h_eos = tf.placeholder('int32', shape=[N, J+1], name='h')
             h_eos_mask = tf.placeholder('bool', shape=[N, J+1], name='h_eos_mask')
             # h_length = tf.placeholder('int32', shape=[N], name='h_length')
+            p_mask = tf.placeholder('bool', shape=[O], name='p_mask')
             is_train = tf.placeholder('bool', shape=[], name='is_train')
             placeholders['x'] = x
             placeholders['x_length'] = x_length
@@ -136,6 +139,7 @@ class Tower(BaseTower):
             placeholders['y'] = y
             placeholders['h_eos'] = h_eos
             placeholders['h_eos_mask'] = h_eos_mask
+            placeholders['p_mask'] = p_mask
             placeholders['is_train'] = is_train
 
         with tf.variable_scope("embedding"):
@@ -156,7 +160,8 @@ class Tower(BaseTower):
             g = tf.reshape(g_flat, [N, O, d], name='g')
 
         with tf.variable_scope("selection") as scope:
-            p = tf.nn.softmax(linear([u, f_flat], O, True, scope='attention'), name='p')
+            p_logits = linear([u, f_flat], O, True, scope='attention')
+            p = tf.nn.softmax(exp_mask(p_logits, p_mask))
             p_aug = tf.expand_dims(p, -1, name='p_aug')
             h = tf.reduce_sum(g * p_aug, 1, name='h')  # [N, d]
             tensors['p'] = p
@@ -185,6 +190,7 @@ class Tower(BaseTower):
         params = self.params
         eos_idx = params.eos_idx
         N, J, V, S = params.batch_size, params.max_sent_size, params.vocab_size, params.max_num_sups
+        O = params.num_modules
         x = np.zeros([N, S, J], dtype='int32')
         x_length = np.zeros([N, S], dtype='int32')
         eos_x = np.zeros([N, S, J+1], dtype='int32')
@@ -197,6 +203,8 @@ class Tower(BaseTower):
         y = np.zeros([N, V], dtype='bool')
         h_eos = np.zeros([N, J+1], dtype='int32')
         h_eos_mask = np.zeros([N, J+1], dtype='bool')
+        p_mask = np.zeros([O], dtype='bool')
+        module_idx = kwargs['module_idx']
 
         ph = self.placeholders
         feed_dict = {ph['x']: x, ph['eos_x']: eos_x, ph['x_eos']: x_eos,
@@ -205,7 +213,8 @@ class Tower(BaseTower):
                      ph['q']: q, ph['q_mask']: q_mask, ph['q_length']: q_length,
                      ph['y']: y,
                      ph['h_eos']: h_eos, ph['h_eos_mask']: h_eos_mask,
-                     ph['is_train']: mode == 'train'}
+                     ph['is_train']: mode == 'train',
+                     ph['p_mask']: p_mask}
         if batch is None:
             return feed_dict
 
@@ -239,4 +248,64 @@ class Tower(BaseTower):
                 h_eos_mask[i, j] = True
             h_eos[i, len(hypo)] = eos_idx
             h_eos_mask[i, len(hypo)] = True
+
+        for i in range(O):
+            if module_idx in [-1, i]:
+                p_mask[i] = True
+
         return feed_dict
+
+
+class Runner(BaseRunner):
+    def seq_train(self, train_data_sets, combined_train_data_set, num_epochs, val_data_set=None,
+              eval_tensor_names=(), num_batches=None, val_num_batches=None):
+        assert self.initialized, "Initialize tower before training."
+
+        sess = self.sess
+        writer = self.writer
+        params = self.params
+        num_modules = params.num_modules
+
+        epoch_op = self.tensors['epoch']
+        epoch = sess.run(epoch_op)
+
+        # for each module
+        assert len(train_data_sets) == num_modules
+        for module_idx, train_data_set in enumerate(train_data_sets):
+            assert isinstance(train_data_set, DataSet)
+            num_batches = num_batches or train_data_set.get_num_batches(partial=False)
+            num_iters_per_epoch = int(num_batches / self.num_towers)
+            num_digits = int(np.log10(num_batches))
+
+            print("module idx %d: training %d epochs ... " % (module_idx, num_epochs))
+            print("num iters per epoch: %d" % num_iters_per_epoch)
+
+            for _ in range(num_epochs):
+                train_args = self._get_train_args(epoch)
+                pbar = get_pbar(num_iters_per_epoch, "epoch %s|" % str(epoch+1).zfill(num_digits)).start()
+                for iter_idx in range(num_iters_per_epoch):
+                    batches = [train_data_set.get_next_labeled_batch() for _ in range(self.num_towers)]
+                    _, summary, global_step = self._train_batches(batches, train_op_key='all',
+                                                                  module_idx=module_idx, **train_args)
+                    writer.add_summary(summary, global_step)
+                    pbar.update(iter_idx)
+                pbar.finish()
+                train_data_set.complete_epoch()
+
+                assign_op = epoch_op.assign_add(1)
+                _, epoch = sess.run([assign_op, epoch_op])
+
+        'sel'
+
+
+
+
+
+            """
+            if val_data_set and epoch % params.val_period == 0:
+                self.eval(train_data_set, eval_tensor_names=eval_tensor_names, num_batches=val_num_batches)
+                self.eval(val_data_set, eval_tensor_names=eval_tensor_names, num_batches=val_num_batches)
+
+            if epoch % params.save_period == 0:
+                self.save()
+            """

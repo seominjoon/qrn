@@ -5,8 +5,7 @@ from pprint import pprint
 
 import tensorflow as tf
 
-from modular.base_model import BaseRunner
-from modular.model import Tower
+from modular.model import Tower, Runner
 from configs.get_config import get_config_from_file, get_config
 from read_data import read_data
 
@@ -50,7 +49,7 @@ flags.DEFINE_integer("hidden_size", 50, "Hidden size. [50]")
 flags.DEFINE_integer("max_grad_norm", 40, "Max grad norm. 0 for no clipping [40]")
 flags.DEFINE_integer("rnn_num_layers", 1, "RNN number of layers [1]")
 flags.DEFINE_float("keep_prob", 0.5, "Keep probability of RNN inputs [0.5]")
-flags.DEFINE_integer("num_ops", 3, "Number of different operators [3]")
+flags.DEFINE_integer("num_modules", 3, "Number of different modules [3]")
 
 FLAGS = flags.FLAGS
 
@@ -156,7 +155,7 @@ def main(_):
     towers = [Tower(config) for _ in range(config.num_devices)]
     sess = tf.Session(graph=graph, config=tf.ConfigProto(allow_soft_placement=True))
     # TODO : initialize BaseRunner-subclassed object
-    runner = BaseRunner(config, sess, towers)
+    runner = Runner(config, sess, towers)
     with graph.as_default(), tf.device("/cpu:0"):
         runner.initialize()
         if config.train:
