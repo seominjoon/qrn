@@ -8,7 +8,7 @@ import tensorflow as tf
 
 from my.tensorflow import average_gradients
 from my.utils import get_pbar
-from read_data import DataSet
+from modular.read_data import DataSet
 
 
 class BaseRunner(object):

@@ -7,7 +7,7 @@ import tensorflow as tf
 
 from modular.model import Tower, Runner
 from configs.get_config import get_config_from_file, get_config
-from read_data import read_data
+from modular.read_data import read_data, read_one_data
 
 flags = tf.app.flags
 
@@ -49,7 +49,7 @@ flags.DEFINE_integer("hidden_size", 50, "Hidden size. [50]")
 flags.DEFINE_integer("max_grad_norm", 40, "Max grad norm. 0 for no clipping [40]")
 flags.DEFINE_integer("rnn_num_layers", 1, "RNN number of layers [1]")
 flags.DEFINE_float("keep_prob", 0.5, "Keep probability of RNN inputs [0.5]")
-flags.DEFINE_integer("num_modules", 3, "Number of different modules [3]")
+flags.DEFINE_integer("num_modules", 20, "Number of different modules [3]")
 
 FLAGS = flags.FLAGS
 
@@ -130,10 +130,13 @@ def main(_):
 
     # load other files
     if config.train:
-        train_ds = read_data(config, 'train')
-        dev_ds = read_data(config, 'dev')
+        train_dss = read_data(config, 'train')
+        comb_train_ds = read_one_data(config, 'train', 'all')
+        dev_dss = read_data(config, 'dev')
+        comb_dev_ds = read_one_data(config, 'dev', 'all')
     else:
-        test_ds = read_data(config, 'test')
+        test_dss = read_data(config, 'test')
+        comb_test_ds = read_one_data(config, 'test', 'all')
 
     # For quick draft initialize (deubgging).
     if config.draft:
@@ -161,11 +164,13 @@ def main(_):
         if config.train:
             if config.load:
                 runner.load()
-            runner.train(train_ds, config.num_epochs, val_data_set=dev_ds, eval_tensor_names=eval_tensor_names,
-                         num_batches=config.train_num_batches, val_num_batches=config.val_num_batches)
+            runner.seq_train(train_dss, comb_train_ds, config.num_epochs,
+                             val_data_sets=dev_dss, combined_val_data_set=comb_dev_ds,
+                             eval_tensor_names=eval_tensor_names,
+                             num_batches=config.train_num_batches, val_num_batches=config.val_num_batches)
         else:
             runner.load()
-            runner.eval(test_ds, eval_tensor_names=eval_tensor_names,
+            runner.eval(comb_test_ds, eval_tensor_names=eval_tensor_names,
                         num_batches=config.test_num_batches)
 
 

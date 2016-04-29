@@ -10,7 +10,7 @@ import numpy as np
 
 from my.tensorflow.rnn_cell import BasicLSTMCell, GRUCell
 from my.utils import get_pbar
-from read_data import DataSet
+from modular.read_data import DataSet
 
 
 class Embedder(object):
@@ -257,8 +257,9 @@ class Tower(BaseTower):
 
 
 class Runner(BaseRunner):
-    def seq_train(self, train_data_sets, combined_train_data_set, num_epochs, val_data_set=None,
-              eval_tensor_names=(), num_batches=None, val_num_batches=None):
+    def seq_train(self, train_data_sets, combined_train_data_set, num_epochs, val_data_sets=None,
+                  combined_val_data_set=None, eval_tensor_names=(), num_batches=None, val_num_batches=None):
+
         assert self.initialized, "Initialize tower before training."
 
         sess = self.sess
@@ -295,17 +296,36 @@ class Runner(BaseRunner):
                 assign_op = epoch_op.assign_add(1)
                 _, epoch = sess.run([assign_op, epoch_op])
 
-        'sel'
+                if val_data_sets and epoch % params.val_period == 0:
+                    self.eval(train_data_set, eval_tensor_names=eval_tensor_names, num_batches=val_num_batches)
+                    self.eval(val_data_sets[module_idx], eval_tensor_names=eval_tensor_names, num_batches=val_num_batches)
+                if epoch % params.save_period == 0:
+                    self.save()
 
+        # attention only
+        assert isinstance(combined_train_data_set, DataSet)
+        num_batches = num_batches or combined_train_data_set.get_num_batches(partial=False)
+        num_iters_per_epoch = int(num_batches / self.num_towers)
+        num_digits = int(np.log10(num_batches))
 
+        print("combined: training %d epochs ... " % num_epochs)
+        print("num iters per epoch: %d" % num_iters_per_epoch)
 
+        for _ in range(num_epochs):
+            train_args = self._get_train_args(epoch)
+            pbar = get_pbar(num_iters_per_epoch, "epoch %s|" % str(epoch+1).zfill(num_digits)).start()
+            for iter_idx in range(num_iters_per_epoch):
+                batches = [train_data_set.get_next_labeled_batch() for _ in range(self.num_towers)]
+                _, summary, global_step = self._train_batches(batches, train_op_key='sel',
+                                                              module_idx=-1, **train_args)
+                writer.add_summary(summary, global_step)
+                pbar.update(iter_idx)
+            pbar.finish()
+            train_data_set.complete_epoch()
 
+            assign_op = epoch_op.assign_add(1)
+            _, epoch = sess.run([assign_op, epoch_op])
 
-            """
-            if val_data_set and epoch % params.val_period == 0:
-                self.eval(train_data_set, eval_tensor_names=eval_tensor_names, num_batches=val_num_batches)
-                self.eval(val_data_set, eval_tensor_names=eval_tensor_names, num_batches=val_num_batches)
-
-            if epoch % params.save_period == 0:
-                self.save()
-            """
+            if combined_val_data_set and epoch % params.val_period == 0:
+                self.eval(combined_train_data_set, eval_tensor_names=eval_tensor_names, num_batches=val_num_batches)
+                self.eval(combined_val_data_set, eval_tensor_names=eval_tensor_names, num_batches=val_num_batches)
