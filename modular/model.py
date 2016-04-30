@@ -204,7 +204,7 @@ class Tower(BaseTower):
         h_eos = np.zeros([N, J+1], dtype='int32')
         h_eos_mask = np.zeros([N, J+1], dtype='bool')
         p_mask = np.zeros([O], dtype='bool')
-        module_idx = kwargs['module_idx']
+        module_idx = kwargs['module_idx'] if 'module_idx' in kwargs else -1
 
         ph = self.placeholders
         feed_dict = {ph['x']: x, ph['eos_x']: eos_x, ph['x_eos']: x_eos,
@@ -297,8 +297,10 @@ class Runner(BaseRunner):
                 _, epoch = sess.run([assign_op, epoch_op])
 
                 if val_data_sets and epoch % params.val_period == 0:
-                    self.eval(train_data_set, eval_tensor_names=eval_tensor_names, num_batches=val_num_batches)
-                    self.eval(val_data_sets[module_idx], eval_tensor_names=eval_tensor_names, num_batches=val_num_batches)
+                    self.eval(train_data_set, eval_tensor_names=eval_tensor_names, num_batches=val_num_batches,
+                              module_idx=module_idx)
+                    self.eval(val_data_sets[module_idx], eval_tensor_names=eval_tensor_names,
+                              num_batches=val_num_batches, module_idx=module_idx)
                 if epoch % params.save_period == 0:
                     self.save()
 

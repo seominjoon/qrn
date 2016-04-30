@@ -126,11 +126,11 @@ class BaseRunner(object):
         train, summary, global_step = sess.run(ops, feed_dict=feed_dict)
         return train, summary, global_step
 
-    def _eval_batches(self, batches, eval_tensor_names=()):
+    def _eval_batches(self, batches, eval_tensor_names=(), **eval_kwargs):
         sess = self.sess
         tensors = self.tensors
         num_examples = sum(len(batch[0]) for batch in batches)
-        feed_dict = self._get_feed_dict(batches, 'eval')
+        feed_dict = self._get_feed_dict(batches, 'eval', **eval_kwargs)
         ops = [tensors[name] for name in ['correct', 'loss', 'summary', 'global_step']]
         correct, loss, summary, global_step = sess.run(ops, feed_dict=feed_dict)
         num_corrects = np.sum(correct[:num_examples])
@@ -181,7 +181,7 @@ class BaseRunner(object):
             if epoch % params.save_period == 0:
                 self.save()
 
-    def eval(self, data_set, eval_tensor_names=(), num_batches=None):
+    def eval(self, data_set, eval_tensor_names=(), num_batches=None, **eval_kwargs):
         assert isinstance(data_set, DataSet)
         assert self.initialized, "Initialize tower before training."
 
@@ -205,7 +205,7 @@ class BaseRunner(object):
                     idxs.extend(data_set.get_batch_idxs(partial=True))
                     batches.append(data_set.get_next_labeled_batch(partial=True))
             (cur_num_corrects, cur_avg_loss, _, global_step), eval_value_batches = \
-                self._eval_batches(batches, eval_tensor_names=eval_tensor_names)
+                self._eval_batches(batches, eval_tensor_names=eval_tensor_names, **eval_kwargs)
             num_corrects += cur_num_corrects
             cur_num = sum(len(batch[0]) for batch in batches)
             total += cur_num

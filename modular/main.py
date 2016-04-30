@@ -44,7 +44,7 @@ flags.DEFINE_boolean("draft", False, "Draft? (quick initialize) [False]")
 
 # App-specific options
 # TODO : Any other options
-flags.DEFINE_string("task", "1", "Task number. [1]")
+flags.DEFINE_string("task", "all", "Task number. [all]")
 flags.DEFINE_integer("hidden_size", 50, "Hidden size. [50]")
 flags.DEFINE_integer("max_grad_norm", 40, "Max grad norm. 0 for no clipping [40]")
 flags.DEFINE_integer("rnn_num_layers", 1, "RNN number of layers [1]")

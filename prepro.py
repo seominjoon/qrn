@@ -37,6 +37,14 @@ def get_args():
     return args
 
 
+def prepro_each(args):
+    args.task = 'all'
+    prepro(args)
+    for task in map(str, range(1, 21)):
+        args.task = task
+        prepro(args)
+
+
 def prepro(args):
     source_dir = args.source_dir
     target_dir = args.target_dir
@@ -44,6 +52,10 @@ def prepro(args):
     task = args.task
     is_large = args.large
     dev_ratio = args.dev_ratio
+
+    if task == 'each':
+        prepro_each(args)
+        return
 
     all_tasks = list(map(str, range(1, 21)))
     tasks = all_tasks if task == 'all' else task.split(",")
@@ -74,7 +86,7 @@ def prepro(args):
         os.makedirs(target_parent_dir)
     _save_data(word2idx_dict, data, target_parent_dir)
     mode2idxs_path = os.path.join(target_parent_dir, "mode2idxs.json")
-    json.dump(mode2idxs_dict, open(mode2idxs_path, 'w'))
+    with open(mode2idxs_path, 'w') as fh: json.dump(mode2idxs_dict, fh)
 
 
 def _apply_word2idx(word2idx_dict, raw_data):
@@ -108,9 +120,9 @@ def _save_data(word2idx_dict, data, target_dir):
     word2idx_path = os.path.join(target_dir, "word2idx.json")
     data_path = os.path.join(target_dir, "data.json")
     metadata_path = os.path.join(target_dir, "metadata.json")
-    json.dump(word2idx_dict, open(word2idx_path, 'w'))
-    json.dump(data, open(data_path, 'w'))
-    json.dump(metadata, open(metadata_path, 'w'))
+    with open(word2idx_path, 'w') as fh: json.dump(word2idx_dict, fh)
+    with open(data_path, 'w') as fh: json.dump(data, fh)
+    with open(metadata_path, 'w') as fh: json.dump(metadata, fh)
 
 
 def _normalize(word):
