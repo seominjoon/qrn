@@ -37,14 +37,6 @@ def get_args():
     return args
 
 
-def prepro_each(args):
-    args.task = 'all'
-    prepro(args)
-    for task in map(str, range(1, 21)):
-        args.task = task
-        prepro(args)
-
-
 def prepro(args):
     source_dir = args.source_dir
     target_dir = args.target_dir
@@ -52,10 +44,6 @@ def prepro(args):
     task = args.task
     is_large = args.large
     dev_ratio = args.dev_ratio
-
-    if task == 'each':
-        prepro_each(args)
-        return
 
     all_tasks = list(map(str, range(1, 21)))
     tasks = all_tasks if task == 'all' else task.split(",")
@@ -66,8 +54,8 @@ def prepro(args):
 
     for cur_task in tasks:
         source_train_path, source_test_path = _get_source_paths(source_dir, lang, is_large, cur_task)
-        train_raw_data_list.append(_get_data(source_train_path))
-        test_raw_data_list.append(_get_data(source_test_path))
+        train_raw_data_list.append(_get_data(source_train_path, cur_task))
+        test_raw_data_list.append(_get_data(source_test_path, cur_task))
         train_size += len(train_raw_data_list[-1][0])
         test_size += len(test_raw_data_list[-1][0])
 
@@ -90,12 +78,12 @@ def prepro(args):
 
 
 def _apply_word2idx(word2idx_dict, raw_data):
-    paras, questions, S, answers, hypos = raw_data
+    paras, questions, S, answers, hypos, tasks = raw_data
     X = [[[_word2idx(word2idx_dict, word) for word in sent] for sent in para] for para in paras]
     Q = [[_word2idx(word2idx_dict, word) for word in ques] for ques in questions]
     Y = [_word2idx(word2idx_dict, word) for word in answers]
     H = [[_word2idx(word2idx_dict, word) for word in hypo] for hypo in hypos]
-    data = [X, Q, S, Y, H]
+    data = [X, Q, S, Y, H, tasks]
     return data
 
 
@@ -105,7 +93,7 @@ def _word2idx(word2idx_dict, word):
 
 
 def _save_data(word2idx_dict, data, target_dir):
-    X, Q, S, Y, H = data
+    X, Q, S, Y, H, T = data
     max_fact_size = max(len(sent) for para in X for sent in para)
     max_ques_size = max(len(ques) for ques in Q)
     max_hypo_size = max(len(hypo) for hypo in H)
@@ -131,7 +119,7 @@ def _normalize(word):
 
 
 def _get_word2idx_dict(data):
-    paras, questions, supports, answers, hypos = data
+    paras, questions, supports, answers, hypos, tasks = data
     vocab_set = set(_normalize(word) for para in paras for sent in para for word in sent)
     vocab_set |= set(_normalize(word) for question in questions for word in question)
     vocab_set |= set(_normalize(word) for word in answers)
@@ -152,7 +140,7 @@ _s_re = re.compile("^(\\d+) ([\\w\\s.]+)")
 _q_re = re.compile("^(\\d+) ([\\w\\s\\?]+)\t([\\w,]+)\t([\\d+ ]+)")
 
 
-def _get_data(file_path):
+def _get_data(file_path, cur_task):
     paragraphs = []
     questions = []
     supports = []
@@ -188,8 +176,9 @@ def _get_data(file_path):
         else:
             logging.error("Line %d is invalid at %s." % (line_num + 1, file_path))
     print("Loaded %d examples from %s" % (len(paragraphs), os.path.basename(file_path)))
+    tasks = [int(cur_task)-1] * len(paragraphs)
 
-    data = [paragraphs, questions, supports, answers, hypos]
+    data = [paragraphs, questions, supports, answers, hypos, tasks]
     return data
 
 

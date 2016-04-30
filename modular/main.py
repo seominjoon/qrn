@@ -16,13 +16,13 @@ flags.DEFINE_string("model_name", "modular", "Model name. This will be used for 
 flags.DEFINE_string("data_dir", "data/babi", "Data directory [data/babi]")
 
 # Training parameters
-flags.DEFINE_integer("batch_size", 32, "Batch size for each tower. [32]")
+flags.DEFINE_integer("batch_size", 100, "Batch size for each tower. [100]")
 flags.DEFINE_float("init_mean", 0, "Initial weight mean [0]")
 flags.DEFINE_float("init_std", 0.1, "Initial weight std [0.1]")
 flags.DEFINE_float("init_lr", 0.5, "Initial learning rate [0.5]")
 flags.DEFINE_integer("lr_anneal_period", 20, "Anneal period [20]")
 flags.DEFINE_float("lr_anneal_ratio", 0.5, "Anneal ratio [0.5")
-flags.DEFINE_integer("num_epochs", 100, "Total number of epochs for training [100]")
+flags.DEFINE_integer("num_epochs", 200, "Total number of epochs for training [100]")
 flags.DEFINE_string("opt", 'basic', 'Optimizer: basic | adagrad [basic]')
 
 # Training and testing options
@@ -130,12 +130,9 @@ def main(_):
 
     # load other files
     if config.train:
-        train_dss = read_data(config, 'train')
         comb_train_ds = read_one_data(config, 'train', 'all')
-        dev_dss = read_data(config, 'dev')
         comb_dev_ds = read_one_data(config, 'dev', 'all')
     else:
-        test_dss = read_data(config, 'test')
         comb_test_ds = read_one_data(config, 'test', 'all')
 
     # For quick draft initialize (deubgging).
@@ -143,7 +140,7 @@ def main(_):
         config.train_num_batches = 1
         config.val_num_batches = 1
         config.test_num_batches = 1
-        config.num_epochs = 1
+        config.num_epochs = 2
         config.val_period = 1
         config.save_period = 1
         # TODO : Add any other parameter that induces a lot of computations
@@ -164,10 +161,9 @@ def main(_):
         if config.train:
             if config.load:
                 runner.load()
-            runner.seq_train(train_dss, comb_train_ds, config.num_epochs,
-                             val_data_sets=dev_dss, combined_val_data_set=comb_dev_ds,
-                             eval_tensor_names=eval_tensor_names,
-                             num_batches=config.train_num_batches, val_num_batches=config.val_num_batches)
+            runner.train(comb_train_ds, config.num_epochs, val_data_set=comb_dev_ds,
+                         eval_tensor_names=eval_tensor_names, num_batches=config.train_num_batches,
+                         val_num_batches=config.val_num_batches)
         else:
             runner.load()
             runner.eval(comb_test_ds, eval_tensor_names=eval_tensor_names,

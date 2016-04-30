@@ -125,7 +125,7 @@ class Tower(BaseTower):
             h_eos = tf.placeholder('int32', shape=[N, J+1], name='h')
             h_eos_mask = tf.placeholder('bool', shape=[N, J+1], name='h_eos_mask')
             # h_length = tf.placeholder('int32', shape=[N], name='h_length')
-            p_mask = tf.placeholder('bool', shape=[O], name='p_mask')
+            p_mask = tf.placeholder('bool', shape=[N, O], name='p_mask')
             is_train = tf.placeholder('bool', shape=[], name='is_train')
             placeholders['x'] = x
             placeholders['x_length'] = x_length
@@ -203,8 +203,8 @@ class Tower(BaseTower):
         y = np.zeros([N, V], dtype='bool')
         h_eos = np.zeros([N, J+1], dtype='int32')
         h_eos_mask = np.zeros([N, J+1], dtype='bool')
-        p_mask = np.zeros([O], dtype='bool')
-        module_idx = kwargs['module_idx'] if 'module_idx' in kwargs else -1
+        p_mask = np.zeros([N, O], dtype='bool')
+        mask_modules = kwargs['mask_modules'] if 'mask_modules' in kwargs else False
 
         ph = self.placeholders
         feed_dict = {ph['x']: x, ph['eos_x']: eos_x, ph['x_eos']: x_eos,
@@ -218,7 +218,7 @@ class Tower(BaseTower):
         if batch is None:
             return feed_dict
 
-        X, Q, S, Y, H = batch
+        X, Q, S, Y, H, T = batch
         for i, (para, supports) in enumerate(zip(X, S)):
             for j, support in enumerate(supports):
                 sent = para[support]
@@ -249,85 +249,41 @@ class Tower(BaseTower):
             h_eos[i, len(hypo)] = eos_idx
             h_eos_mask[i, len(hypo)] = True
 
-        for i in range(O):
-            if module_idx in [-1, i]:
-                p_mask[i] = True
+        for i in range(N):
+            for j in range(O):
+                if not mask_modules or T[i] == j:
+                    p_mask[i, j] = True
 
         return feed_dict
 
 
 class Runner(BaseRunner):
-    def seq_train(self, train_data_sets, combined_train_data_set, num_epochs, val_data_sets=None,
-                  combined_val_data_set=None, eval_tensor_names=(), num_batches=None, val_num_batches=None):
-
-        assert self.initialized, "Initialize tower before training."
-
-        sess = self.sess
-        writer = self.writer
+    def _get_common_args(self, epoch_idx):
         params = self.params
-        num_modules = params.num_modules
+        num_epochs = params.num_epochs
+        mask_modules = epoch_idx < 0.5 * num_epochs
+        return {'mask_modules': mask_modules}
 
-        epoch_op = self.tensors['epoch']
-        epoch = sess.run(epoch_op)
+    def _get_eval_args(self, epoch_idx):
+        params = self.params
+        num_epochs = params.num_epochs
+        learning_rate = params.init_lr
 
-        # for each module
-        assert len(train_data_sets) == num_modules
-        for module_idx, train_data_set in enumerate(train_data_sets):
-            assert isinstance(train_data_set, DataSet)
-            num_batches = num_batches or train_data_set.get_num_batches(partial=False)
-            num_iters_per_epoch = int(num_batches / self.num_towers)
-            num_digits = int(np.log10(num_batches))
+        anneal_period = params.lr_anneal_period
+        anneal_ratio = params.lr_anneal_ratio
+        assert num_epochs >= 2
+        assert num_epochs % 2 == 0
+        effective_epoch_idx = epoch_idx % int(num_epochs/2)
+        num_periods = int(effective_epoch_idx / anneal_period)
+        factor = anneal_ratio ** num_periods
+        learning_rate *= factor
 
-            print("module idx %d: training %d epochs ... " % (module_idx, num_epochs))
-            print("num iters per epoch: %d" % num_iters_per_epoch)
+        train_args = self._get_common_args(epoch_idx)
+        train_args['learning_rate'] = learning_rate
+        return train_args
 
-            for _ in range(num_epochs):
-                train_args = self._get_train_args(epoch)
-                pbar = get_pbar(num_iters_per_epoch, "epoch %s|" % str(epoch+1).zfill(num_digits)).start()
-                for iter_idx in range(num_iters_per_epoch):
-                    batches = [train_data_set.get_next_labeled_batch() for _ in range(self.num_towers)]
-                    _, summary, global_step = self._train_batches(batches, train_op_key='all',
-                                                                  module_idx=module_idx, **train_args)
-                    writer.add_summary(summary, global_step)
-                    pbar.update(iter_idx)
-                pbar.finish()
-                train_data_set.complete_epoch()
-
-                assign_op = epoch_op.assign_add(1)
-                _, epoch = sess.run([assign_op, epoch_op])
-
-                if val_data_sets and epoch % params.val_period == 0:
-                    self.eval(train_data_set, eval_tensor_names=eval_tensor_names, num_batches=val_num_batches,
-                              module_idx=module_idx)
-                    self.eval(val_data_sets[module_idx], eval_tensor_names=eval_tensor_names,
-                              num_batches=val_num_batches, module_idx=module_idx)
-                if epoch % params.save_period == 0:
-                    self.save()
-
-        # attention only
-        assert isinstance(combined_train_data_set, DataSet)
-        num_batches = num_batches or combined_train_data_set.get_num_batches(partial=False)
-        num_iters_per_epoch = int(num_batches / self.num_towers)
-        num_digits = int(np.log10(num_batches))
-
-        print("combined: training %d epochs ... " % num_epochs)
-        print("num iters per epoch: %d" % num_iters_per_epoch)
-
-        for _ in range(num_epochs):
-            train_args = self._get_train_args(epoch)
-            pbar = get_pbar(num_iters_per_epoch, "epoch %s|" % str(epoch+1).zfill(num_digits)).start()
-            for iter_idx in range(num_iters_per_epoch):
-                batches = [train_data_set.get_next_labeled_batch() for _ in range(self.num_towers)]
-                _, summary, global_step = self._train_batches(batches, train_op_key='sel',
-                                                              module_idx=-1, **train_args)
-                writer.add_summary(summary, global_step)
-                pbar.update(iter_idx)
-            pbar.finish()
-            train_data_set.complete_epoch()
-
-            assign_op = epoch_op.assign_add(1)
-            _, epoch = sess.run([assign_op, epoch_op])
-
-            if combined_val_data_set and epoch % params.val_period == 0:
-                self.eval(combined_train_data_set, eval_tensor_names=eval_tensor_names, num_batches=val_num_batches)
-                self.eval(combined_val_data_set, eval_tensor_names=eval_tensor_names, num_batches=val_num_batches)
+    def _get_train_op(self, **kwargs):
+        if kwargs['mask_modules']:
+            return self.train_ops['sel']
+        else:
+            return self.train_ops['all']

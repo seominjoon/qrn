@@ -117,11 +117,11 @@ class BaseRunner(object):
             feed_dict.update(cur_feed_dict)
         return feed_dict
 
-    def _train_batches(self, batches, train_op_key='all', **kwargs):
+    def _train_batches(self, batches, **kwargs):
         sess = self.sess
         tensors = self.tensors
         feed_dict = self._get_feed_dict(batches, 'train', **kwargs)
-        train_op = self.train_ops[train_op_key]
+        train_op = self._get_train_op(**kwargs)
         ops = [train_op, tensors['summary'], tensors['global_step']]
         train, summary, global_step = sess.run(ops, feed_dict=feed_dict)
         return train, summary, global_step
@@ -143,7 +143,7 @@ class BaseRunner(object):
         return (num_corrects, loss, summary, global_step), valuess
 
     def train(self, train_data_set, num_epochs, val_data_set=None,
-              eval_tensor_names=(), train_op_key='all', num_batches=None, val_num_batches=None):
+              eval_tensor_names=(), num_batches=None, val_num_batches=None):
         assert isinstance(train_data_set, DataSet)
         assert self.initialized, "Initialize tower before training."
 
@@ -165,7 +165,7 @@ class BaseRunner(object):
             pbar = get_pbar(num_iters_per_epoch, "epoch %s|" % str(epoch+1).zfill(num_digits)).start()
             for iter_idx in range(num_iters_per_epoch):
                 batches = [train_data_set.get_next_labeled_batch() for _ in range(self.num_towers)]
-                _, summary, global_step = self._train_batches(batches, train_op_key=train_op_key, **train_args)
+                _, summary, global_step = self._train_batches(batches, **train_args)
                 writer.add_summary(summary, global_step)
                 pbar.update(iter_idx)
             pbar.finish()
@@ -181,13 +181,14 @@ class BaseRunner(object):
             if epoch % params.save_period == 0:
                 self.save()
 
-    def eval(self, data_set, eval_tensor_names=(), num_batches=None, **eval_kwargs):
+    def eval(self, data_set, eval_tensor_names=(), num_batches=None):
         assert isinstance(data_set, DataSet)
         assert self.initialized, "Initialize tower before training."
 
         params = self.params
         sess = self.sess
         epoch_op = self.tensors['epoch']
+        epoch = sess.run(epoch_op)
         num_batches = num_batches or data_set.get_num_batches(partial=True)
         num_iters = int(np.ceil(num_batches / self.num_towers))
         num_corrects, total, total_loss = 0, 0, 0.0
@@ -196,6 +197,7 @@ class BaseRunner(object):
         N = data_set.batch_size * num_batches
         if N > data_set.num_examples:
             N = data_set.num_examples
+        eval_args = self._get_eval_args(epoch)
         string = "eval on %s, N=%d|" % (data_set.name, N)
         pbar = get_pbar(num_iters, prefix=string).start()
         for iter_idx in range(num_iters):
@@ -205,7 +207,7 @@ class BaseRunner(object):
                     idxs.extend(data_set.get_batch_idxs(partial=True))
                     batches.append(data_set.get_next_labeled_batch(partial=True))
             (cur_num_corrects, cur_avg_loss, _, global_step), eval_value_batches = \
-                self._eval_batches(batches, eval_tensor_names=eval_tensor_names, **eval_kwargs)
+                self._eval_batches(batches, eval_tensor_names=eval_tensor_names, **eval_args)
             num_corrects += cur_num_corrects
             cur_num = sum(len(batch[0]) for batch in batches)
             total += cur_num
@@ -217,7 +219,6 @@ class BaseRunner(object):
         loss = total_loss / total
         data_set.reset()
 
-        epoch = sess.run(epoch_op)
         print("at epoch %d: acc = %.2f%% = %d / %d, loss = %.4f" %
               (epoch, 100 * float(num_corrects)/total, num_corrects, total, loss))
 
@@ -229,6 +230,9 @@ class BaseRunner(object):
         eval_path = os.path.join(params.eval_dir, "%s_%s.json" % (data_set.name, str(epoch).zfill(4)))
         json.dump(out, open(eval_path, 'w'))
 
+    def _get_train_op(self, **kwargs):
+        return self.train_ops['all']
+
     def _get_train_args(self, epoch_idx):
         params = self.params
         learning_rate = params.init_lr
@@ -239,8 +243,15 @@ class BaseRunner(object):
         factor = anneal_ratio ** num_periods
         learning_rate *= factor
 
-        train_args = {'learning_rate': learning_rate}
+        train_args = self._get_common_args(epoch_idx)
+        train_args['learning_rate'] = learning_rate
         return train_args
+
+    def _get_eval_args(self, epoch_idx):
+        return self._get_common_args(epoch_idx)
+
+    def _get_common_args(self, epoch_idx):
+        return {}
 
     def save(self):
         assert self.initialized, "Initialize tower before saving."
@@ -289,7 +300,6 @@ class BaseTower(object):
 
     def get_variables_dict(self):
         return self.variables_dict
-
 
     def get_feed_dict(self, batch, mode, **kwargs):
         # TODO : MUST handle batch = None
