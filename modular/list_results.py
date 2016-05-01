@@ -70,7 +70,7 @@ def list_results(args):
     word2idx_path = os.path.join(target_dir, 'word2idx.json')
     metadata_path = os.path.join(target_dir, 'metadata.json')
     data = json.load(open(data_path, 'r'))
-    X, Q, S, Y, H = data
+    X, Q, S, Y, H, T = data
     mode2idxs_dict = json.load(open(mode2idxs_path, 'r'))
     word2idx_dict = json.load(open(word2idx_path, 'r'))
     idx2word_dict = {idx: word for word, idx in word2idx_dict.items()}
