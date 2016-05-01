@@ -284,6 +284,6 @@ class Runner(BaseRunner):
 
     def _get_train_op(self, **kwargs):
         if kwargs['mask_modules']:
-            return self.train_ops['sel']
-        else:
             return self.train_ops['all']
+        else:
+            return self.train_ops['sel']
