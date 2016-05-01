@@ -89,12 +89,13 @@ def list_results(args):
         question = _decode(idx2word_dict, Q[id_])
         facts = [_decode(idx2word_dict, X[id_][s]) for s in S[id_]]
         correct = eval_d['correct']
-        attention = eval_d['p']
+        attention = ["%.2f" % each for each in eval_d['p']]
         row = {'id': id_,
                'facts': facts,
                'question': question,
                'attention': attention,
-               'correct': correct}
+               'correct': correct,
+               'task': T[i]}
         rows.append(row)
 
         if i % num_per_page == 0:
