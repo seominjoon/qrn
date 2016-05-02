@@ -2,7 +2,7 @@ import tensorflow as tf
 # from tensorflow.python.ops.rnn import dynamic_rnn
 from tensorflow.python.ops.rnn_cell import DropoutWrapper, MultiRNNCell
 
-from modular.base_model import BaseTower, BaseRunner
+from directed.base_model import BaseTower, BaseRunner
 from my.tensorflow import flatten, exp_mask
 from my.tensorflow.nn import linear
 from my.tensorflow.rnn import dynamic_rnn
@@ -30,30 +30,22 @@ class VariableEmbedder(Embedder):
 
 
 class PositionEncoder(object):
-    @staticmethod
-    def _get_l_tensor(J, d, name='l'):
-        def f(JJ, jj, dd, kk):
-            return (1-float(jj)/JJ) - (float(kk)/dd)*(1-2.0*jj/JJ)
-        def g(jj):
-            return [f(J, jj, d, k) for k in range(d)]
-        l = [g(j) for j in range(J)]
-        l_tensor = tf.constant(l, shape=[J, d], name=name)
-        return l_tensor
+    def __init__(self, max_sent_size, hidden_size):
+        self.max_sent_size, self.hidden_size = max_sent_size, hidden_size
+        J, d = max_sent_size, hidden_size
+        with tf.name_scope("pe_constants"):
+            self.b = tf.constant([1 - k/d for k in range(1, d+1)], shape=[d])
+            self.w = tf.constant([[j*(2*k/d - 1) for k in range(1, d+1)] for j in range(1, J+1)], shape=[J, d])
 
-    def __init__(self, params):
-        self.params = params
-        J, d = params.max_sent_size, params.hidden_size
-        with tf.name_scope("position_encoder"):
-            self._l = PositionEncoder._get_l_tensor(J, d)
-
-    def __call__(self, embedder, word, mask, name="encoded_sentence"):
-        with tf.name_scope(name):
-            assert isinstance(embedder, Embedder)
-            Ax = embedder(word)
+    def __call__(self, Ax, mask, scope=None):
+        with tf.name_scope(scope or "position_encoder"):
             shape = Ax.get_shape().as_list()
             length_dim_index = len(shape) - 2
+            length = tf.reduce_sum(tf.cast(mask, 'float'), length_dim_index)
+            length_aug = tf.expand_dims(tf.expand_dims(length, -1), -1)
+            l = self.b + self.w/length_aug
             mask_aug = tf.expand_dims(mask, -1)
-            f = tf.reduce_sum(Ax * self._l * tf.cast(mask_aug, 'float'), length_dim_index, name='f')  # [N, S, d]
+            f = tf.reduce_sum(Ax * l * tf.cast(mask_aug, 'float'), length_dim_index, name='f')  # [N, S, d]
             return f
 
 
@@ -149,10 +141,12 @@ class Tower(BaseTower):
             A_eos_x = A(eos_x, name='C_eos_x')  # [N, S, J+1, d]
 
         with tf.variable_scope("encoding"):
-            # encoder = PositionEncoder(params)
-            encoder = GRU(params, is_train)
-            _, u = encoder(Aq, length=q_length, dtype='float', name='u')  # [N, d]
-            _, f = encoder(Ax, length=x_length, dtype='float', name='f')  # [N, S, d]
+            # encoder = GRU(params, is_train)
+            # _, u = encoder(Aq, length=q_length, dtype='float', name='u')  # [N, d]
+            # _, f = encoder(Ax, length=x_length, dtype='float', name='f')  # [N, S, d]
+            encoder = PositionEncoder(J, d)
+            u = encoder(Aq, q_mask)
+            f = encoder(Ax, x_mask)
 
         with tf.variable_scope("inference"):
             f_flat = tf.reshape(f, [N, S * d], name='f_flat')

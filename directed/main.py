@@ -5,9 +5,9 @@ from pprint import pprint
 
 import tensorflow as tf
 
-from modular.model import Tower, Runner
+from directed.model import Tower, Runner
 from configs.get_config import get_config_from_file, get_config
-from modular.read_data import read_data, read_one_data
+from directed.read_data import read_data, read_one_data
 
 flags = tf.app.flags
 
