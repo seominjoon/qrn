@@ -2,8 +2,9 @@ import tensorflow as tf
 from functools import reduce
 from operator import mul
 
-VERY_SMALL_NUMBER = -1e-10
 VERY_BIG_NUMBER = 1e10
+VERY_POSITIVE_NUMBER = VERY_BIG_NUMBER
+VERY_NEGATIVE_NUMBER = -VERY_BIG_NUMBER
 
 
 def variable_on_cpu(name, shape, initializer):
@@ -109,4 +110,4 @@ def exp_mask(val, mask, name="masked_val"):
     Returns:
         Same shape as val, where some elements are very small (exponentially zero)
     """
-    return tf.add(val, (1 - tf.cast(mask, 'float')) * VERY_SMALL_NUMBER, name=name)
+    return tf.add(val, (1 - tf.cast(mask, 'float')) * VERY_NEGATIVE_NUMBER, name=name)
