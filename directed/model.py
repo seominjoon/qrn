@@ -185,7 +185,6 @@ class Tower(BaseTower):
             return feed_dict
 
         X, Q, S, Y, H, T = batch
-        print(x.shape)
         for i, para in enumerate(X):
             for jj, sent in enumerate(para):
                 j = len(para) - jj - 1  # reverting story sequence, last to first
