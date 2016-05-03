@@ -49,7 +49,7 @@ flags.DEFINE_integer("hidden_size", 50, "Hidden size. [50]")
 flags.DEFINE_integer("max_grad_norm", 40, "Max grad norm. 0 for no clipping [40]")
 flags.DEFINE_integer("rnn_num_layers", 1, "RNN number of layers [1]")
 flags.DEFINE_float("keep_prob", 0.5, "Keep probability of RNN inputs [0.5]")
-flags.DEFINE_integer("num_modules", 20, "Number of different modules [3]")
+flags.DEFINE_integer("mem_num_layers", 1, "Number of memory layers [3]")
 
 FLAGS = flags.FLAGS
 
@@ -130,10 +130,10 @@ def main(_):
 
     # load other files
     if config.train:
-        comb_train_ds = read_one_data(config, 'train', 'all')
-        comb_dev_ds = read_one_data(config, 'dev', 'all')
+        comb_train_ds = read_one_data(config, 'train', config.task)
+        comb_dev_ds = read_one_data(config, 'dev', config.task)
     else:
-        comb_test_ds = read_one_data(config, 'test', 'all')
+        comb_test_ds = read_one_data(config, 'test', config.task)
 
     # For quick draft initialize (deubgging).
     if config.draft:
@@ -148,7 +148,7 @@ def main(_):
     pprint(config.__dict__)
 
     # TODO : specify eval tensor names to save in evals folder
-    eval_tensor_names = ['p', 'correct']
+    eval_tensor_names = ['correct']
 
     graph = tf.Graph()
     # TODO : initialize BaseTower-subclassed objects

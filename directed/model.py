@@ -8,9 +8,7 @@ from my.tensorflow.nn import linear
 from my.tensorflow.rnn import dynamic_rnn
 import numpy as np
 
-from my.tensorflow.rnn_cell import BasicLSTMCell, GRUCell
-from my.utils import get_pbar
-from modular.read_data import DataSet
+from my.tensorflow.rnn_cell import BasicLSTMCell, GRUCell, GRUXCell
 
 
 class Embedder(object):
@@ -103,77 +101,62 @@ class Tower(BaseTower):
         placeholders = self.placeholders
         tensors = self.tensors
         variables_dict = self.variables_dict
-        N, J, V, Q, S = params.batch_size, params.max_sent_size, params.vocab_size, params.max_ques_size, params.max_num_sups
-        O = params.num_modules
+        N, J, V, Q, M = params.batch_size, params.max_sent_size, params.vocab_size, params.max_ques_size, params.max_num_sents
         d = params.hidden_size
+        L = params.mem_num_layers
         with tf.name_scope("placeholders"):
-            x = tf.placeholder('int32', shape=[N, S, J], name='x')
-            x_length = tf.placeholder('int32', shape=[N, S], name='x_length')
-            x_eos = tf.placeholder('int32', shape=[N, S, J+1], name='x_eos')
-            eos_x = tf.placeholder('int32', shape=[N, S, J+1], name='eos_x')
-            x_mask = tf.placeholder('bool', shape=[N, S, J], name='x_mask')
-            x_eos_mask = tf.placeholder('bool', shape=[N, S, J+1], name='x_eos_mask')
+            x = tf.placeholder('int32', shape=[N, M, J], name='x')
+            x_mask = tf.placeholder('bool', shape=[N, M, J], name='x_mask')
             q = tf.placeholder('int32', shape=[N, J], name='q')
-            q_length = tf.placeholder('int32', shape=[N], name='q_length')
             q_mask = tf.placeholder('bool', shape=[N, J], name='q_mask')
-            y = tf.placeholder('int32', shape=[N, V], name='y')
-            h_eos = tf.placeholder('int32', shape=[N, J+1], name='h')
-            h_eos_mask = tf.placeholder('bool', shape=[N, J+1], name='h_eos_mask')
-            # h_length = tf.placeholder('int32', shape=[N], name='h_length')
-            p_mask = tf.placeholder('bool', shape=[N, O], name='p_mask')
+            y = tf.placeholder('int32', shape=[N], name='y')
             is_train = tf.placeholder('bool', shape=[], name='is_train')
             placeholders['x'] = x
-            placeholders['x_length'] = x_length
-            placeholders['x_eos'] = x_eos
-            placeholders['eos_x'] = eos_x
             placeholders['x_mask'] = x_mask
-            placeholders['x_eos_mask'] = x_eos_mask
             placeholders['q'] = q
-            placeholders['q_length'] = q_length
             placeholders['q_mask'] = q_mask
             placeholders['y'] = y
-            placeholders['h_eos'] = h_eos
-            placeholders['h_eos_mask'] = h_eos_mask
-            placeholders['p_mask'] = p_mask
             placeholders['is_train'] = is_train
 
         with tf.variable_scope("embedding"):
             A = VariableEmbedder(params, name='A')
             Aq = A(q, name='Ax')  # [N, S, J, d]
             Ax = A(x, name='Cx')  # [N, S, J, d]
-            A_eos_x = A(eos_x, name='C_eos_x')  # [N, S, J+1, d]
 
         with tf.variable_scope("encoding"):
             # encoder = GRU(params, is_train)
             # _, u = encoder(Aq, length=q_length, dtype='float', name='u')  # [N, d]
             # _, f = encoder(Ax, length=x_length, dtype='float', name='f')  # [N, S, d]
             encoder = PositionEncoder(J, d)
-            u = encoder(Aq, q_mask)
-            f = encoder(Ax, x_mask)
+            u = encoder(Aq, q_mask)  # [N, d]
+            m = encoder(Ax, x_mask)  # [N, M, d]
 
-        with tf.variable_scope("inference"):
-            f_flat = tf.reshape(f, [N, S * d], name='f_flat')
-            g_flat = tf.tanh(linear([u, f_flat], O*d, True, scope='split'), name='g_flat')
-            g = tf.reshape(g_flat, [N, O, d], name='g')
-
-        with tf.variable_scope("selection") as scope:
-            p_logits = linear([u, f_flat], O, True, scope='attention')
-            p = tf.nn.softmax(exp_mask(p_logits, p_mask))
-            p_aug = tf.expand_dims(p, -1, name='p_aug')
-            h = tf.reduce_sum(g * p_aug, 1, name='h')  # [N, d]
-            tensors['p'] = p
-            variables_dict['sel'] = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=scope.name)
+        with tf.variable_scope("layers"):
+            m_mask = tf.reduce_max(tf.cast(x_mask, 'int32'), 2, name='m_mask')
+            m_length = tf.reduce_sum(m_mask, 1, name='m_length')
+            tril = tf.constant(np.tril(np.ones([M, M], dtype='float32'), -1), name='tril')
+            cell = GRUXCell(d, input_size=d+1)
+            u_prev = u
+            ca_f_prev = tf.ones([N, M], dtype='float')
+            for layer_idx in range(L):
+                with tf.variable_scope("layer_{}".format(layer_idx)):
+                    a_raw = tf.reduce_sum(tf.expand_dims(u_prev, 1) * m, 2, name='a_raw')  # [N, M]
+                    a = tf.nn.softmax(exp_mask(exp_mask(a_raw, m_mask), ca_f_prev), name='a')  # [N, M]
+                    am = tf.concat(2, [tf.expand_dims(a, -1), m], name='am')
+                    _, u = dynamic_rnn(cell, am, sequence_length=m_length, initial_state=u_prev)
+                    ca_f = tf.matmul(a, tril, transpose_b=True)
+                    u_prev = u
+                    ca_f_prev = ca_f
 
         with tf.variable_scope("class"):
-            w = tf.tanh(linear([h], d, True), name='u_f')  # [N, d]
             W = tf.transpose(A.emb_mat, name='W')
-            logits = tf.matmul(w, W, name='logits')
-            correct = tf.equal(tf.argmax(logits, 1), tf.argmax(y, 1))
+            logits = tf.matmul(u, W, name='logits')
+            correct = tf.equal(tf.argmax(logits, 1), tf.cast(y, 'int64'))
             tensors['correct'] = correct
 
         with tf.name_scope("loss") as scope:
             with tf.name_scope("ans_loss"):
-                ce = tf.nn.softmax_cross_entropy_with_logits(logits, tf.cast(y, 'float'), name='ce')
+                ce = tf.nn.sparse_softmax_cross_entropy_with_logits(logits, y, name='ce')
                 avg_ce = tf.reduce_mean(ce, name='avg_ce')
                 tf.add_to_collection('losses', avg_ce)
 
@@ -185,102 +168,42 @@ class Tower(BaseTower):
 
     def get_feed_dict(self, batch, mode, **kwargs):
         params = self.params
-        eos_idx = params.eos_idx
-        N, J, V, S = params.batch_size, params.max_sent_size, params.vocab_size, params.max_num_sups
-        O = params.num_modules
-        x = np.zeros([N, S, J], dtype='int32')
-        x_length = np.zeros([N, S], dtype='int32')
-        eos_x = np.zeros([N, S, J+1], dtype='int32')
-        x_eos = np.zeros([N, S, J+1], dtype='int32')
-        x_mask = np.zeros([N, S, J], dtype='bool')
-        x_eos_mask = np.zeros([N, S, J+1], dtype='bool')
+        N, J, V, M = params.batch_size, params.max_sent_size, params.vocab_size, params.max_num_sents
+        x = np.zeros([N, M, J], dtype='int32')
+        x_mask = np.zeros([N, M, J], dtype='bool')
         q = np.zeros([N, J], dtype='int32')
-        q_length = np.zeros([N], dtype='int32')
         q_mask = np.zeros([N, J], dtype='bool')
-        y = np.zeros([N, V], dtype='bool')
-        h_eos = np.zeros([N, J+1], dtype='int32')
-        h_eos_mask = np.zeros([N, J+1], dtype='bool')
-        p_mask = np.zeros([N, O], dtype='bool')
-        mask_modules = kwargs['mask_modules'] if 'mask_modules' in kwargs else False
+        y = np.zeros([N], dtype='int32')
 
         ph = self.placeholders
-        feed_dict = {ph['x']: x, ph['eos_x']: eos_x, ph['x_eos']: x_eos,
-                     ph['x_length']: x_length,
-                     ph['x_mask']: x_mask, ph['x_eos_mask']: x_eos_mask,
-                     ph['q']: q, ph['q_mask']: q_mask, ph['q_length']: q_length,
+        feed_dict = {ph['x']: x, ph['x_mask']: x_mask,
+                     ph['q']: q, ph['q_mask']: q_mask,
                      ph['y']: y,
-                     ph['h_eos']: h_eos, ph['h_eos_mask']: h_eos_mask,
-                     ph['is_train']: mode == 'train',
-                     ph['p_mask']: p_mask}
+                     ph['is_train']: mode == 'train'
+                     }
         if batch is None:
             return feed_dict
 
         X, Q, S, Y, H, T = batch
-        for i, (para, supports) in enumerate(zip(X, S)):
-            for j, support in enumerate(supports):
-                sent = para[support]
-                x_length[i, j] = len(sent)
+        print(x.shape)
+        for i, para in enumerate(X):
+            for jj, sent in enumerate(para):
+                j = len(para) - jj - 1  # reverting story sequence, last to first
                 for k, word in enumerate(sent):
                     x[i, j, k] = word
-                    x_eos[i, j, k] = word
-                    eos_x[i, j, k+1] = word
                     x_mask[i, j, k] = True
-                    x_eos_mask[i, j, k] = True
-                x_eos[i, j, len(sent)] = eos_idx
-                x_eos_mask[i, j, len(sent)] = True
-                eos_x[i, j, 0] = eos_idx
 
         for i, ques in enumerate(Q):
-            q_length[i] = len(ques)
             for j, word in enumerate(ques):
                 q[i, j] = word
                 q_mask[i, j] = True
 
         for i, ans in enumerate(Y):
-            y[i, ans] = True
-
-        for i, hypo in enumerate(H):
-            for j, word in enumerate(hypo):
-                h_eos[i, j] = word
-                h_eos_mask[i, j] = True
-            h_eos[i, len(hypo)] = eos_idx
-            h_eos_mask[i, len(hypo)] = True
-
-        for i in range(N):
-            for j in range(O):
-                if not mask_modules or T[i] == j:
-                    p_mask[i, j] = True
+            y[i] = ans
 
         return feed_dict
 
 
 class Runner(BaseRunner):
-    def _get_common_args(self, epoch_idx):
-        params = self.params
-        num_epochs = params.num_epochs
-        mask_modules = epoch_idx < 0.5 * num_epochs
-        return {'mask_modules': mask_modules}
-
-    def _get_eval_args(self, epoch_idx):
-        params = self.params
-        num_epochs = params.num_epochs
-        learning_rate = params.init_lr
-
-        anneal_period = params.lr_anneal_period
-        anneal_ratio = params.lr_anneal_ratio
-        assert num_epochs >= 2
-        assert num_epochs % 2 == 0
-        effective_epoch_idx = epoch_idx % int(num_epochs/2)
-        num_periods = int(effective_epoch_idx / anneal_period)
-        factor = anneal_ratio ** num_periods
-        learning_rate *= factor
-
-        train_args = self._get_common_args(epoch_idx)
-        train_args['learning_rate'] = learning_rate
-        return train_args
-
     def _get_train_op(self, **kwargs):
-        if kwargs['mask_modules']:
-            return self.train_ops['all']
-        else:
-            return self.train_ops['sel']
+        return self.train_ops['all']
