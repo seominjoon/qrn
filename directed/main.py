@@ -49,7 +49,7 @@ flags.DEFINE_integer("hidden_size", 50, "Hidden size. [50]")
 flags.DEFINE_integer("max_grad_norm", 40, "Max grad norm. 0 for no clipping [40]")
 flags.DEFINE_integer("rnn_num_layers", 1, "RNN number of layers [1]")
 flags.DEFINE_float("keep_prob", 0.5, "Keep probability of RNN inputs [0.5]")
-flags.DEFINE_integer("mem_num_layers", 1, "Number of memory layers [3]")
+flags.DEFINE_integer("mem_num_layers", 2, "Number of memory layers [2]")
 
 FLAGS = flags.FLAGS
 
