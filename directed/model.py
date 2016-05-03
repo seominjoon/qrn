@@ -34,14 +34,17 @@ class PositionEncoder(object):
         self.max_sent_size, self.hidden_size = max_sent_size, hidden_size
         J, d = max_sent_size, hidden_size
         with tf.name_scope("pe_constants"):
-            self.b = tf.constant([1 - k/d for k in range(1, d+1)], shape=[d])
-            self.w = tf.constant([[j*(2*k/d - 1) for k in range(1, d+1)] for j in range(1, J+1)], shape=[J, d])
+            b = [1 - k/d for k in range(1, d+1)]
+            w = [[j*(2*k/d - 1) for k in range(1, d+1)] for j in range(1, J+1)]
+            self.b = tf.constant(b, shape=[d])
+            self.w = tf.constant(w, shape=[J, d])
 
     def __call__(self, Ax, mask, scope=None):
         with tf.name_scope(scope or "position_encoder"):
             shape = Ax.get_shape().as_list()
             length_dim_index = len(shape) - 2
             length = tf.reduce_sum(tf.cast(mask, 'float'), length_dim_index)
+            length = tf.maximum(length, 1.0)  # masked sentences will have length 0
             length_aug = tf.expand_dims(tf.expand_dims(length, -1), -1)
             l = self.b + self.w/length_aug
             mask_aug = tf.expand_dims(mask, -1)
