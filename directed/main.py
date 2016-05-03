@@ -12,7 +12,7 @@ from directed.read_data import read_data, read_one_data
 flags = tf.app.flags
 
 # File directories
-flags.DEFINE_string("model_name", "modular", "Model name. This will be used for save, log, and eval names. [bur]")
+flags.DEFINE_string("model_name", "directed", "Model name. This will be used for save, log, and eval names. [directed]")
 flags.DEFINE_string("data_dir", "data/babi", "Data directory [data/babi]")
 
 # Training parameters
@@ -22,7 +22,7 @@ flags.DEFINE_float("init_std", 0.1, "Initial weight std [0.1]")
 flags.DEFINE_float("init_lr", 0.5, "Initial learning rate [0.5]")
 flags.DEFINE_integer("lr_anneal_period", 20, "Anneal period [20]")
 flags.DEFINE_float("lr_anneal_ratio", 0.5, "Anneal ratio [0.5")
-flags.DEFINE_integer("num_epochs", 200, "Total number of epochs for training [100]")
+flags.DEFINE_integer("num_epochs", 100, "Total number of epochs for training [100]")
 flags.DEFINE_string("opt", 'basic', 'Optimizer: basic | adagrad [basic]')
 
 # Training and testing options
@@ -148,7 +148,7 @@ def main(_):
     pprint(config.__dict__)
 
     # TODO : specify eval tensor names to save in evals folder
-    eval_tensor_names = ['correct']
+    eval_tensor_names = ['a_comb', 'correct']
 
     graph = tf.Graph()
     # TODO : initialize BaseTower-subclassed objects

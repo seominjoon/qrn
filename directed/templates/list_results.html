@@ -25,15 +25,16 @@
         <tr>
             <th>ID</th>
             <th>Question</th>
+            <th>Task</th>
             <th>Facts</th>
             <th>Attention</th>
-            <th>Task</th>
             <th>Correct?</th>
         </tr>
         {% for row in rows %}
             <tr>
                 <td>{{ row.id }}</td>
                 <td>{{ row.question }}</td>
+                <td>{{ row.task }}</td>
                 <td><ol>
                     {% for fact in row.facts %}
                     <li>{{ fact }}</li>
@@ -41,14 +42,15 @@
                 </ol></td>
                 <td>
                     <table>
+                        {% for each in row.attention %}
                         <tr>
-                            {% for val in row.attention %}
+                            {% for val in each %}
                             <td class="att">{{ val }}</td>
                             {% endfor %}
                         </tr>
+                        {% endfor %}
                     </table>
                 </td>
-                <td>{{ row.task }}</td>
                 {% if row.correct %}
                 <td bgcolor="#7fff00">{{ row.yp }}
                 </td>

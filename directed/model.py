@@ -133,21 +133,27 @@ class Tower(BaseTower):
 
         with tf.variable_scope("layers"):
             m_mask = tf.reduce_max(tf.cast(x_mask, 'int32'), 2, name='m_mask')
-            m_length = tf.reduce_sum(m_mask, 1, name='m_length')
+            m_length = tf.reduce_sum(m_mask, 1, name='m_length')  # [N]
             tril = tf.constant(np.tril(np.ones([M, M], dtype='float32'), -1), name='tril')
+            att_cell = GRUCell(d, input_size=d)
             cell = GRUXCell(d, input_size=d+1)
             u_prev = u
             ca_f_prev = tf.ones([N, M], dtype='float')
+            a_list = []
             for layer_idx in range(L):
                 with tf.variable_scope("layer_{}".format(layer_idx)):
-                    a_raw = tf.reduce_sum(tf.expand_dims(u_prev, 1) * m, 2, name='a_raw')  # [N, M]
-                    # a = tf.nn.softmax(exp_mask(exp_mask(a_raw, m_mask), ca_f_prev), name='a')  # [N, M]
-                    a = tf.nn.softmax(exp_mask(a_raw, m_mask), name='a')
+                    a_raw = tf.mul(tf.expand_dims(u_prev, 1), m, name='a_raw')  # [N, M, d]
+                    a_raw, _ = dynamic_rnn(att_cell, a_raw, sequence_length=m_length, dtype='float')
+                    a = tf.nn.softmax(exp_mask(exp_mask(tf.reduce_sum(a_raw, 2), m_mask), ca_f_prev), name='a')  # [N, M]
+                    a_list.append(a)
+                    # a = tf.nn.softmax(exp_mask(a_raw, m_mask), name='a')
                     am = tf.concat(2, [tf.expand_dims(a, -1), m], name='am')
                     _, u = dynamic_rnn(cell, am, sequence_length=m_length, initial_state=u_prev)
                     ca_f = tf.matmul(a, tril, transpose_b=True)
                     u_prev = u
                     ca_f_prev = ca_f
+            a_comb = tf.transpose(tf.pack(a_list, name='a_comb'), [1, 0, 2])  # [N, L, M]
+            tensors['a_comb'] = a_comb
 
         with tf.variable_scope("class"):
             W = tf.transpose(A.emb_mat, name='W')

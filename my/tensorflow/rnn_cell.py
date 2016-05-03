@@ -245,8 +245,9 @@ class GRUXCell(RNNCell):
         with tf.variable_scope(scope or type(self).__name__):  # "GRUCell"
             with tf.variable_scope("Gates"):  # Reset gate and update gate.
                 # We start with bias of 1.0 to not reset and not update.
-                r = linear([inputs, state], self._num_units, True, 1.0)
-                r = tf.sigmoid(r)
+                r, u = tf.split(1, 2, linear([inputs, state],
+                                             2 * self._num_units, True, 1.0))
+                r, u = tf.sigmoid(r), tf.sigmoid(u)
                 gate = tf.slice(inputs, [0, 0], [-1, 1], name='gate')
             with tf.variable_scope("Candidate"):
                 x = tf.slice(inputs, [0, 1], [-1, -1], name='x')

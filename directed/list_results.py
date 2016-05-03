@@ -5,6 +5,7 @@ import socketserver
 import argparse
 import json
 import os
+import numpy as np
 
 from jinja2 import Environment, FileSystemLoader
 
@@ -13,9 +14,9 @@ from my.utils import get_pbar
 
 def get_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model_name", type=str, default='modular')
+    parser.add_argument("--model_name", type=str, default='directed')
     parser.add_argument("--config_name", type=str, default='None')
-    parser.add_argument("--task", type=str, default='1,2,3')
+    parser.add_argument("--task", type=str, default='1')
     parser.add_argument("--data_type", type=str, default='test')
     parser.add_argument("--epoch", type=int, default=50)
     parser.add_argument("--template_name", type=str, default="list_results.html")
@@ -44,7 +45,7 @@ def list_results(args):
     target_dir = os.path.join(data_dir, task.zfill(2))
 
     epoch = args.epoch
-    evals_dir = os.path.join("evals", model_name, "{}-{}".format(config_name.zfill(2), task))
+    evals_dir = os.path.join("evals", model_name, "{}-{}".format(config_name.zfill(2), task.zfill(2)))
     evals_name = "%s_%s.json" % (data_type, str(epoch).zfill(4))
     evals_path = os.path.join(evals_dir, evals_name)
     evals = json.load(open(evals_path, 'r'))
@@ -87,9 +88,10 @@ def list_results(args):
     pbar = get_pbar(len(eval_dd)).start()
     for i, (id_, eval_d) in enumerate(eval_dd.items()):
         question = _decode(idx2word_dict, Q[id_])
-        facts = [_decode(idx2word_dict, X[id_][s]) for s in S[id_]]
+        facts = [_decode(idx2word_dict, x) for x in X[id_]]
         correct = eval_d['correct']
-        attention = ["%.2f" % each for each in eval_d['p']]
+        a_raw = np.transpose(eval_d['a_comb'])  # [M, L]
+        attention = [["%.2f" % val for val in l] for l in a_raw]
         row = {'id': id_,
                'facts': facts,
                'question': question,
