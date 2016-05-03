@@ -42,8 +42,9 @@
                 </ol></td>
                 <td>
                     <table>
-                        {% for each in row.attention %}
+                        {% for fact, each in zip(reversed(row.facts), row.attention) %}
                         <tr>
+                            <td>{{ fact }}</td>
                             {% for val in each %}
                             <td class="att">{{ val }}</td>
                             {% endfor %}

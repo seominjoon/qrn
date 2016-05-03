@@ -64,6 +64,7 @@ def list_results(args):
     cur_dir = os.path.dirname(os.path.realpath(__file__))
     templates_dir = os.path.join(cur_dir, 'templates')
     env = Environment(loader=FileSystemLoader(templates_dir))
+    env.globals.update(zip=zip, reversed=reversed)
     template = env.get_template(args.template_name)
 
     data_path = os.path.join(target_dir, 'data.json')
