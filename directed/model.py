@@ -141,7 +141,8 @@ class Tower(BaseTower):
             for layer_idx in range(L):
                 with tf.variable_scope("layer_{}".format(layer_idx)):
                     a_raw = tf.reduce_sum(tf.expand_dims(u_prev, 1) * m, 2, name='a_raw')  # [N, M]
-                    a = tf.nn.softmax(exp_mask(exp_mask(a_raw, m_mask), ca_f_prev), name='a')  # [N, M]
+                    # a = tf.nn.softmax(exp_mask(exp_mask(a_raw, m_mask), ca_f_prev), name='a')  # [N, M]
+                    a = tf.nn.softmax(exp_mask(a_raw, m_mask), name='a')
                     am = tf.concat(2, [tf.expand_dims(a, -1), m], name='am')
                     _, u = dynamic_rnn(cell, am, sequence_length=m_length, initial_state=u_prev)
                     ca_f = tf.matmul(a, tril, transpose_b=True)
