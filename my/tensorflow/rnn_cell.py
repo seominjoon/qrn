@@ -216,3 +216,40 @@ class CRUCell(RNNCell):
                 au_out_flat = tf.reshape(au_out, [N, C*A], name='au_out_flat')
                 out = tf.concat(1, [ru_out, au_out_flat], name='out')  # [N, R+A*C]
         return out, out
+
+class GRUXCell(RNNCell):
+    """Gated Recurrent Unit cell (cf. http://arxiv.org/abs/1406.1078),
+    with external output gate (1 - u in original GRU).
+    The first unit of the inputs is the gate"""
+
+    def __init__(self, num_units, input_size=None, var_on_cpu=True, wd=0.0):
+        self._num_units = num_units
+        self._input_size = num_units if input_size is None else input_size
+        self.var_on_cpu = var_on_cpu
+        self.wd = wd
+
+    @property
+    def input_size(self):
+        return self._input_size
+
+    @property
+    def output_size(self):
+        return self._num_units
+
+    @property
+    def state_size(self):
+        return self._num_units
+
+    def __call__(self, inputs, state, scope=None):
+        """First unit of inputs is the external attention"""
+        with tf.variable_scope(scope or type(self).__name__):  # "GRUCell"
+            with tf.variable_scope("Gates"):  # Reset gate and update gate.
+                # We start with bias of 1.0 to not reset and not update.
+                r = linear([inputs, state], self._num_units, True, 1.0)
+                r = tf.sigmoid(r)
+                gate = tf.slice(inputs, [0, 0], [-1, 1], name='gate')
+            with tf.variable_scope("Candidate"):
+                x = tf.slice(inputs, [0, 1], [-1, -1], name='x')
+                c = tf.tanh(linear([x, r * state], self._num_units, True, var_on_cpu=self.var_on_cpu, wd=self.wd))
+            new_h = gate * c + (1 - gate) * state
+        return new_h, new_h
