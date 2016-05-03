@@ -92,11 +92,14 @@ def list_results(args):
         facts = [_decode(idx2word_dict, x) for x in X[id_]]
         correct = eval_d['correct']
         a_raw = np.transpose(eval_d['a_comb'])  # [M, L]
+        ca_f_raw = np.transpose(eval_d['ca_f_comb'])
         attention = [["%.2f" % val for val in l] for l in a_raw]
+        ca_f = [["%.2f" % val for val in l] for l in ca_f_raw]
         row = {'id': id_,
                'facts': facts,
                'question': question,
                'attention': attention,
+               'ca_f': ca_f,
                'correct': correct,
                'task': T[i]}
         rows.append(row)
