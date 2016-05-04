@@ -148,19 +148,21 @@ class Tower(BaseTower):
         with tf.variable_scope("layers") as scope:
             for layer_idx in range(L):
                 with tf.name_scope("layer_{}".format(layer_idx)):
-                    direc = tf.nn.softmax(linear([u_prev], 2, True, scope='direc'), name='direc')  # [N, 2]
-                    ca_prev = tf.transpose(tf.pack([ca_f_prev, ca_b_prev]), [1, 0, 2], name='ca_prev')  # [N, 2, M]
-                    a_mask = tf.reduce_sum(tf.expand_dims(direc, -1) * ca_prev, 1, name='a_mask')  # [N, M]
                     a_raw = tf.mul(tf.expand_dims(u_prev, 1), m, name='a_raw')  # [N, M, d]
                     a_raw = tf.reduce_sum(a_raw, 2)
                     a_raw = exp_mask(a_raw, m_mask)
                     # a_raw, _ = dynamic_rnn(att_cell, a_raw, sequence_length=m_length, dtype='float')
-                    a = tf.nn.softmax(exp_mask(a_raw, a_mask), name='a')  # [N, M]
+                    a = tf.nn.softmax(a_raw, name='a')  # [N, M]
                     a_list.append(a)
-                    am = tf.concat(2, [tf.expand_dims(a, -1), m], name='am')  # [N, M, d+1]
-                    _, u_cur_f = dynamic_rnn(cell, am, sequence_length=m_length, initial_state=u_prev, scope='u_f')
-                    _, u_cur_b = dynamic_rnn(cell, tf.reverse(am, [False, True, False]), initial_state=u_prev, scope='u_b')
+                    a_f = a * ca_f_prev
+                    a_b = tf.reverse(a * ca_b_prev, [False, True])
+                    m_b = tf.reverse(m, [False, True, False])
+                    am_f = tf.concat(2, [tf.expand_dims(a_f, -1), m], name='am_f')  # [N, M, d+1]
+                    am_b = tf.concat(2, [tf.expand_dims(a_b, -1), m_b], name='am_b')
+                    _, u_cur_f = dynamic_rnn(cell, am_f, sequence_length=m_length, initial_state=u_prev, scope='u_f')
+                    _, u_cur_b = dynamic_rnn(cell, tf.reverse(am_b, [False, True, False]), initial_state=u_prev, scope='u_b')
                     u_cur_comb = tf.transpose(tf.pack([u_cur_f, u_cur_b]), [1, 0, 2], name='u_cur_comb')
+                    direc = tf.nn.softmax(linear([u_prev], 2, True, scope='direc'), name='direc')  # [N, 2]
                     u_cur = tf.reduce_sum(tf.expand_dims(direc, -1) * u_cur_comb, 1, name='u_cur')
                     # o = tf.reduce_sum(m * tf.expand_dims(a, -1), 1)
                     # u = tf.tanh(linear([u_prev, o, u_prev * o], d, True), name='u')
