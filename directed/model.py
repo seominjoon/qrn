@@ -131,7 +131,7 @@ class Tower(BaseTower):
             u = encoder(Aq, q_mask)  # [N, d]
             m = encoder(Ax, x_mask)  # [N, M, d]
 
-        with tf.variable_scope("layers"):
+        with tf.name_scope("pre_layers"):
             m_mask = tf.reduce_max(tf.cast(x_mask, 'int32'), 2, name='m_mask')  # [N, M]
             m_length = tf.reduce_sum(m_mask, 1, name='m_length')  # [N]
             tril = tf.constant(np.tril(np.ones([M, M], dtype='float32'), -1), name='tril')
@@ -141,8 +141,9 @@ class Tower(BaseTower):
             ca_f_prev = tf.ones([N, M], dtype='float')
             a_list = []
             ca_f_list = []
+        with tf.variable_scope("layers") as scope:
             for layer_idx in range(L):
-                with tf.variable_scope("layer_{}".format(layer_idx)):
+                with tf.name_scope("layer_{}".format(layer_idx)):
                     a_raw = tf.mul(tf.expand_dims(u_prev, 1), m, name='a_raw')  # [N, M, d]
                     # a_raw, _ = dynamic_rnn(att_cell, a_raw, sequence_length=m_length, dtype='float')
                     # a = tf.nn.softmax(exp_mask(exp_mask(tf.reduce_sum(a_raw, 2), m_mask), ca_f_prev), name='a')  # [N, M]
@@ -157,6 +158,8 @@ class Tower(BaseTower):
                     ca_f_list.append(ca_f)
                     u_prev = u_cur
                     ca_f_prev = ca_f
+                    scope.reuse_variables()
+
             a_comb = tf.transpose(tf.pack(a_list, name='a_comb'), [1, 0, 2])  # [N, L, M]
             ca_f_comb = tf.transpose(tf.pack(ca_f_list, name='ca_f'), [1, 0, 2])  # [N, L, M]
             tensors['a_comb'] = a_comb
