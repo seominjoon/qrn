@@ -148,7 +148,7 @@ def main(_):
     pprint(config.__dict__)
 
     # TODO : specify eval tensor names to save in evals folder
-    eval_tensor_names = ['a_comb', 'ca_f_comb', 'correct', 'yp']
+    eval_tensor_names = ['a_comb', 'ca_f_comb', 'correct', 'yp', 'direc_comb']
 
     graph = tf.Graph()
     # TODO : initialize BaseTower-subclassed objects

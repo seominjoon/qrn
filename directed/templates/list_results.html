@@ -28,6 +28,7 @@
             <th>Task</th>
             <th>Facts</th>
             <th>Attention</th>
+            <th>Direc</th>
             <th>Answer</th>
         </tr>
         {% for row in rows %}
@@ -50,6 +51,17 @@
                             {% endfor %}
                             {% for val in z %}
                                 <td class="att">{{ val }}</td>
+                            {% endfor %}
+                        </tr>
+                        {% endfor %}
+                    </table>
+                </td>
+                <td>
+                    <table>
+                        {% for each in row.direc %}
+                        <tr>
+                            {% for val in each %}
+                            <td>{{ val }}</td>
                             {% endfor %}
                         </tr>
                         {% endfor %}

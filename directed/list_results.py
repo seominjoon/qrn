@@ -93,8 +93,10 @@ def list_results(args):
         correct = eval_d['correct']
         a_raw = np.transpose(eval_d['a_comb'])  # [M, L]
         ca_f_raw = np.transpose(eval_d['ca_f_comb'])
+        direc_raw = np.transpose(eval_d['direc_comb'])
         attention = [["%.2f" % val for val in l] for l in a_raw]
         ca_f = [["%.2f" % val for val in l] for l in ca_f_raw]
+        direc = [["%.2f" % val for val in l] for l in direc_raw]
         row = {'id': id_,
                'facts': facts,
                'question': question,
@@ -102,6 +104,7 @@ def list_results(args):
                'ca_f': ca_f,
                'correct': correct,
                'task': T[i],
+               'direc': direc,
                'y': idx2word_dict[Y[id_]],
                'yp': idx2word_dict[eval_d['yp']]}
         rows.append(row)

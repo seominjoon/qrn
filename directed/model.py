@@ -140,33 +140,46 @@ class Tower(BaseTower):
             u_prev = u
             a_prev = tf.zeros([N, M], dtype='float')
             ca_f_prev = tf.ones([N, M], dtype='float')
+            ca_b_prev = tf.ones([N, M], dtype='float')
             a_list = []
             ca_f_list = []
+            ca_b_list = []
+            direcs = []
         with tf.variable_scope("layers") as scope:
             for layer_idx in range(L):
                 with tf.name_scope("layer_{}".format(layer_idx)):
-                    T = linear([u_prev, a_prev], M, True, scope='T')
+                    direc = tf.nn.softmax(linear([u_prev], 2, True, scope='direc'), name='direc')  # [N, 2]
+                    ca_prev = tf.transpose(tf.pack([ca_f_prev, ca_b_prev]), [1, 0, 2], name='ca_prev')  # [N, 2, M]
+                    a_mask = tf.reduce_sum(tf.expand_dims(direc, -1) * ca_prev, 1, name='a_mask')  # [N, M]
                     a_raw = tf.mul(tf.expand_dims(u_prev, 1), m, name='a_raw')  # [N, M, d]
                     a_raw = tf.reduce_sum(a_raw, 2)
+                    a_raw = exp_mask(a_raw, m_mask)
                     # a_raw, _ = dynamic_rnn(att_cell, a_raw, sequence_length=m_length, dtype='float')
-                    # a = tf.nn.softmax(exp_mask(exp_mask(tf.reduce_sum(a_raw, 2), m_mask), ca_f_prev), name='a')  # [N, M]
-                    a = tf.nn.softmax(exp_mask(a_raw + T, m_mask), name='a') # [N, M]
+                    a = tf.nn.softmax(exp_mask(a_raw, a_mask), name='a')  # [N, M]
                     a_list.append(a)
-                    am = tf.concat(2, [tf.expand_dims(a, -1), m], name='am')
-                    _, u_cur = dynamic_rnn(cell, am, sequence_length=m_length, initial_state=u_prev, scope='u')
+                    am = tf.concat(2, [tf.expand_dims(a, -1), m], name='am')  # [N, M, d+1]
+                    _, u_cur_f = dynamic_rnn(cell, am, sequence_length=m_length, initial_state=u_prev, scope='u_f')
+                    _, u_cur_b = dynamic_rnn(cell, tf.reverse(am, [False, True, False]), initial_state=u_prev, scope='u_b')
+                    u_cur_comb = tf.transpose(tf.pack([u_cur_f, u_cur_b]), [1, 0, 2], name='u_cur_comb')
+                    u_cur = tf.reduce_sum(tf.expand_dims(direc, -1) * u_cur_comb, 1, name='u_cur')
                     # o = tf.reduce_sum(m * tf.expand_dims(a, -1), 1)
                     # u = tf.tanh(linear([u_prev, o, u_prev * o], d, True), name='u')
                     # u = o + u_prev
                     ca_f = tf.matmul(a, tril, transpose_b=True)
                     ca_f_list.append(ca_f)
+                    ca_b = tf.matmul(a, tril)
+                    ca_b_list.append(ca_b)
                     u_prev = u_cur
                     ca_f_prev = ca_f
+                    direcs.append(direc)
                     scope.reuse_variables()
 
-            a_comb = tf.transpose(tf.pack(a_list, name='a_comb'), [1, 0, 2])  # [N, L, M]
-            ca_f_comb = tf.transpose(tf.pack(ca_f_list, name='ca_f'), [1, 0, 2])  # [N, L, M]
+            a_comb = tf.transpose(tf.pack(a_list), [1, 0, 2], name='a_comb')  # [N, L, M]
+            ca_f_comb = tf.transpose(tf.pack(ca_f_list), [1, 0, 2], name='ca_f_comb')  # [N, L, M]
+            direc_comb = tf.transpose(tf.pack(direcs), [1, 0, 2], name='direc_comb')  # [N, L, 2]
             tensors['a_comb'] = a_comb
             tensors['ca_f_comb'] = ca_f_comb
+            tensors['direc_comb'] =direc_comb
 
         with tf.variable_scope("class"):
             w = tf.tanh(linear([u_prev], d, True), name='w')
