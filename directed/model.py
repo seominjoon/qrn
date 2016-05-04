@@ -145,12 +145,13 @@ class Tower(BaseTower):
         with tf.variable_scope("layers") as scope:
             for layer_idx in range(L):
                 with tf.name_scope("layer_{}".format(layer_idx)):
-                    T = tf.tanh(linear([u_prev, a_prev], M, True, scope='T'), name='T')
+                    T = tf.tanh(linear([a_prev], M, True, scope='T'), name='T')
+                    t = tf.tanh(linear([u_prev], 1, True, scope='t'), name='t')
                     a_raw = tf.mul(tf.expand_dims(u_prev, 1), m, name='a_raw')  # [N, M, d]
                     a_raw = tf.reduce_sum(a_raw, 2)
                     # a_raw, _ = dynamic_rnn(att_cell, a_raw, sequence_length=m_length, dtype='float')
                     # a = tf.nn.softmax(exp_mask(exp_mask(tf.reduce_sum(a_raw, 2), m_mask), ca_f_prev), name='a')  # [N, M]
-                    a = tf.nn.softmax(exp_mask(a_raw + T, m_mask), name='a') # [N, M]
+                    a = tf.nn.softmax(exp_mask(a_raw + t*T, m_mask), name='a') # [N, M]
                     a_list.append(a)
                     am = tf.concat(2, [tf.expand_dims(a, -1), m], name='am')
                     _, u_cur = dynamic_rnn(cell, am, sequence_length=m_length, initial_state=u_prev, scope='u')
