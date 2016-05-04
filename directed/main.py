@@ -16,7 +16,7 @@ flags.DEFINE_string("model_name", "directed", "Model name. This will be used for
 flags.DEFINE_string("data_dir", "data/babi", "Data directory [data/babi]")
 
 # Training parameters
-flags.DEFINE_integer("batch_size", 100, "Batch size for each tower. [100]")
+flags.DEFINE_integer("batch_size", 32, "Batch size for each tower. [32]")
 flags.DEFINE_float("init_mean", 0, "Initial weight mean [0]")
 flags.DEFINE_float("init_std", 0.1, "Initial weight std [0.1]")
 flags.DEFINE_float("init_lr", 0.5, "Initial learning rate [0.5]")

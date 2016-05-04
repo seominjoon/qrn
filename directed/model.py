@@ -132,7 +132,7 @@ class Tower(BaseTower):
             m = encoder(Ax, x_mask)  # [N, M, d]
 
         with tf.variable_scope("layers"):
-            m_mask = tf.reduce_max(tf.cast(x_mask, 'int32'), 2, name='m_mask')
+            m_mask = tf.reduce_max(tf.cast(x_mask, 'int32'), 2, name='m_mask')  # [N, M]
             m_length = tf.reduce_sum(m_mask, 1, name='m_length')  # [N]
             tril = tf.constant(np.tril(np.ones([M, M], dtype='float32'), -1), name='tril')
             att_cell = GRUCell(d, input_size=d)
@@ -144,15 +144,18 @@ class Tower(BaseTower):
             for layer_idx in range(L):
                 with tf.variable_scope("layer_{}".format(layer_idx)):
                     a_raw = tf.mul(tf.expand_dims(u_prev, 1), m, name='a_raw')  # [N, M, d]
-                    a_raw, _ = dynamic_rnn(att_cell, a_raw, sequence_length=m_length, dtype='float')
+                    # a_raw, _ = dynamic_rnn(att_cell, a_raw, sequence_length=m_length, dtype='float')
                     # a = tf.nn.softmax(exp_mask(exp_mask(tf.reduce_sum(a_raw, 2), m_mask), ca_f_prev), name='a')  # [N, M]
-                    a = tf.nn.softmax(exp_mask(tf.reduce_sum(a_raw, 2), m_mask), name='a')
+                    a = tf.nn.softmax(exp_mask(tf.reduce_sum(a_raw, 2), m_mask), name='a') # [N, M]
                     a_list.append(a)
                     am = tf.concat(2, [tf.expand_dims(a, -1), m], name='am')
-                    _, u = dynamic_rnn(cell, am, sequence_length=m_length, initial_state=u_prev)
+                    _, u_cur = dynamic_rnn(cell, am, sequence_length=m_length, initial_state=u_prev, scope='u')
+                    # o = tf.reduce_sum(m * tf.expand_dims(a, -1), 1)
+                    # u = tf.tanh(linear([u_prev, o, u_prev * o], d, True), name='u')
+                    # u = o + u_prev
                     ca_f = tf.matmul(a, tril, transpose_b=True)
                     ca_f_list.append(ca_f)
-                    u_prev = u
+                    u_prev = u_cur
                     ca_f_prev = ca_f
             a_comb = tf.transpose(tf.pack(a_list, name='a_comb'), [1, 0, 2])  # [N, L, M]
             ca_f_comb = tf.transpose(tf.pack(ca_f_list, name='ca_f'), [1, 0, 2])  # [N, L, M]
@@ -160,8 +163,9 @@ class Tower(BaseTower):
             tensors['ca_f_comb'] = ca_f_comb
 
         with tf.variable_scope("class"):
+            w = tf.tanh(linear([u_prev], d, True), name='w')
             W = tf.transpose(A.emb_mat, name='W')
-            logits = tf.matmul(u, W, name='logits')
+            logits = tf.matmul(w, W, name='logits')
             correct = tf.equal(tf.argmax(logits, 1), tf.cast(y, 'int64'))
             tensors['correct'] = correct
 
