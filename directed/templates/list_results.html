@@ -43,13 +43,16 @@
                 </ol></td>
                 <td>
                     <table>
-                        {% for fact, each, z in zip(reversed(row.facts), row.attention, row.ca_f) %}
+                        {% for fact, each, f, b in zip(reversed(row.facts), row.attention, row.ca_f, row.ca_b) %}
                         <tr>
                             <td>{{ fact }}</td>
                             {% for val in each %}
                             <td class="att">{{ val }}</td>
                             {% endfor %}
-                            {% for val in z %}
+                            {% for val in f %}
+                                <td class="att">{{ val }}</td>
+                            {% endfor %}
+                            {% for val in b %}
                                 <td class="att">{{ val }}</td>
                             {% endfor %}
                         </tr>

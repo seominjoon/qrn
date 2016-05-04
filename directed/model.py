@@ -1,6 +1,6 @@
 import tensorflow as tf
 # from tensorflow.python.ops.rnn import dynamic_rnn
-from tensorflow.python.ops.rnn_cell import DropoutWrapper, MultiRNNCell
+from tensorflow.python.ops.rnn_cell import MultiRNNCell
 
 from directed.base_model import BaseTower, BaseRunner
 from my.tensorflow import flatten, exp_mask
@@ -8,7 +8,7 @@ from my.tensorflow.nn import linear
 from my.tensorflow.rnn import dynamic_rnn
 import numpy as np
 
-from my.tensorflow.rnn_cell import BasicLSTMCell, GRUCell, GRUXCell
+from my.tensorflow.rnn_cell import BasicLSTMCell, GRUCell, GRUXCell, DropoutWrapper
 
 
 class Embedder(object):
@@ -104,6 +104,7 @@ class Tower(BaseTower):
         N, J, V, Q, M = params.batch_size, params.max_sent_size, params.vocab_size, params.max_ques_size, params.max_num_sents
         d = params.hidden_size
         L = params.mem_num_layers
+        keep_prob = params.keep_prob
         with tf.name_scope("placeholders"):
             x = tf.placeholder('int32', shape=[N, M, J], name='x')
             x_mask = tf.placeholder('bool', shape=[N, M, J], name='x_mask')
@@ -136,7 +137,7 @@ class Tower(BaseTower):
             m_length = tf.reduce_sum(m_mask, 1, name='m_length')  # [N]
             tril = tf.constant(np.tril(np.ones([M, M], dtype='float32'), -1), name='tril')
             att_cell = GRUCell(d, input_size=d)
-            cell = GRUXCell(d, input_size=d+1)
+            cell = DropoutWrapper(GRUXCell(d, input_size=d+1), input_keep_prob=keep_prob, is_train=is_train)
             u_prev = u
             a_prev = tf.zeros([N, M], dtype='float')
             ca_f_prev = tf.ones([N, M], dtype='float')
@@ -178,9 +179,11 @@ class Tower(BaseTower):
 
             a_comb = tf.transpose(tf.pack(a_list), [1, 0, 2], name='a_comb')  # [N, L, M]
             ca_f_comb = tf.transpose(tf.pack(ca_f_list), [1, 0, 2], name='ca_f_comb')  # [N, L, M]
+            ca_b_comb = tf.transpose(tf.pack(ca_b_list), [1, 0, 2], name='ca_b_comb')  # [N, L, M]
             direc_comb = tf.transpose(tf.pack(direcs), [1, 0, 2], name='direc_comb')  # [N, L, 2]
             tensors['a_comb'] = a_comb
             tensors['ca_f_comb'] = ca_f_comb
+            tensors['ca_b_comb'] = ca_b_comb
             tensors['direc_comb'] =direc_comb
 
         with tf.variable_scope("class"):
