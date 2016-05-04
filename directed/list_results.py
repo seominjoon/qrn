@@ -101,7 +101,9 @@ def list_results(args):
                'attention': attention,
                'ca_f': ca_f,
                'correct': correct,
-               'task': T[i]}
+               'task': T[i],
+               'y': idx2word_dict[Y[id_]],
+               'yp': idx2word_dict[eval_d['yp']]}
         rows.append(row)
 
         if i % num_per_page == 0:

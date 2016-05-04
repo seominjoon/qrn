@@ -172,7 +172,9 @@ class Tower(BaseTower):
             w = tf.tanh(linear([u_prev], d, True), name='w')
             W = tf.transpose(A.emb_mat, name='W')
             logits = tf.matmul(w, W, name='logits')
-            correct = tf.equal(tf.argmax(logits, 1), tf.cast(y, 'int64'))
+            yp = tf.cast(tf.argmax(logits, 1), 'int32')
+            correct = tf.equal(yp, y)
+            tensors['yp'] = yp
             tensors['correct'] = correct
 
         with tf.name_scope("loss") as scope:

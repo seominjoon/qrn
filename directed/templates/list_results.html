@@ -28,7 +28,7 @@
             <th>Task</th>
             <th>Facts</th>
             <th>Attention</th>
-            <th>Correct?</th>
+            <th>Answer</th>
         </tr>
         {% for row in rows %}
             <tr>
@@ -56,10 +56,10 @@
                     </table>
                 </td>
                 {% if row.correct %}
-                <td bgcolor="#7fff00">{{ row.yp }}
+                <td bgcolor="#7fff00">{{ row.yp }} ({{ row.y }})
                 </td>
                 {% else %}
-                <td bgcolor="#8b0000">{{ row.yp }}
+                <td bgcolor="#8b0000">{{ row.yp }} ({{ row.y }})
                 </td>
                 {% endif %}
             </tr>
