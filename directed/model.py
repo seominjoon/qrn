@@ -91,7 +91,7 @@ class Tower(BaseTower):
         with tf.name_scope("pre_layers"):
             m_mask = tf.reduce_max(tf.cast(x_mask, 'int32'), 2, name='m_mask')  # [N, M]
             m_length = tf.reduce_sum(m_mask, 1, name='m_length')  # [N]
-            cell = RPUCell(d, input_size=1+2*d, wd=wd)
+            cell = RPUCell(d, input_size=1+d, wd=wd)
             u_prev = u
             us_prev = tf.zeros(shape=[N, M, d], dtype='float')
             a_list = []
@@ -103,8 +103,8 @@ class Tower(BaseTower):
                     a_raw = tf.reduce_sum(tf.tanh(tf.expand_dims(u_prev, 1) * (m + us_prev)) * w_a, 2, name='a_raw')  # [N, M]
                     a = tf.mul(tf.nn.sigmoid(a_raw), tf.cast(m_mask, 'float'), name='a')  # [N, M]
                     a_list.append(a)
-                    u_prev_tiled = tf.tile(tf.expand_dims(u_prev, 1), [1, M, 1], name='u_prev_tiled')
-                    am = tf.concat(2, [tf.expand_dims(a, -1), m, u_prev_tiled], name='am')
+                    # u_prev_tiled = tf.tile(tf.expand_dims(u_prev, 1), [1, M, 1], name='u_prev_tiled')
+                    am = tf.concat(2, [tf.expand_dims(a, -1), m], name='am')
                     us_f, u_f = dynamic_rnn(cell, am, sequence_length=m_length, initial_state=u_prev, scope='u_f')
                     # us_b_rev, _ = dynamic_rnn(cell, tf.reverse(am, [False, True, False]), dtype='float', scope='u_b')
                     # us_b = tf.reverse(us_b_rev, [False, True, False])
