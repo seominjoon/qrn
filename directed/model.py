@@ -148,7 +148,7 @@ class Tower(BaseTower):
                     a_list.append(a)
                     am = tf.concat(2, [tf.expand_dims(a, -1), m], name='am')
                     us_cur, u_cur = dynamic_rnn(cell, am, sequence_length=m_length, initial_state=u_prev, scope='u')
-                    u_prev += u_cur
+                    u_prev = u_cur
                     us_prev = us_cur
                     scope.reuse_variables()
 
