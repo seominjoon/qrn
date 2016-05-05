@@ -53,18 +53,19 @@ class BaseRunner(object):
         grads_pairs_dict = defaultdict(list)
         correct_tensors = []
         loss_tensors = []
-        for device_id, tower in enumerate(self.towers):
-            with tf.device("/%s:%d" % (device_type, device_id)), tf.name_scope("%s_%d" % (device_type, device_id)):
-                tower.initialize()
-                tf.get_variable_scope().reuse_variables()
-                loss_tensor = tower.get_loss_tensor()
-                loss_tensors.append(loss_tensor)
-                correct_tensor = tower.get_correct_tensor()
-                correct_tensors.append(correct_tensor)
+        with tf.variable_scope("towers"):
+            for device_id, tower in enumerate(self.towers):
+                with tf.device("/%s:%d" % (device_type, device_id)), tf.name_scope("%s_%d" % (device_type, device_id)):
+                    tower.initialize()
+                    tf.get_variable_scope().reuse_variables()
+                    loss_tensor = tower.get_loss_tensor()
+                    loss_tensors.append(loss_tensor)
+                    correct_tensor = tower.get_correct_tensor()
+                    correct_tensors.append(correct_tensor)
 
-                for key, variables in tower.variables_dict.items():
-                    grads_pair = opt.compute_gradients(loss_tensor, var_list=variables)
-                    grads_pairs_dict[key].append(grads_pair)
+                    for key, variables in tower.variables_dict.items():
+                        grads_pair = opt.compute_gradients(loss_tensor, var_list=variables)
+                        grads_pairs_dict[key].append(grads_pair)
 
         with tf.name_scope("gpu_sync"):
             loss_tensor = tf.reduce_mean(tf.pack(loss_tensors), 0, name='loss')

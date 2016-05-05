@@ -17,10 +17,10 @@ class Embedder(object):
 
 
 class VariableEmbedder(Embedder):
-    def __init__(self, params, name="variable_embedder"):
+    def __init__(self, params, initializer=None, name="variable_embedder"):
         V, d = params.vocab_size, params.hidden_size
         with tf.variable_scope(name):
-            self.emb_mat = tf.get_variable("emb_mat", dtype='float', shape=[V, d])
+            self.emb_mat = tf.get_variable("emb_mat", dtype='float', shape=[V, d], initializer=initializer)
 
     def __call__(self, word, name="embedded_content"):
         out = tf.nn.embedding_lookup(self.emb_mat, word, name=name)
@@ -50,51 +50,6 @@ class PositionEncoder(object):
             return f
 
 
-class GRU(object):
-    def __init__(self, params, is_train):
-        self.params = params
-        d = params.hidden_size
-        keep_prob = params.keep_prob
-        rnn_num_layers = params.rnn_num_layers
-        self.scope = tf.get_variable_scope()
-
-        cell = GRUCell(d)
-        do_cell = cell
-        if keep_prob:
-            do_cell = DropoutWrapper(do_cell, input_keep_prob=keep_prob)
-        if rnn_num_layers > 1:
-            cell = MultiRNNCell([cell] * rnn_num_layers)
-            do_cell = MultiRNNCell([do_cell] * rnn_num_layers)
-        self.cell = cell
-        self.do_cell = do_cell
-        self.is_train = is_train
-        self.used = False
-
-    def __call__(self, Ax, length=None, initial_state=None, feed_prev_out=False, dtype=None, name="encoded_sentence"):
-        with tf.name_scope(name):
-            NN, J, d = flatten(Ax.get_shape().as_list(), 3)
-            L = self.params.rnn_num_layers
-            Ax_flat = tf.reshape(Ax, [NN, J, d])
-            if length is not None:
-                length = tf.reshape(length, [NN])
-
-            h_zeros_up = tf.constant(0.0, shape=[NN, (L-1)*d])
-            h = None if initial_state is None else tf.concat(1, [tf.reshape(initial_state, [NN, d]), h_zeros_up], name='h')
-            with tf.variable_scope(self.scope, reuse=self.used):
-                # Always True feed_prev_out, because this is for test time.
-                raw = dynamic_rnn(self.cell, Ax_flat, sequence_length=length, initial_state=h, dtype=dtype,
-                                  feed_prev_out=feed_prev_out)
-                tf.get_variable_scope().reuse_variables()
-                do = dynamic_rnn(self.do_cell, Ax_flat, sequence_length=length, initial_state=h, dtype=dtype,
-                                 feed_prev_out=feed_prev_out)
-            o_flat, h_flat = tf.cond(self.is_train, lambda: do, lambda: raw)
-            o = tf.reshape(o_flat, Ax.get_shape(), name='o')
-            s_flat = tf.slice(h_flat, [0, (L-1)*d], [-1, -1])  # last h or multiRNN (excluding c)
-            s = tf.reshape(s_flat, Ax.get_shape().as_list()[:-2] + [d], name='s')
-            self.used = True
-            return o, s
-
-
 class Tower(BaseTower):
     def initialize(self):
         params = self.params
@@ -120,7 +75,7 @@ class Tower(BaseTower):
             placeholders['y'] = y
             placeholders['is_train'] = is_train
 
-        with tf.variable_scope("embedding"):
+        with tf.variable_scope("embedding", initializer=self.default_initializer):
             A = VariableEmbedder(params, name='A')
             Aq = A(q, name='Ax')  # [N, S, J, d]
             Ax = A(x, name='Cx')  # [N, S, J, d]
@@ -141,7 +96,7 @@ class Tower(BaseTower):
             us_prev = tf.zeros(shape=[N, M, d], dtype='float')
             a_list = []
 
-        with tf.variable_scope("layers") as scope:
+        with tf.variable_scope("layers", initializer=self.default_initializer) as scope:
             for layer_idx in range(L):
                 with tf.name_scope("layer_{}".format(layer_idx)):
                     w_a = tf.get_variable('w_a', shape=[d], dtype='float')
@@ -160,7 +115,7 @@ class Tower(BaseTower):
             a_comb = tf.transpose(tf.pack(a_list), [1, 0, 2], name='a_comb')  # [N, L, M]
             tensors['a'] = a_comb
 
-        with tf.variable_scope("class"):
+        with tf.variable_scope("class", initializer=self.default_initializer):
             w = tf.tanh(linear([u_prev], d, True), name='w')
             W = tf.transpose(A.emb_mat, name='W')
             logits = tf.matmul(w, W, name='logits')
