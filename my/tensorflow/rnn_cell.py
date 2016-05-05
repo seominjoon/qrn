@@ -307,7 +307,7 @@ class BasicLSTMXCell(RNNCell):
             # i = input_gate, j = new_input, f = forget_gate, o = output_gate
             i, j, f, o = tf.split(1, 4, concat)
 
-            new_c = c * tf.sigmoid(f + self._forget_bias) + tf.sigmoid(i) * tf.tanh(j)
+            new_c = c * (1 - gate) + gate * tf.tanh(j)
             new_h = tf.tanh(new_c) * tf.sigmoid(o)
 
         return new_h, tf.concat(1, [new_c, new_h])

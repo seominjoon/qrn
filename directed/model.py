@@ -151,7 +151,7 @@ class Tower(BaseTower):
                     us_cur, u_cur = dynamic_rnn(cell, am, sequence_length=m_length, initial_state=u_prev, scope='u')
                     u_prev = u_cur
                     us_prev = us_cur
-                    # scope.reuse_variables()
+                    scope.reuse_variables()
 
             a_comb = tf.transpose(tf.pack(a_list), [1, 0, 2], name='a_comb')  # [N, L, M]
             tensors['a'] = a_comb
