@@ -141,7 +141,7 @@ class Tower(BaseTower):
             a_list = []
         with tf.variable_scope("layers") as scope:
             for layer_idx in range(L):
-                with tf.variable_scope("layer_{}".format(layer_idx)):
+                with tf.name_scope("layer_{}".format(layer_idx)):
                     w_us = tf.get_variable('w_us', shape=[])
                     a_raw = tf.reduce_sum(tf.expand_dims(u_prev, 1) * (m + w_us * us_prev), 2, name='a_raw')  # [N, M]
                     # a_raw, _ = dynamic_rnn(att_cell, a_raw, sequence_length=m_length, dtype='float')
