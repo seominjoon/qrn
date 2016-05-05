@@ -136,10 +136,11 @@ class Tower(BaseTower):
         with tf.name_scope("pre_layers"):
             m_mask = tf.reduce_max(tf.cast(x_mask, 'int32'), 2, name='m_mask')  # [N, M]
             m_length = tf.reduce_sum(m_mask, 1, name='m_length')  # [N]
-            cell = GRUXCell(d, input_size=d+1, wd=wd)
+            cell = GRUXCell(d, input_size=1+2*d, wd=wd)
             u_prev = u
             us_prev = tf.zeros(shape=[N, M, d], dtype='float')
             a_list = []
+
         with tf.variable_scope("layers") as scope:
             for layer_idx in range(L):
                 with tf.name_scope("layer_{}".format(layer_idx)):
@@ -147,10 +148,12 @@ class Tower(BaseTower):
                     a_raw = tf.reduce_sum(tf.tanh(tf.expand_dims(u_prev, 1) * (m + us_prev)) * w_a, 2, name='a_raw')  # [N, M]
                     a = tf.mul(tf.nn.sigmoid(a_raw), tf.cast(m_mask, 'float'), name='a')  # [N, M]
                     a_list.append(a)
-                    am = tf.concat(2, [tf.expand_dims(a, -1), m], name='am')
-                    us_cur, u_cur = dynamic_rnn(cell, am, sequence_length=m_length, initial_state=u_prev, scope='u')
-                    u_prev = u_cur
-                    us_prev = us_cur
+                    u_prev_tiled = tf.tile(tf.expand_dims(u_prev, 1), [1, M, 1], name='u_prev_tiled')
+                    am = tf.concat(2, [tf.expand_dims(a, -1), m, u_prev_tiled], name='am')
+                    us_f, u_f = dynamic_rnn(cell, am, sequence_length=m_length, dtype='float', scope='u_f')
+                    us_b, u_b = dynamic_rnn(cell, tf.reverse(am, [False, True, True]), dtype='float', scope='u_b')
+                    u_prev = u_f
+                    us_prev = us_f + us_b
                     scope.reuse_variables()
 
             a_comb = tf.transpose(tf.pack(a_list), [1, 0, 2], name='a_comb')  # [N, L, M]
