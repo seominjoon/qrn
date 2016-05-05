@@ -142,15 +142,14 @@ class Tower(BaseTower):
         with tf.variable_scope("layers") as scope:
             for layer_idx in range(L):
                 with tf.name_scope("layer_{}".format(layer_idx)):
-                    w_us = tf.get_variable('w_us', shape=[])
-                    a_raw = tf.reduce_sum(tf.expand_dims(u_prev, 1) * (m + w_us * us_prev), 2, name='a_raw')  # [N, M]
+                    a_raw = tf.reduce_sum(tf.expand_dims(u_prev, 1) * (m + us_prev), 2, name='a_raw')  # [N, M]
                     # a_raw, _ = dynamic_rnn(att_cell, a_raw, sequence_length=m_length, dtype='float')
                     a = tf.nn.softmax(exp_mask(a_raw, m_mask), name='a')  # [N, M]
                     a_list.append(a)
                     am = tf.concat(2, [tf.expand_dims(a, -1), m], name='am')
                     us_cur, u_cur = dynamic_rnn(cell, am, sequence_length=m_length, initial_state=u_prev, scope='u')
-                    u_prev = u_cur
-                    us_prev = us_cur
+                    u_prev += u_cur
+                    us_prev += us_cur
                     scope.reuse_variables()
 
             a_comb = tf.transpose(tf.pack(a_list), [1, 0, 2], name='a_comb')  # [N, L, M]
