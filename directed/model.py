@@ -75,7 +75,7 @@ class Tower(BaseTower):
             placeholders['y'] = y
             placeholders['is_train'] = is_train
 
-        with tf.variable_scope("embedding", initializer=self.default_initializer):
+        with tf.variable_scope("embedding"):
             A = VariableEmbedder(params, name='A')
             Aq = A(q, name='Ax')  # [N, S, J, d]
             Ax = A(x, name='Cx')  # [N, S, J, d]
@@ -96,7 +96,7 @@ class Tower(BaseTower):
             us_prev = tf.zeros(shape=[N, M, d], dtype='float')
             a_list = []
 
-        with tf.variable_scope("layers", initializer=self.default_initializer) as scope:
+        with tf.variable_scope("layers") as scope:
             for layer_idx in range(L):
                 with tf.name_scope("layer_{}".format(layer_idx)):
                     w_a = tf.get_variable('w_a', shape=[d], dtype='float')
@@ -115,7 +115,7 @@ class Tower(BaseTower):
             a_comb = tf.transpose(tf.pack(a_list), [1, 0, 2], name='a_comb')  # [N, L, M]
             tensors['a'] = a_comb
 
-        with tf.variable_scope("class", initializer=self.default_initializer):
+        with tf.variable_scope("class"):
             w = tf.tanh(linear([u_prev], d, True), name='w')
             W = tf.transpose(A.emb_mat, name='W')
             logits = tf.matmul(w, W, name='logits')
