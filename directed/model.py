@@ -8,7 +8,7 @@ from my.tensorflow.nn import linear
 from my.tensorflow.rnn import dynamic_rnn
 import numpy as np
 
-from my.tensorflow.rnn_cell import BasicLSTMCell, GRUCell, GRUXCell, DropoutWrapper
+from my.tensorflow.rnn_cell import BasicLSTMCell, GRUCell, GRUXCell, DropoutWrapper, RPUCell
 
 
 class Embedder(object):
@@ -91,7 +91,7 @@ class Tower(BaseTower):
         with tf.name_scope("pre_layers"):
             m_mask = tf.reduce_max(tf.cast(x_mask, 'int32'), 2, name='m_mask')  # [N, M]
             m_length = tf.reduce_sum(m_mask, 1, name='m_length')  # [N]
-            cell = GRUXCell(d, input_size=1+2*d, wd=wd)
+            cell = RPUCell(d, input_size=1+2*d, wd=wd)
             u_prev = u
             us_prev = tf.zeros(shape=[N, M, d], dtype='float')
             a_list = []
