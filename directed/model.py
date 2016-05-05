@@ -141,8 +141,9 @@ class Tower(BaseTower):
             a_list = []
         with tf.variable_scope("layers") as scope:
             for layer_idx in range(L):
-                with tf.name_scope("layer_{}".format(layer_idx)):
-                    a_raw = tf.reduce_sum(tf.expand_dims(u_prev, 1) * (m + us_prev), 2, name='a_raw')  # [N, M]
+                with tf.variable_scope("layer_{}".format(layer_idx)):
+                    w_a = tf.get_variable("w_a", shape=[M], dtype='float')
+                    a_raw = tf.reduce_sum(tf.expand_dims(u_prev, 1) * (m + us_prev) * tf.expand_dims(w_a, -1), 2, name='a_raw')  # [N, M]
                     # a_raw, _ = dynamic_rnn(att_cell, a_raw, sequence_length=m_length, dtype='float')
                     a = tf.nn.softmax(exp_mask(a_raw, m_mask), name='a')  # [N, M]
                     a_list.append(a)
@@ -150,7 +151,7 @@ class Tower(BaseTower):
                     us_cur, u_cur = dynamic_rnn(cell, am, sequence_length=m_length, initial_state=u_prev, scope='u')
                     u_prev = u_cur
                     us_prev = us_cur
-                    scope.reuse_variables()
+                    # scope.reuse_variables()
 
             a_comb = tf.transpose(tf.pack(a_list), [1, 0, 2], name='a_comb')  # [N, L, M]
             tensors['a'] = a_comb
