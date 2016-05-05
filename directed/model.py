@@ -105,6 +105,7 @@ class Tower(BaseTower):
         d = params.hidden_size
         L = params.mem_num_layers
         keep_prob = params.keep_prob
+        wd = params.wd
         with tf.name_scope("placeholders"):
             x = tf.placeholder('int32', shape=[N, M, J], name='x')
             x_mask = tf.placeholder('bool', shape=[N, M, J], name='x_mask')
@@ -135,7 +136,7 @@ class Tower(BaseTower):
         with tf.name_scope("pre_layers"):
             m_mask = tf.reduce_max(tf.cast(x_mask, 'int32'), 2, name='m_mask')  # [N, M]
             m_length = tf.reduce_sum(m_mask, 1, name='m_length')  # [N]
-            cell = GRUXCell(d, input_size=d+1)
+            cell = GRUXCell(d, input_size=d+1, wd=wd)
             u_prev = u
             us_prev = tf.zeros(shape=[N, M, d], dtype='float')
             a_list = []
