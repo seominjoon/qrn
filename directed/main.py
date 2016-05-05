@@ -50,7 +50,7 @@ flags.DEFINE_integer("max_grad_norm", 40, "Max grad norm. 0 for no clipping [40]
 flags.DEFINE_integer("rnn_num_layers", 1, "RNN number of layers [1]")
 flags.DEFINE_float("keep_prob", 0.5, "Keep probability of RNN inputs [0.5]")
 flags.DEFINE_integer("mem_num_layers", 2, "Number of memory layers [2]")
-flags.DEFINE_integer("wd", 0.0001, "Weight decay [0.0001]")
+flags.DEFINE_integer("wd", 0, "Weight decay [0]")
 
 FLAGS = flags.FLAGS
 
