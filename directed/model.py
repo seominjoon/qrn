@@ -151,7 +151,8 @@ class Tower(BaseTower):
                     u_prev_tiled = tf.tile(tf.expand_dims(u_prev, 1), [1, M, 1], name='u_prev_tiled')
                     am = tf.concat(2, [tf.expand_dims(a, -1), m, u_prev_tiled], name='am')
                     us_f, u_f = dynamic_rnn(cell, am, sequence_length=m_length, dtype='float', scope='u_f')
-                    us_b, u_b = dynamic_rnn(cell, tf.reverse(am, [False, True, True]), dtype='float', scope='u_b')
+                    us_b_rev, _ = dynamic_rnn(cell, tf.reverse(am, [False, True, False]), dtype='float', scope='u_b')
+                    us_b = tf.reverse(us_b_rev, [False, True, False])
                     u_prev = u_f
                     us_prev = us_f + us_b
                     scope.reuse_variables()
