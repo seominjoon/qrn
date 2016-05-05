@@ -282,7 +282,7 @@ class RPUCell(RNNCell):
                 gate = tf.slice(inputs, [0, 0], [-1, 1], name='gate')
                 x = tf.slice(inputs, [0, 1], [-1, -1], name='x')
             with tf.variable_scope("Candidate"):
-                ht = tf.tanh(linear([x], self._num_units, True, var_on_cpu=self.var_on_cpu, wd=self.wd))
+                ht = tf.tanh(linear([x, state], self._num_units, True, var_on_cpu=self.var_on_cpu, wd=self.wd))
             h = gate * ht + (1 - gate) * state
         return h, h
 
