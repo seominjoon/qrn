@@ -91,23 +91,14 @@ def list_results(args):
         question = _decode(idx2word_dict, Q[id_])
         facts = [_decode(idx2word_dict, x) for x in X[id_]]
         correct = eval_d['correct']
-        a_raw = np.transpose(eval_d['a_comb'])  # [M, L]
-        ca_f_raw = np.transpose(eval_d['ca_f_comb'])
-        ca_b_raw = np.transpose(eval_d['ca_b_comb'])
-        direc_raw = np.transpose(eval_d['direc_comb'])
-        attention = [["%.2f" % val for val in l] for l in a_raw]
-        ca_f = [["%.2f" % val for val in l] for l in ca_f_raw]
-        ca_b = [["%.2f" % val for val in l] for l in ca_b_raw]
-        direc = [["%.2f" % val for val in l] for l in direc_raw]
+        a_raw = np.transpose(eval_d['a'])  # [M, L]
+        a = [["%.2f" % val for val in l] for l in a_raw]
         row = {'id': id_,
                'facts': facts,
                'question': question,
-               'attention': attention,
-               'ca_f': ca_f,
-               'ca_b': ca_b,
+               'attention': a,
                'correct': correct,
                'task': T[i],
-               'direc': direc,
                'y': idx2word_dict[Y[id_]],
                'yp': idx2word_dict[eval_d['yp']]}
         rows.append(row)

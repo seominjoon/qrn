@@ -135,56 +135,25 @@ class Tower(BaseTower):
         with tf.name_scope("pre_layers"):
             m_mask = tf.reduce_max(tf.cast(x_mask, 'int32'), 2, name='m_mask')  # [N, M]
             m_length = tf.reduce_sum(m_mask, 1, name='m_length')  # [N]
-            tril = tf.constant(np.tril(np.ones([M, M], dtype='float32'), -1), name='tril')
-            att_cell = GRUCell(d, input_size=d)
             cell = DropoutWrapper(GRUXCell(d, input_size=d+1), input_keep_prob=keep_prob, is_train=is_train)
             u_prev = u
-            a_prev = tf.zeros([N, M], dtype='float')
-            ca_f_prev = tf.ones([N, M], dtype='float')
-            ca_b_prev = tf.ones([N, M], dtype='float')
+            us_prev = tf.zeros(shape=[N, M, d], dtype='float')
             a_list = []
-            ca_f_list = []
-            ca_b_list = []
-            direcs = []
         with tf.variable_scope("layers") as scope:
             for layer_idx in range(L):
                 with tf.name_scope("layer_{}".format(layer_idx)):
-                    a_raw = tf.mul(tf.expand_dims(u_prev, 1), m, name='a_raw')  # [N, M, d]
-                    a_raw = tf.reduce_sum(a_raw, 2)
-                    a_raw = exp_mask(a_raw, m_mask)
+                    a_raw = tf.reduce_sum(tf.expand_dims(u_prev, 1) * (m + us_prev), 2, name='a_raw')  # [N, M]
                     # a_raw, _ = dynamic_rnn(att_cell, a_raw, sequence_length=m_length, dtype='float')
-                    a = tf.nn.softmax(a_raw, name='a')  # [N, M]
+                    a = tf.nn.softmax(exp_mask(a_raw, m_mask), name='a')  # [N, M]
                     a_list.append(a)
-                    a_f = a * ca_f_prev
-                    a_b = tf.reverse(a * ca_b_prev, [False, True])
-                    m_b = tf.reverse(m, [False, True, False])
-                    am_f = tf.concat(2, [tf.expand_dims(a_f, -1), m], name='am_f')  # [N, M, d+1]
-                    am_b = tf.concat(2, [tf.expand_dims(a_b, -1), m_b], name='am_b')
-                    _, u_cur_f = dynamic_rnn(cell, am_f, sequence_length=m_length, initial_state=u_prev, scope='u_f')
-                    _, u_cur_b = dynamic_rnn(cell, tf.reverse(am_b, [False, True, False]), initial_state=u_prev, scope='u_b')
-                    u_cur_comb = tf.transpose(tf.pack([u_cur_f, u_cur_b]), [1, 0, 2], name='u_cur_comb')
-                    direc = tf.nn.softmax(linear([u_prev], 2, True, scope='direc'), name='direc')  # [N, 2]
-                    u_cur = tf.reduce_sum(tf.expand_dims(direc, -1) * u_cur_comb, 1, name='u_cur')
-                    # o = tf.reduce_sum(m * tf.expand_dims(a, -1), 1)
-                    # u = tf.tanh(linear([u_prev, o, u_prev * o], d, True), name='u')
-                    # u = o + u_prev
-                    ca_f = tf.matmul(a, tril, transpose_b=True)
-                    ca_f_list.append(ca_f)
-                    ca_b = tf.matmul(a, tril)
-                    ca_b_list.append(ca_b)
+                    am = tf.concat(2, [tf.expand_dims(a, -1), m], name='am')
+                    us_cur, u_cur = dynamic_rnn(cell, am, sequence_length=m_length, initial_state=u_prev, scope='u')
                     u_prev = u_cur
-                    ca_f_prev = ca_f
-                    direcs.append(direc)
+                    us_prev = us_cur
                     scope.reuse_variables()
 
             a_comb = tf.transpose(tf.pack(a_list), [1, 0, 2], name='a_comb')  # [N, L, M]
-            ca_f_comb = tf.transpose(tf.pack(ca_f_list), [1, 0, 2], name='ca_f_comb')  # [N, L, M]
-            ca_b_comb = tf.transpose(tf.pack(ca_b_list), [1, 0, 2], name='ca_b_comb')  # [N, L, M]
-            direc_comb = tf.transpose(tf.pack(direcs), [1, 0, 2], name='direc_comb')  # [N, L, 2]
-            tensors['a_comb'] = a_comb
-            tensors['ca_f_comb'] = ca_f_comb
-            tensors['ca_b_comb'] = ca_b_comb
-            tensors['direc_comb'] =direc_comb
+            tensors['a'] = a_comb
 
         with tf.variable_scope("class"):
             w = tf.tanh(linear([u_prev], d, True), name='w')

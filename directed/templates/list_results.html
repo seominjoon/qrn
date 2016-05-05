@@ -28,7 +28,6 @@
             <th>Task</th>
             <th>Facts</th>
             <th>Attention</th>
-            <th>Direc</th>
             <th>Answer</th>
         </tr>
         {% for row in rows %}
@@ -43,38 +42,21 @@
                 </ol></td>
                 <td>
                     <table>
-                        {% for fact, each, f, b in zip(reversed(row.facts), row.attention, row.ca_f, row.ca_b) %}
+                        {% for fact, attention in zip(reversed(row.facts), row.attention) %}
                         <tr>
                             <td>{{ fact }}</td>
-                            {% for val in each %}
+                            {% for val in attention %}
                             <td class="att">{{ val }}</td>
-                            {% endfor %}
-                            {% for val in f %}
-                                <td class="att">{{ val }}</td>
-                            {% endfor %}
-                            {% for val in b %}
-                                <td class="att">{{ val }}</td>
-                            {% endfor %}
-                        </tr>
-                        {% endfor %}
-                    </table>
-                </td>
-                <td>
-                    <table>
-                        {% for each in row.direc %}
-                        <tr>
-                            {% for val in each %}
-                            <td>{{ val }}</td>
                             {% endfor %}
                         </tr>
                         {% endfor %}
                     </table>
                 </td>
                 {% if row.correct %}
-                <td bgcolor="#7fff00">{{ row.yp }} ({{ row.y }})
+                <td bgcolor="#7fff00">yp = {{ row.yp }}<br>y = {{ row.y }}
                 </td>
                 {% else %}
-                <td bgcolor="#8b0000">{{ row.yp }} ({{ row.y }})
+                <td bgcolor="#8b0000">yp = {{ row.yp }}<br>y = {{ row.y }}
                 </td>
                 {% endif %}
             </tr>
