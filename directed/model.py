@@ -135,7 +135,7 @@ class Tower(BaseTower):
         with tf.name_scope("pre_layers"):
             m_mask = tf.reduce_max(tf.cast(x_mask, 'int32'), 2, name='m_mask')  # [N, M]
             m_length = tf.reduce_sum(m_mask, 1, name='m_length')  # [N]
-            cell = DropoutWrapper(GRUXCell(d, input_size=d+1), input_keep_prob=keep_prob, is_train=is_train)
+            cell = GRUXCell(d, input_size=d+1)
             u_prev = u
             us_prev = tf.zeros(shape=[N, M, d], dtype='float')
             a_list = []
