@@ -150,7 +150,7 @@ class Tower(BaseTower):
                     us_cur, u_cur = dynamic_rnn(cell, am, sequence_length=m_length, initial_state=u_prev, scope='u')
                     u_prev = u_cur
                     us_prev = us_cur
-                    scope.reuse_variables()
+                    # scope.reuse_variables()
 
             a_comb = tf.transpose(tf.pack(a_list), [1, 0, 2], name='a_comb')  # [N, L, M]
             tensors['a'] = a_comb
@@ -197,7 +197,8 @@ class Tower(BaseTower):
         X, Q, S, Y, H, T = batch
         for i, para in enumerate(X):
             for jj, sent in enumerate(para):
-                j = len(para) - jj - 1  # reverting story sequence, last to first
+                # j = len(para) - jj - 1  # reverting story sequence, last to first
+                j = jj
                 for k, word in enumerate(sent):
                     x[i, j, k] = word
                     x_mask[i, j, k] = True
