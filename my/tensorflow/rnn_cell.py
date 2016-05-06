@@ -253,7 +253,8 @@ class GRUXCell(RNNCell):
             new_h = gate * c + (1 - gate) * state
         return new_h, new_h
 
-class RPUCell(RNNCell):
+
+class XGRU(RNNCell):
     def __init__(self, num_units, input_size=None, var_on_cpu=True, wd=0.0):
         self._num_units = num_units
         self._input_size = num_units if input_size is None else input_size
@@ -273,74 +274,21 @@ class RPUCell(RNNCell):
         return self._num_units
 
     def __call__(self, inputs, state, scope=None):
-        """First unit of inputs is the external attention
-        1 + d
+        """First two units of inputs are external gates (attention and output gates)
+        1 + 1 + d
+        a   o   x
         """
         with tf.variable_scope(scope or type(self).__name__):  # "GRUCell"
             with tf.variable_scope("Slice"):  # Reset gate and update gate.
                 # We start with bias of 1.0 to not reset and not update.
-                gate = tf.slice(inputs, [0, 0], [-1, 1], name='gate')
-                x = tf.slice(inputs, [0, 1], [-1, -1], name='x')
+                a = tf.slice(inputs, [0, 0], [-1, 1], name='a')
+                o = tf.slice(inputs, [0, 1], [-1, 2], name='o')
+                x = tf.slice(inputs, [0, 2], [-1, -1], name='x')
             with tf.variable_scope("Candidate"):
-                ht = tf.tanh(linear([x, state], self._num_units, True, var_on_cpu=self.var_on_cpu, wd=self.wd))
-            h = gate * ht + (1 - gate) * state
+                ht = tf.tanh(linear([x], self._num_units, True, var_on_cpu=self.var_on_cpu, wd=self.wd))
+            h = a * ht + (1 - a) * o * state
         return h, h
 
-class BasicLSTMXCell(RNNCell):
-    """Basic GRU recurrent network cell.
-
-    The implementation is based on: http://arxiv.org/abs/1409.2329.
-
-    We add forget_bias (default: 1) to the biases of the forget gate in order to
-    reduce the scale of forgetting in the beginning of the training.
-
-    It does not allow cell clipping, a projection layer, and does not
-    use peep-hole connections: it is the basic baseline.
-
-    For advanced models, please use the full LSTMCell that follows.
-    """
-
-    def __init__(self, num_units, forget_bias=1.0, input_size=None, var_on_cpu=True, wd=0.0):
-        """Initialize the basic GRU cell.
-
-        Args:
-          num_units: int, The number of units in the GRU cell.
-          forget_bias: float, The bias added to forget gates (see above).
-          input_size: int, The dimensionality of the inputs into the GRU cell,
-            by default equal to num_units.
-        """
-        self._num_units = num_units
-        self._input_size = num_units if input_size is None else input_size
-        self._forget_bias = forget_bias
-        self.var_on_cpu = var_on_cpu
-        self.wd = wd
-
-    @property
-    def input_size(self):
-        return self._input_size
-
-    @property
-    def output_size(self):
-        return self._num_units
-
-    @property
-    def state_size(self):
-        return 2 * self._num_units
-
-    def __call__(self, inputs, state, name_scope=None):
-        """Long short-term memory cell (GRU)."""
-        with tf.variable_scope(name_scope or type(self).__name__):  # "BasicLSTMCell"
-            # Parameters of gates are concatenated into one multiply for efficiency.
-            c, h = tf.split(1, 2, state)
-            concat = linear([inputs, h], 4 * self._num_units, True, var_on_cpu=self.var_on_cpu, wd=self.wd)
-
-            # i = input_gate, j = new_input, f = forget_gate, o = output_gate
-            i, j, f, o = tf.split(1, 4, concat)
-
-            new_c = c * (1 - gate) + gate * tf.tanh(j)
-            new_h = tf.tanh(new_c) * tf.sigmoid(o)
-
-        return new_h, tf.concat(1, [new_c, new_h])
 
 class DropoutWrapper(RNNCell):
     """Operator adding dropout to inputs and outputs of the given cell."""

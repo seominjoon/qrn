@@ -7,7 +7,7 @@ import tensorflow as tf
 from my.tensorflow import flatten
 
 
-def linear(args, output_size, bias, bias_start=0.0, scope=None, var_on_cpu=False, wd=0.0):
+def linear(args, output_size, bias, bias_start=0.0, scope=None, var_on_cpu=False, wd=0.0, squeeze=False):
     """Linear map: sum_i(args[i] * W[i]), where W[i] is a variable.
 
     Args:
@@ -69,4 +69,6 @@ def linear(args, output_size, bias, bias_start=0.0, scope=None, var_on_cpu=False
             initializer=init_ops.constant_initializer(bias_start))
         res = res + bias_term
         res = tf.reshape(res, res_shape, name='out')
+    if squeeze:
+        res = tf.squeeze(res, squeeze_dims=[len(res_shape)-1])
     return res
