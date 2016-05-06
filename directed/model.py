@@ -102,7 +102,7 @@ class Tower(BaseTower):
                 with tf.name_scope("layer_{}".format(layer_idx)):
                     # w_a = tf.get_variable('w_a', shape=[d], dtype='float')
                     # w_o = tf.get_variable('w_o', shape=[d], dtype='float')
-                    a_raw = linear([tf.tanh(tf.expand_dims(u_prev, 1) * (m + us_prev))], 1, True, squeeze=True, scope='a_raw')  # [N, M]
+                    a_raw = linear([tf.tanh(tf.expand_dims(u_prev, 1) * (m + us_prev))], 1, False, squeeze=True, scope='a_raw')  # [N, M]
                     # o_raw = tf.reduce_sum(tf.tanh(tf.expand_dims(u_prev, 1) * m) * w_o, 2, name='o_raw')
                     a = tf.mul(tf.nn.sigmoid(a_raw), tf.cast(m_mask, 'float'), name='a')  # [N, M]
                     # o = tf.mul(tf.nn.sigmoid(o_raw), tf.cast(m_mask, 'float'), name='o')
