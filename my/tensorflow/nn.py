@@ -63,6 +63,7 @@ def linear(args, output_size, bias, bias_start=0.0, scope=None, var_on_cpu=False
         else:
             res = math_ops.matmul(array_ops.concat(1, args), matrix)
         if not bias:
+            res = tf.reshape(res, res_shape, name='out')
             if squeeze:
                 res = tf.squeeze(res, squeeze_dims=[len(res_shape)-1])
             return res
