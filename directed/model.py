@@ -100,10 +100,11 @@ class Tower(BaseTower):
         with tf.variable_scope("layers") as scope:
             for layer_idx in range(L):
                 with tf.name_scope("layer_{}".format(layer_idx)):
-                    w_a = tf.get_variable('w_a', shape=[d], dtype='float')
+                    # w_a = tf.get_variable('w_a', shape=[d], dtype='float')
                     # w_o = tf.get_variable('w_o', shape=[d], dtype='float')
-                    # a_raw = linear([tf.tanh(tf.expand_dims(u_prev, 1) * (m + us_prev))], 1, False, squeeze=True, scope='a_raw')  # [N, M]
-                    a_raw = tf.reduce_sum(tf.tanh(tf.expand_dims(u_prev, 1) * (m + us_prev)) * w_a, 2, name='o_raw')
+                    a_raw = linear([tf.tanh(tf.expand_dims(u_prev, 1) * (m + us_prev))], 1, False,
+                                   squeeze=True, var_on_cpu=False, scope='a_raw')  # [N, M]
+                    # a_raw = tf.reduce_sum(tf.tanh(tf.expand_dims(u_prev, 1) * (m + us_prev)) * w_a, 2, name='o_raw')
                     # o_raw = tf.reduce_sum(tf.tanh(tf.expand_dims(u_prev, 1) * m) * w_o, 2, name='o_raw')
                     a = tf.mul(tf.nn.sigmoid(a_raw), tf.cast(m_mask, 'float'), name='a')  # [N, M]
                     # o = tf.mul(tf.nn.sigmoid(o_raw), tf.cast(m_mask, 'float'), name='o')
@@ -122,7 +123,7 @@ class Tower(BaseTower):
             tensors['a'] = a_comb
 
         with tf.variable_scope("class"):
-            w = tf.tanh(linear([u_prev], d, True), name='w')
+            w = tf.tanh(linear([u_prev], d, True, var_on_cpu=False), name='w')
             W = tf.transpose(A.emb_mat, name='W')
             logits = tf.matmul(w, W, name='logits')
             yp = tf.cast(tf.argmax(logits, 1), 'int32')
