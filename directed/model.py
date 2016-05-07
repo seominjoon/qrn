@@ -106,7 +106,7 @@ class Tower(BaseTower):
                     # w_o = tf.get_variable('w_o', shape=[d], dtype='float')
                     l_a = tf.tanh(tf.expand_dims(u_prev, 1) * (m + us_prev))
                     # l_a = tf.reshape(l_a, [N*M, d])
-                    a_raw = tf.squeeze(tf.batch_matmul(l_a, w_a, adj_y=True), [2])
+                    # a_raw = tf.squeeze(tf.batch_matmul(l_a, w_a, adj_y=True), [2])
                     # a_raw = linear([l_a], 1, False, scope='a_raw')  # [N, M]
                     # a_raw = tf.reshape(a_raw, [N, M])
                     a_raw = tf.reduce_sum(l_a * w_a, 2)
