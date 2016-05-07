@@ -100,13 +100,14 @@ class Tower(BaseTower):
         with tf.variable_scope("layers") as scope:
             for layer_idx in range(L):
                 with tf.name_scope("layer_{}".format(layer_idx)):
-                    w_a = tf.get_variable('w_a', shape=[d, 1], dtype='float')
+                    w_a = tf.get_variable('w_a', shape=[1, d, 1], dtype='float')
+                    w_a = tf.tile(w_a, [N, 1, 1])
                     # w_o = tf.get_variable('w_o', shape=[d], dtype='float')
                     l_a = tf.tanh(tf.expand_dims(u_prev, 1) * (m + us_prev))
-                    l_a = tf.reshape(l_a, [N*M, d])
-                    a_raw = tf.matmul(l_a, w_a)
+                    # l_a = tf.reshape(l_a, [N*M, d])
+                    a_raw = tf.squeeze(tf.batch_matmul(l_a, w_a), [2])
                     # a_raw = linear([l_a], 1, False, scope='a_raw')  # [N, M]
-                    a_raw = tf.reshape(a_raw, [N, M])
+                    # a_raw = tf.reshape(a_raw, [N, M])
                     # a_raw = tf.reduce_sum(tf.tanh(tf.expand_dims(u_prev, 1) * (m + us_prev)) * w_a, 2, name='o_raw')
                     # o_raw = tf.reduce_sum(tf.tanh(tf.expand_dims(u_prev, 1) * m) * w_o, 2, name='o_raw')
                     a = tf.mul(tf.nn.sigmoid(a_raw), tf.cast(m_mask, 'float'), name='a')  # [N, M]
