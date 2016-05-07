@@ -100,8 +100,8 @@ class Tower(BaseTower):
         with tf.variable_scope("layers") as scope:
             for layer_idx in range(L):
                 with tf.name_scope("layer_{}".format(layer_idx)):
-                    w_a = tf.get_variable('w_a', shape=[d], dtype='float')
-                    w_a = tf.expand_dims(w_a, 0)
+                    # w_a = tf.get_variable('w_a', shape=[d], dtype='float')
+                    # w_a = tf.expand_dims(w_a, 0)
                     # w_a = tf.expand_dims(w_a, 0)
                     # w_a = tf.tile(w_a, [N, 1, 1])
                     # w_o = tf.get_variable('w_o', shape=[d], dtype='float')
