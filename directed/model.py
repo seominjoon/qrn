@@ -101,7 +101,7 @@ class Tower(BaseTower):
             for layer_idx in range(L):
                 with tf.name_scope("layer_{}".format(layer_idx)):
                     l_a = tf.tanh(tf.expand_dims(u_prev, 1) * (m + us_prev))
-                    a_raw = linear([l_a], 1, False, squeeze=True)  # [N, M]
+                    a_raw = linear([l_a], 1, False, squeeze=True, initializer=tf.truncated_normal_initializer(0, 1))  # [N, M]
                     a = tf.mul(tf.nn.sigmoid(a_raw), tf.cast(m_mask, 'float'), name='a')  # [N, M]
                     a_list.append(a)
                     # u_prev_tiled = tf.tile(tf.expand_dims(u_prev, 1), [1, M, 1], name='u_prev_tiled')
