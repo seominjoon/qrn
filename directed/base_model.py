@@ -17,6 +17,7 @@ class BaseRunner(object):
         self.sess = sess
         self.params = params
         self.towers = towers
+        self.ref_tower = towers[0]
         self.num_towers = len(towers)
         self.placeholders = {}
         self.tensors = {}
@@ -53,7 +54,7 @@ class BaseRunner(object):
         grads_pairs_dict = defaultdict(list)
         correct_tensors = []
         loss_tensors = []
-        with tf.variable_scope("towers"):
+        with tf.variable_scope("towers", initializer=self.ref_tower.default_initializer):
             for device_id, tower in enumerate(self.towers):
                 with tf.device("/%s:%d" % (device_type, device_id)), tf.name_scope("%s_%d" % (device_type, device_id)):
                     tower.initialize()
