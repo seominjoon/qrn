@@ -1,10 +1,10 @@
 import tensorflow as tf
 # from tensorflow.python.ops.rnn import dynamic_rnn
-from tensorflow.python.ops.rnn_cell import MultiRNNCell, linear
+from tensorflow.python.ops.rnn_cell import MultiRNNCell
 
 from directed.base_model import BaseTower, BaseRunner
 from my.tensorflow import flatten, exp_mask
-# from my.tensorflow.nn import linear
+from my.tensorflow.nn import linear
 from my.tensorflow.rnn import dynamic_rnn
 import numpy as np
 
@@ -100,21 +100,10 @@ class Tower(BaseTower):
         with tf.variable_scope("layers") as scope:
             for layer_idx in range(L):
                 with tf.name_scope("layer_{}".format(layer_idx)):
-                    w_a = tf.get_variable('w_a', shape=[d, 1], dtype='float', initializer=tf.truncated_normal_initializer(0.0, 1.0))
-                    # w_a = tf.transpose(w_a)
-                    # w_o = tf.get_variable('w_o', shape=[d], dtype='float')
                     l_a = tf.tanh(tf.expand_dims(u_prev, 1) * (m + us_prev))
-                    l_a = tf.reshape(l_a, [N*M, d])
-                    # a_raw = tf.squeeze(tf.batch_matmul(l_a, w_a, adj_y=True), [2])
-                    a_raw = tf.squeeze(tf.matmul(l_a, w_a))
-                    # a_raw = linear([l_a], 1, False)  # [N, M]
-                    a_raw = tf.reshape(a_raw, [N, M])
-                    # a_raw = tf.reduce_sum(l_a * w_a, 2)
-                    # o_raw = tf.reduce_sum(tf.tanh(tf.expand_dims(u_prev, 1) * m) * w_o, 2, name='o_raw')
+                    a_raw = linear([l_a], 1, False, squeeze=True)  # [N, M]
                     a = tf.mul(tf.nn.sigmoid(a_raw), tf.cast(m_mask, 'float'), name='a')  # [N, M]
-                    # o = tf.mul(tf.nn.sigmoid(o_raw), tf.cast(m_mask, 'float'), name='o')
                     a_list.append(a)
-                    # o_list.append(o)
                     # u_prev_tiled = tf.tile(tf.expand_dims(u_prev, 1), [1, M, 1], name='u_prev_tiled')
                     am = tf.concat(2, [tf.expand_dims(a, -1), m], name='am')
                     us_f, u_f = dynamic_rnn(cell, am, sequence_length=m_length, initial_state=u_prev, scope='u_f')
