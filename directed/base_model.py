@@ -286,7 +286,7 @@ class BaseTower(object):
         self.placeholders = {}
         self.tensors = {}
         self.variables_dict = {}
-        self.default_initializer = tf.random_normal_initializer(params.init_mean, params.init_std)
+        self.default_initializer = tf.truncated_normal_initializer(params.init_mean, params.init_std)
 
     def initialize(self):
         # Actual building
