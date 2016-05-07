@@ -100,7 +100,7 @@ class Tower(BaseTower):
         with tf.variable_scope("layers") as scope:
             for layer_idx in range(L):
                 with tf.name_scope("layer_{}".format(layer_idx)):
-                    w_a = tf.get_variable('w_a', shape=[1, d], dtype='float')
+                    w_a = tf.get_variable('w_a', shape=[d, 1], dtype='float', initializer=self.default_initializer)
                     w_a = tf.transpose(w_a)
                     # w_o = tf.get_variable('w_o', shape=[d], dtype='float')
                     l_a = tf.tanh(tf.expand_dims(u_prev, 1) * (m + us_prev))
