@@ -47,12 +47,12 @@ def linear(args, output_size, bias, bias_start=0.0, scope=None, var_on_cpu=False
             total_arg_size += new_shape[1]
 
     # Now the computation.
-    with vs.variable_scope(scope or "Linear", initializer=initializer):
+    with vs.variable_scope(scope or "Linear"):
         if var_on_cpu:
             with tf.device("/cpu:0"):
-                matrix = vs.get_variable("Matrix", [total_arg_size, output_size])
+                matrix = vs.get_variable("Matrix", [total_arg_size, output_size], initializer=initializer)
         else:
-            matrix = vs.get_variable("Matrix", [total_arg_size, output_size])
+            matrix = vs.get_variable("Matrix", [total_arg_size, output_size], initializer=initializer)
 
         if wd:
             weight_decay = tf.mul(tf.nn.l2_loss(matrix), wd, name='weight_loss')
