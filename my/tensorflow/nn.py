@@ -83,4 +83,4 @@ def relu1(features, name=None):
 
 
 def dists(a, b):
-    return [a * b, tf.abs(a - b)]
+    return [a, b, a * b, tf.abs(a - b)]
