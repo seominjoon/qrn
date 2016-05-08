@@ -4,7 +4,7 @@ from tensorflow.python.ops.rnn_cell import MultiRNNCell
 
 from directed.base_model import BaseTower, BaseRunner
 from my.tensorflow import flatten, exp_mask
-from my.tensorflow.nn import linear
+from my.tensorflow.nn import linear, relu1
 from my.tensorflow.rnn import dynamic_rnn
 import numpy as np
 
@@ -104,8 +104,8 @@ class Tower(BaseTower):
                     u_prev_aug = tf.expand_dims(u_prev, 1, name='u_prev_aug')  # [N, d] -> [N, M, d]
                     a_raw = linear([u_prev_aug * m, u_prev_aug * us_prev], 1, True, squeeze=True, initializer=init, scope='a_raw')
                     o_raw = linear([u_prev_aug * m], 1, True, squeeze=True, initializer=init, scope='o_raw')
-                    a = tf.mul(tf.nn.sigmoid(a_raw), tf.cast(m_mask, 'float'), name='a')  # [N, M]
-                    o = tf.mul(tf.nn.sigmoid(o_raw), tf.cast(m_mask, 'float'), name='o')
+                    a = tf.mul(relu1(a_raw), tf.cast(m_mask, 'float'), name='a')  # [N, M]
+                    o = tf.mul(relu1(o_raw), tf.cast(m_mask, 'float'), name='o')
                     a_list.append(a)
                     o_list.append(o)
                     u_prev_tiled = tf.tile(tf.expand_dims(u_prev, 1), [1, M, 1], name='u_prev_tiled')

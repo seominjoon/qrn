@@ -75,3 +75,8 @@ def linear(args, output_size, bias, bias_start=0.0, scope=None, var_on_cpu=False
         if squeeze:
             res = tf.squeeze(res, squeeze_dims=[len(res_shape)-1])
     return res
+
+
+def relu1(features, name=None):
+    name = name or "relu1"
+    return tf.minimum(tf.maximum(features, 0), 1, name=name)
