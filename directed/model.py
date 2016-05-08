@@ -102,8 +102,7 @@ class Tower(BaseTower):
                 with tf.name_scope("layer_{}".format(layer_idx)):
                     init = tf.random_uniform_initializer(-np.sqrt(3), np.sqrt(3))
                     u_prev_aug = tf.expand_dims(u_prev, 1, name='u_prev_aug')  # [N, d] -> [N, M, d]
-                    a_raw = linear([u_prev_aug * m, u_prev_aug * us_prev, tf.abs(u_prev_aug - m), tf.abs(u_prev_aug - us_prev)],
-                                   1, True, squeeze=True, initializer=init, scope='a_raw_1')
+                    a_raw = linear([u_prev_aug * m, u_prev_aug * us_prev], 1, True, squeeze=True, initializer=init, scope='a_raw_1')
                     a_raw += params.forget_bias
                     o_raw = linear([tf.tile(u_prev_aug, [1, M, 1]), m], 1, True, squeeze=True, initializer=init, scope='o_raw')
                     a = tf.mul(tf.nn.sigmoid(a_raw), tf.cast(m_mask, 'float'), name='a')  # [N, M]
