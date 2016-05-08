@@ -104,8 +104,8 @@ class Tower(BaseTower):
                     u_prev_aug = tf.tile(tf.expand_dims(u_prev, 1, name='u_prev_aug'), [1, M, 1])  # [N, d] -> [N, M, d]
                     a_raw = linear(dists(u_prev_aug, m) + dists(u_prev_aug, us_prev), 1, True,
                                    squeeze=True, initializer=init, scope='a_raw_1')
-                    o_raw = linear([dists(u_prev_aug, m)], 1, True, squeeze=True, initializer=init, scope='o_raw')
-                    a = tf.mul(tf.nn.sigmoid(a_raw + forget_bias), tf.cast(m_mask, 'float'), name='a')  # [N, M]
+                    o_raw = linear(dists(u_prev_aug, m), 1, True, squeeze=True, initializer=init, scope='o_raw')
+                    a = tf.mul(tf.nn.sigmoid(a_raw - forget_bias), tf.cast(m_mask, 'float'), name='a')  # [N, M]
                     o = tf.mul(tf.nn.sigmoid(o_raw), tf.cast(m_mask, 'float'), name='o')
                     a_list.append(a)
                     o_list.append(o)
