@@ -8,7 +8,7 @@ from my.tensorflow.nn import linear
 from my.tensorflow.rnn import dynamic_rnn
 import numpy as np
 
-from my.tensorflow.rnn_cell import BasicLSTMCell, GRUCell, GRUXCell, DropoutWrapper
+from my.tensorflow.rnn_cell import BasicLSTMCell, GRUCell, GRUXCell, DropoutWrapper, XGRUCell
 
 
 class Embedder(object):
@@ -89,9 +89,9 @@ class Tower(BaseTower):
             m = encoder(Ax, x_mask)  # [N, M, d]
 
         with tf.name_scope("pre_layers"):
-            m_mask = tf.reduce_max(tf.cast(x_mask, 'int32'), 2, name='m_mask')  # [N, M]
+            m_mask = tf.reduce_max(tf.cast(x_mask, 'int64'), 2, name='m_mask')  # [N, M]
             m_length = tf.reduce_sum(m_mask, 1, name='m_length')  # [N]
-            cell = GRUXCell(d, input_size=1+d, wd=wd)
+            cell = XGRUCell(d, input_size=1+d, wd=wd)
             u_prev = u
             us_prev = tf.zeros(shape=[N, M, d], dtype='float')
             a_list = []
@@ -100,19 +100,22 @@ class Tower(BaseTower):
         with tf.variable_scope("layers") as scope:
             for layer_idx in range(L):
                 with tf.name_scope("layer_{}".format(layer_idx)):
-                    l_a = tf.tanh(tf.expand_dims(u_prev, 1) * (m + us_prev))
-                    # a_raw = linear([l_a], 1, False, squeeze=True, initializer=tf.truncated_normal_initializer(0, 1))  # [N, M]
-                    w_a = tf.get_variable('w_a', shape=[d, 1], initializer=tf.random_uniform_initializer(-np.sqrt(3), np.sqrt(3)))
-                    a_raw = tf.reshape(tf.matmul(tf.reshape(l_a, [N*M, d]), w_a), [N, M])
+                    init = tf.random_uniform_initializer(-np.sqrt(3), np.sqrt(3))
+                    u_prev_aug = tf.expand_dims(u_prev, 1, name='u_prev_aug')  # [N, d] -> [N, M, d]
+                    a_raw = linear([u_prev_aug * m, u_prev_aug * us_prev], 1, True, squeeze=True, initializer=init, scope='a_raw')
+                    o_raw = linear([u_prev_aug * m], 1, True, squeeze=True, initializer=init, scope='o_raw')
                     a = tf.mul(tf.nn.sigmoid(a_raw), tf.cast(m_mask, 'float'), name='a')  # [N, M]
+                    o = tf.mul(tf.nn.sigmoid(o_raw), tf.cast(m_mask, 'float'), name='o')
                     a_list.append(a)
-                    # u_prev_tiled = tf.tile(tf.expand_dims(u_prev, 1), [1, M, 1], name='u_prev_tiled')
-                    am = tf.concat(2, [tf.expand_dims(a, -1), m], name='am')
-                    us_f, u_f = dynamic_rnn(cell, am, sequence_length=m_length, initial_state=u_prev, scope='u_f')
-                    # us_b_rev, _ = dynamic_rnn(cell, tf.reverse(am, [False, True, False]), dtype='float', scope='u_b')
-                    # us_b = tf.reverse(us_b_rev, [False, True, False])
+                    o_list.append(o)
+                    u_prev_tiled = tf.tile(tf.expand_dims(u_prev, 1), [1, M, 1], name='u_prev_tiled')
+                    aoum = tf.concat(2, [tf.expand_dims(a, -1), tf.expand_dims(o, -1), u_prev_tiled, m], name='am')
+                    us_f, state = dynamic_rnn(cell, aoum, sequence_length=m_length, dtype='float', scope='u_f')
+                    u_f, _ = tf.split(1, 2, state)
+                    us_b_rev, _ = dynamic_rnn(cell, tf.reverse_sequence(aoum, m_length, 1), dtype='float', scope='u_b')
+                    us_b = tf.reverse_sequence(us_b_rev, m_length, 1)
                     u_prev = u_f
-                    us_prev = us_f  # + us_b
+                    us_prev = us_f + us_b
                     scope.reuse_variables()
 
             a_comb = tf.transpose(tf.pack(a_list), [1, 0, 2], name='a_comb')  # [N, L, M]
