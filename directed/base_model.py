@@ -48,6 +48,8 @@ class BaseRunner(object):
             opt = tf.train.GradientDescentOptimizer(learning_rate)
         elif params.opt == 'adagrad':
             opt = tf.train.AdagradOptimizer(learning_rate)
+        elif params.opt == 'adam':
+            opt = tf.train.AdamOptimizer()
         else:
             raise Exception()
 
