@@ -80,3 +80,7 @@ def linear(args, output_size, bias, bias_start=0.0, scope=None, var_on_cpu=False
 def relu1(features, name=None):
     name = name or "relu1"
     return tf.minimum(tf.maximum(features, 0), 1, name=name)
+
+
+def dists(a, b):
+    return [a * b, tf.abs(a - b)]

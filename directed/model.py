@@ -4,7 +4,7 @@ from tensorflow.python.ops.rnn_cell import MultiRNNCell
 
 from directed.base_model import BaseTower, BaseRunner
 from my.tensorflow import flatten, exp_mask
-from my.tensorflow.nn import linear, relu1
+from my.tensorflow.nn import linear, relu1, dists
 from my.tensorflow.rnn import dynamic_rnn
 import numpy as np
 
@@ -59,7 +59,7 @@ class Tower(BaseTower):
         N, J, V, Q, M = params.batch_size, params.max_sent_size, params.vocab_size, params.max_ques_size, params.max_num_sents
         d = params.hidden_size
         L = params.mem_num_layers
-        keep_prob = params.keep_prob
+        forget_bias = params.forget_bias
         wd = params.wd
         with tf.name_scope("placeholders"):
             x = tf.placeholder('int32', shape=[N, M, J], name='x')
@@ -101,11 +101,11 @@ class Tower(BaseTower):
             for layer_idx in range(L):
                 with tf.name_scope("layer_{}".format(layer_idx)):
                     init = tf.random_uniform_initializer(-np.sqrt(3), np.sqrt(3))
-                    u_prev_aug = tf.expand_dims(u_prev, 1, name='u_prev_aug')  # [N, d] -> [N, M, d]
-                    a_raw = linear([u_prev_aug * m, u_prev_aug * us_prev], 1, True, squeeze=True, initializer=init, scope='a_raw_1')
-                    a_raw += params.forget_bias
-                    o_raw = linear([tf.tile(u_prev_aug, [1, M, 1]), m], 1, True, squeeze=True, initializer=init, scope='o_raw')
-                    a = tf.mul(tf.nn.sigmoid(a_raw), tf.cast(m_mask, 'float'), name='a')  # [N, M]
+                    u_prev_aug = tf.tile(tf.expand_dims(u_prev, 1, name='u_prev_aug'), [1, M, 1])  # [N, d] -> [N, M, d]
+                    a_raw = linear(dists(u_prev_aug, m) + dists(u_prev_aug, us_prev), 1, True,
+                                   squeeze=True, initializer=init, scope='a_raw_1')
+                    o_raw = linear([dists(u_prev_aug, m)], 1, True, squeeze=True, initializer=init, scope='o_raw')
+                    a = tf.mul(tf.nn.sigmoid(a_raw + forget_bias), tf.cast(m_mask, 'float'), name='a')  # [N, M]
                     o = tf.mul(tf.nn.sigmoid(o_raw), tf.cast(m_mask, 'float'), name='o')
                     a_list.append(a)
                     o_list.append(o)
