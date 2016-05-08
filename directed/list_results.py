@@ -95,11 +95,13 @@ def list_results(args):
         a = [["%.2f" % val for val in l] for l in a_raw]
         o_raw = np.transpose(eval_d['o'])  # [M, L]
         o = [["%.2f" % val for val in l] for l in o_raw]
+        aos = [["%.2f" % val for val in l] for l in a_raw * o_raw]
         row = {'id': id_,
                'facts': facts,
                'question': question,
                'attentions': a,
                'output_gates': o,
+               'aos': aos,
                'num_layers': len(a[0]),
                'correct': correct,
                'task': T[i],

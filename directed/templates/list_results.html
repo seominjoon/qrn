@@ -54,12 +54,12 @@
                             <td>a</td><td>o</td>
                             {% endfor %}
                         </tr>
-                        {% for fact, attention, output_gate in zip(row.facts, row.attentions, row.output_gates) %}
+                        {% for fact, attention, aos in zip(row.facts, row.attentions, row.aos) %}
                         <tr>
                             <td>{{ fact }}</td>
-                            {% for a, o in zip(attention, output_gate) %}
+                            {% for a, ao in zip(attention, aos) %}
                             <td class="att">{{ a }}</td>
-                            <td class="att">{{ o }}</td>
+                            <td class="att">{{ ao }}</td>
                             {% endfor %}
                         </tr>
                         {% endfor %}
