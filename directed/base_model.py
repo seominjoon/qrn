@@ -54,7 +54,7 @@ class BaseRunner(object):
         grads_pairs_dict = defaultdict(list)
         correct_tensors = []
         loss_tensors = []
-        with tf.variable_scope("towers", initializer=self.ref_tower.default_initializer):
+        with tf.variable_scope("towers"):
             for device_id, tower in enumerate(self.towers):
                 with tf.device("/%s:%d" % (device_type, device_id)), tf.name_scope("%s_%d" % (device_type, device_id)):
                     tower.initialize()
