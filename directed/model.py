@@ -109,7 +109,7 @@ class Tower(BaseTower):
                     a_list.append(a)
                     o_list.append(o)
                     u_prev_tiled = tf.tile(tf.expand_dims(u_prev, 1), [1, M, 1], name='u_prev_tiled')
-                    aoum = tf.concat(2, [tf.expand_dims(a, -1), tf.expand_dims(o, -1), u_prev_tiled, m], name='am')
+                    aoum = tf.concat(2, [tf.expand_dims(a, -1), tf.expand_dims(o, -1), u_prev_tiled, m], name='aoum')
                     us_f, state = dynamic_rnn(cell, aoum, sequence_length=m_length, dtype='float', scope='u_f')
                     u_f, _ = tf.split(1, 2, state)
                     us_b_rev, _ = dynamic_rnn(cell, tf.reverse_sequence(aoum, m_length, 1), dtype='float', scope='u_b')
@@ -119,7 +119,9 @@ class Tower(BaseTower):
                     scope.reuse_variables()
 
             a_comb = tf.transpose(tf.pack(a_list), [1, 0, 2], name='a_comb')  # [N, L, M]
+            o_comb = tf.transpose(tf.pack(o_list), [1, 0, 2], name='o_comb')  # [N, L, M]
             tensors['a'] = a_comb
+            tensors['o'] = o_comb
 
         with tf.variable_scope("class"):
             w = tf.tanh(linear([u_prev], d, True), name='w')

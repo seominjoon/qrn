@@ -93,10 +93,14 @@ def list_results(args):
         correct = eval_d['correct']
         a_raw = np.transpose(eval_d['a'])  # [M, L]
         a = [["%.2f" % val for val in l] for l in a_raw]
+        o_raw = np.transpose(eval_d['o'])  # [M, L]
+        o = [["%.2f" % val for val in l] for l in o_raw]
         row = {'id': id_,
                'facts': facts,
                'question': question,
-               'attention': a,
+               'attentions': a,
+               'output_gates': o,
+               'num_layers': len(a[0]),
                'correct': correct,
                'task': T[i],
                'y': idx2word_dict[Y[id_]],

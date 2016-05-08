@@ -42,11 +42,24 @@
                 </ol></td>
                 <td>
                     <table>
-                        {% for fact, attention in zip(row.facts, row.attention) %}
+                        <tr>
+                            <th>facts</th>
+                            {% for layer_idx in range(row.num_layers) %}
+                            <th colspan="2">{{ layer_idx + 1 }}</th>
+                            {% endfor %}
+                        </tr>
+                        <tr>
+                            <td></td>
+                            {% for layer_idx in range(row.num_layers) %}
+                            <td>a</td><td>o</td>
+                            {% endfor %}
+                        </tr>
+                        {% for fact, attention, output_gate in zip(row.facts, row.attentions, row.output_gates) %}
                         <tr>
                             <td>{{ fact }}</td>
-                            {% for val in attention %}
-                            <td class="att">{{ val }}</td>
+                            {% for a, o in zip(attention, output_gate) %}
+                            <td class="att">{{ a }}</td>
+                            <td class="att">{{ o }}</td>
                             {% endfor %}
                         </tr>
                         {% endfor %}
