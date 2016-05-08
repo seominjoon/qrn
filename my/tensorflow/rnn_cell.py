@@ -288,7 +288,7 @@ class XGRUCell(RNNCell):
             with tf.variable_scope("Main"):
                 new_c_t = tf.tanh(linear([x], self._num_units, True, var_on_cpu=self.var_on_cpu, wd=self.wd))
                 new_c = a * new_c_t + (1 - a) * c
-                new_h = a * o * new_c_t + (1 - a) * h
+                new_h = o * new_c_t + (1 - a) * h
                 new_state = tf.concat(1, [new_c, new_h])
         return new_h, new_state
 
