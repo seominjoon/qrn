@@ -102,10 +102,13 @@ class Tower(BaseTower):
                 with tf.name_scope("layer_{}".format(layer_idx)):
                     init = tf.random_uniform_initializer(-np.sqrt(3), np.sqrt(3))
                     u_prev_aug = tf.tile(tf.expand_dims(u_prev, 1, name='u_prev_aug'), [1, M, 1])  # [N, d] -> [N, M, d]
-                    a_raw = linear(dists(u_prev_aug, m) + dists(u_prev_aug, us_prev), 1, True,
-                                   squeeze=True, initializer=init, scope='a_raw_1')
+                    a_m_raw = linear(dists(u_prev_aug, m), 1, True, squeeze=True, initializer=init, scope='a_m_raw')
+                    a_m = tf.mul(tf.nn.sigmoid(a_m_raw - forget_bias), tf.cast(m_mask, 'float'), name='a_m')
+                    a_u_raw = linear(dists(u_prev_aug, us_prev), 1, True, squeeze=True, initializer=init, scope='a_u_raw')
+                    a_u = tf.mul(tf.nn.sigmoid(a_u_raw - forget_bias), tf.cast(m_mask, 'float'), name='a_m')
+                    a = tf.mul(a_m, a_u, name='a')
+
                     o_raw = linear(dists(u_prev_aug, m), 1, True, squeeze=True, initializer=init, scope='o_raw')
-                    a = tf.mul(tf.nn.sigmoid(a_raw - forget_bias), tf.cast(m_mask, 'float'), name='a')  # [N, M]
                     o = tf.mul(tf.nn.sigmoid(o_raw), tf.cast(m_mask, 'float'), name='o')
                     a_list.append(a)
                     o_list.append(o)
