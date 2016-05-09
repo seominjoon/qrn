@@ -93,7 +93,7 @@ class Tower(BaseTower):
             m_length = tf.reduce_sum(m_mask, 1, name='m_length')  # [N]
             cell = XGRUCell(d, input_size=1+d, wd=wd)
             u_prev = u
-            us_prev = tf.zeros(shape=[N, M, d], dtype='float')
+            us_prev = tf.tile(tf.expand_dims(u, 1, name='u_prev_aug'), [1, M, 1])  # [N, d] -> [N, M, d]
             a_list = []
             o_list = []
 
@@ -101,21 +101,18 @@ class Tower(BaseTower):
             for layer_idx in range(L):
                 with tf.name_scope("layer_{}".format(layer_idx)):
                     init = tf.random_uniform_initializer(-np.sqrt(3), np.sqrt(3))
-                    u_prev_aug = tf.tile(tf.expand_dims(u_prev, 1, name='u_prev_aug'), [1, M, 1])  # [N, d] -> [N, M, d]
-                    a_raw = linear(dists(u_prev_aug, m) + dists(u_prev_aug, us_prev), 1, True,
+                    a_raw = linear(dists(us_prev, m), 1, True,
                                    squeeze=True, initializer=init, scope='a_raw')
                     a = tf.mul(tf.sigmoid(a_raw - forget_bias), tf.cast(m_mask, 'float'), name='o')
-                    o_raw = linear(dists(u_prev_aug, m), 1, True, squeeze=True, initializer=init, scope='o_raw')
+                    o_raw = linear(dists(us_prev, m), 1, True, squeeze=True, initializer=init, scope='o_raw')
                     o = tf.mul(tf.nn.sigmoid(o_raw - forget_bias), tf.cast(m_mask, 'float'), name='o')
                     a_list.append(a)
                     o_list.append(o)
-                    u_prev_tiled = tf.tile(tf.expand_dims(u_prev, 1), [1, M, 1], name='u_prev_tiled')
-                    aoum = tf.concat(2, [tf.expand_dims(a, -1), tf.expand_dims(o, -1), u_prev_tiled, m], name='aoum')
+                    aoum = tf.concat(2, [tf.expand_dims(a, -1), tf.expand_dims(o, -1), us_prev, m], name='aoum')
                     us_f, state = dynamic_rnn(cell, aoum, sequence_length=m_length, dtype='float', scope='u_f')
-                    u_f, _ = tf.split(1, 2, state)
+                    u_prev, _ = tf.split(1, 2, state)
                     us_b_rev, _ = dynamic_rnn(cell, tf.reverse_sequence(aoum, m_length, 1), dtype='float', scope='u_b')
                     us_b = tf.reverse_sequence(us_b_rev, m_length, 1)
-                    u_prev = u_f
                     us_prev = us_f + us_b
                     scope.reuse_variables()
 
