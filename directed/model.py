@@ -99,7 +99,7 @@ class Tower(BaseTower):
             h_m_in = tf.concat(2, [us, m], name='h_in')
             dummy = tf.zeros([N, M, 2])
             h_m_in = tf.concat(2, [dummy, h_m_in])
-            h_m_fw, h_m_bw, state_fw, state_bw = \
+            h_m_out, state_fw, state_bw, h_m_fw, h_m_bw = \
                 dynamic_bidirectional_rnn(fw_cell, bw_cell, h_m_in,
                                           sequence_length=m_length, dtype='float', num_layers=L)
             # h, m = tf.split(2, 2, h_m_out)

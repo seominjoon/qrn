@@ -590,6 +590,7 @@ def dynamic_bidirectional_rnn(fw_cell, bw_cell, inputs, sequence_length=None, in
         outputs_bw_list = []
         state_fw_list = []
         state_bw_list = []
+        outputs = None
         for layer_idx in range(num_layers):
             scope_name = "layer_{}".format(layer_idx)
             with name_scope(scope_name) if share_vars else vs.variable_scope(scope_name):
@@ -614,6 +615,6 @@ def dynamic_bidirectional_rnn(fw_cell, bw_cell, inputs, sequence_length=None, in
         outputs_bw_comb = transpose(pack(outputs_bw_list), [1, 0, 2, 3])  # [N, L, M, d]
         state_fw_comb = transpose(pack(state_fw_list), [1, 0, 2])  # [N, L, d]
         state_bw_comb = transpose(pack(state_bw_list), [1, 0, 2])  # [N, L, d]
-    return outputs_fw_comb, outputs_bw_comb, state_fw_comb, state_bw_comb
+    return outputs, state_fw_comb, state_bw_comb, outputs_fw_comb, outputs_bw_comb
 
 
