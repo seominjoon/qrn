@@ -105,14 +105,15 @@ class Tower(BaseTower):
                                    squeeze=True, initializer=init, scope='a_raw')
                     a = tf.mul(tf.sigmoid(a_raw - forget_bias), tf.cast(m_mask, 'float'), name='o')
                     o_raw = linear(dists(us_prev, m), 1, True, squeeze=True, initializer=init, scope='o_raw')
-                    o = tf.mul(tf.nn.sigmoid(o_raw - forget_bias), tf.cast(m_mask, 'float'), name='o')
+                    o = tf.mul(tf.nn.sigmoid(o_raw), tf.cast(m_mask, 'float'), name='o')
                     a_list.append(a)
                     o_list.append(o)
                     aoum = tf.concat(2, [tf.expand_dims(a, -1), tf.expand_dims(o, -1), us_prev, m], name='aoum')
                     us_f, state = dynamic_rnn(cell, aoum, sequence_length=m_length, dtype='float', scope='u_f')
                     u_prev, _ = tf.split(1, 2, state)
-                    us_b_rev, _ = dynamic_rnn(cell, tf.reverse_sequence(aoum, m_length, 1), dtype='float', scope='u_b')
-                    us_b = tf.reverse_sequence(us_b_rev, m_length, 1)
+                    us_b_rev, _ = dynamic_rnn(cell, tf.reverse_sequence(aoum, m_length, 1),
+                                              sequence_length=m_length, dtype='float', scope='u_b')
+                    us_b = tf.reverse_sequence(us_b_rev, m_length, 1, name='us_b')
                     us_prev = us_f + us_b
                     scope.reuse_variables()
 
