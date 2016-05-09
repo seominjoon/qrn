@@ -5,70 +5,7 @@ from __future__ import print_function
 import tensorflow as tf
 from tensorflow.python.ops.nn_ops import dropout
 from tensorflow.python.ops.rnn_cell import RNNCell
-
-
-def linear(args, output_size, bias, bias_start=0.0, scope=None, var_on_cpu=True, wd=0.0):
-    """Linear map: sum_i(args[i] * W[i]), where W[i] is a variable.
-
-    Args:
-      args: a 2D Tensor or a list of 2D, batch x n, Tensors.
-      output_size: int, second dimension of W[i].
-      bias: boolean, whether to add a bias term or not.
-      bias_start: starting value to initialize the bias; 0 by default.
-      scope: VariableScope for the created subgraph; defaults to "Linear".
-      var_on_cpu: if True, put the variables on /cpu:0.
-
-    Returns:
-      A 2D Tensor with shape [batch x output_size] equal to
-      sum_i(args[i] * W[i]), where W[i]s are newly created matrices.
-
-    Raises:
-      ValueError: if some of the arguments has unspecified or wrong shape.
-    """
-    assert args
-    if not isinstance(args, (list, tuple)):
-        args = [args]
-
-    # Calculate the total size of arguments on dimension 1.
-    total_arg_size = 0
-    shapes = [a.get_shape().as_list() for a in args]
-    for shape in shapes:
-        if len(shape) != 2:
-            raise ValueError("Linear is expecting 2D arguments: %s" % str(shapes))
-        if not shape[1]:
-            raise ValueError("Linear expects shape[1] of arguments: %s" % str(shapes))
-        else:
-            total_arg_size += shape[1]
-
-    # Now the computation.
-    with tf.variable_scope(scope or "Linear"):
-        if var_on_cpu:
-            with tf.device("/cpu:0"):
-                matrix = tf.get_variable("Matrix", [total_arg_size, output_size])
-        else:
-            matrix = tf.get_variable("Matrix", [total_arg_size, output_size])
-        if wd:
-            weight_decay = tf.mul(tf.nn.l2_loss(matrix), wd, name='weight_loss')
-            tf.add_to_collection('losses', weight_decay)
-
-
-        if len(args) == 1:
-            res = tf.matmul(args[0], matrix)
-        else:
-            res = tf.matmul(tf.concat(1, args), matrix)
-        if not bias:
-            return res
-
-        if var_on_cpu:
-            with tf.device("/cpu:0"):
-                bias_term = tf.get_variable(
-                    "Bias", [output_size],
-                    initializer=tf.constant_initializer(bias_start))
-        else:
-            bias_term = tf.get_variable(
-                "Bias", [output_size],
-                initializer=tf.constant_initializer(bias_start))
-    return res + bias_term
+from my.tensorflow.nn import linear
 
 
 class BasicLSTMCell(RNNCell):
@@ -218,41 +155,6 @@ class CRUCell(RNNCell):
                 out = tf.concat(1, [ru_out, au_out_flat], name='out')  # [N, R+A*C]
         return out, out
 
-class GRUXCell(RNNCell):
-    """Gated Recurrent Unit cell (cf. http://arxiv.org/abs/1406.1078),
-    with external output gate (1 - u in original GRU).
-    The first unit of the inputs is the gate"""
-
-    def __init__(self, num_units, input_size=None, var_on_cpu=True, wd=0.0):
-        self._num_units = num_units
-        self._input_size = num_units if input_size is None else input_size
-        self.var_on_cpu = var_on_cpu
-        self.wd = wd
-
-    @property
-    def input_size(self):
-        return self._input_size
-
-    @property
-    def output_size(self):
-        return self._num_units
-
-    @property
-    def state_size(self):
-        return self._num_units
-
-    def __call__(self, inputs, state, scope=None):
-        """First unit of inputs is the external attention"""
-        with tf.variable_scope(scope or type(self).__name__):  # "GRUCell"
-            with tf.variable_scope("Gates"):  # Reset gate and update gate.
-                # We start with bias of 1.0 to not reset and not update.
-                gate = tf.slice(inputs, [0, 0], [-1, 1], name='gate')
-            with tf.variable_scope("Candidate"):
-                x = tf.slice(inputs, [0, 1], [-1, -1], name='x')
-                c = tf.tanh(linear([x, state], self._num_units, True, var_on_cpu=self.var_on_cpu, wd=self.wd))
-            new_h = gate * c + (1 - gate) * state
-        return new_h, new_h
-
 
 class XGRUCell(RNNCell):
     def __init__(self, num_units, input_size=None, var_on_cpu=True, wd=0.0):
@@ -291,6 +193,56 @@ class XGRUCell(RNNCell):
                 new_h = a * o * new_c_t + (1 - a) * h
                 new_state = tf.concat(1, [new_c, new_h])
         return new_h, new_state
+
+
+class RSMCell(RNNCell):
+    """
+    Recurrent State Machine
+    """
+    def __init__(self, num_units, forget_bias=1.0, var_on_cpu=True, wd=0.0, initializer=None):
+        self._num_units = num_units
+        self._input_size = num_units * 2
+        self._var_on_cpu = var_on_cpu
+        self._wd = wd
+        self._initializer = initializer
+        self._forget_bias = forget_bias
+
+    @property
+    def input_size(self):
+        return 2 * self._input_size
+
+    @property
+    def output_size(self):
+        return 2 * self._num_units
+
+    @property
+    def state_size(self):
+        return 2 * self._num_units
+
+    def __call__(self, inputs, state, scope=None):
+        with tf.variable_scope(scope or type(self).__name__):  # "RSMCell"
+            with tf.name_scope("Split"):  # Reset gate and update gate.
+                c, h = tf.split(1, 2, state)
+                u, x = tf.split(1, 2, inputs)
+
+            with tf.variable_scope("Gate"):
+                gates_raw = linear(u * x, 2, True, squeeze=True, var_on_cpu=self._var_on_cpu,
+                                   initializer=self._initializer, scope='a_raw')
+                a_raw, o_raw = tf.split(1, 2, gates_raw)
+                a = tf.sigmoid(a_raw - self._forget_bias)
+                o = tf.sigmoid(o_raw)
+
+            with tf.variable_scope("Main"):
+                new_c_t = tf.tanh(linear(inputs, self._num_units, True,
+                                         var_on_cpu=self._var_on_cpu, wd=self._wd), name='new_c_t')
+                new_c = a * new_c_t + (1 - a) * c
+                new_h = a * o * new_c_t + (1 - a) * h
+
+            with tf.name_scope("Post"):
+                new_state = tf.concat(1, [new_c, new_h])
+                outputs = tf.concat(1, [new_h, x])
+
+        return outputs, new_state
 
 
 class DropoutWrapper(RNNCell):
