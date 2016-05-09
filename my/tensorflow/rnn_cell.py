@@ -241,8 +241,8 @@ class RSMCell(RNNCell):
                 c_t = tf.tanh(linear(inputs, self._num_units, True,
                                      var_on_cpu=self._var_on_cpu, wd=self._wd), name='new_c_t')
                 new_c = a * c_t + (1 - a) * c
-                new_g = r * c_t
-                new_h = a * new_g + (1 - a) * h
+                new_g = a * r * c_t
+                new_h = new_g + (1 - a) * h
 
             with tf.name_scope("Concat"):
                 new_state = tf.concat(1, [new_c, new_h])
