@@ -101,8 +101,9 @@ class Tower(BaseTower):
             # v_out_last = tf.split(1, 2 * L, state_fw)[-1]
 
         with tf.variable_scope("selection"):
-            gru_cell = GRUCell(d, wd=wd)
-            _, w = dynamic_rnn(gru_cell, us * v, sequence_length=m_length, dtype='float')
+            gru_cell = GRUCell(d, input_size=3*d, wd=wd)
+            gru_in = tf.concat(2, [us, v, us * v], name='gru_in')
+            _, w = dynamic_rnn(gru_cell, gru_in, sequence_length=m_length, dtype='float')
 
         with tf.variable_scope("class"):
             W = tf.transpose(A.emb_mat, name='W')

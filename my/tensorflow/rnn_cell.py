@@ -91,7 +91,7 @@ class GRUCell(RNNCell):
         with tf.variable_scope(scope or type(self).__name__):  # "GRUCell"
             with tf.variable_scope("Gates"):  # Reset gate and update gate.
                 # We start with bias of 1.0 to not reset and not update.
-                state = tf.reshape(state, inputs.get_shape().as_list())  # explicit shape definition, to use my linaer function
+                state = tf.reshape(state, inputs.get_shape().as_list()[:-1] + state.get_shape().as_list()[-1:])  # explicit shape definition, to use my linaer function
                 r, u = tf.split(1, 2, linear([inputs, state],
                                                     2 * self._num_units, True, 1.0))
                 r, u = tf.sigmoid(r), tf.sigmoid(u)
@@ -231,15 +231,16 @@ class RSMCell(RNNCell):
             with tf.variable_scope("Gate"):
                 gates_raw = linear(u * x, 2, True, var_on_cpu=self._var_on_cpu,
                                    initializer=self._initializer, scope='a_raw')
-                a_raw, o_raw = tf.split(1, 2, gates_raw)
+                a_raw, r_raw = tf.split(1, 2, gates_raw)
                 a = tf.sigmoid(a_raw - self._forget_bias)  # [N, 1]
-                o = tf.sigmoid(o_raw)  # [N, 1]
+                r = tf.sigmoid(r_raw)  # [N, 1], reset gate
+                # o = 1 - a * (1 - r)  # effective output gate
 
             with tf.variable_scope("Main"):
                 new_c_t = tf.tanh(linear(inputs, self._num_units, True,
                                          var_on_cpu=self._var_on_cpu, wd=self._wd), name='new_c_t')
                 new_c = a * new_c_t + (1 - a) * c
-                new_h = a * o * new_c_t + (1 - a) * h
+                new_h = a * r * new_c_t + (1 - a) * h
 
             with tf.name_scope("Concat"):
                 new_state = tf.concat(1, [new_c, new_h])
