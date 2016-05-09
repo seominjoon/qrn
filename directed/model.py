@@ -99,13 +99,17 @@ class Tower(BaseTower):
             h_m_in = tf.concat(2, [us, m], name='h_in')
             dummy = tf.zeros([N, M, 2])
             h_m_in = tf.concat(2, [dummy, h_m_in])
-            h_m_out, state_fw, state_bw = dynamic_bidirectional_rnn(fw_cell, bw_cell, h_m_in, sequence_length=m_length,
-                                                                    dtype='float', num_layers=L)
+            h_m_fw, h_m_bw, state_fw, state_bw = \
+                dynamic_bidirectional_rnn(fw_cell, bw_cell, h_m_in,
+                                          sequence_length=m_length, dtype='float', num_layers=L)
             # h, m = tf.split(2, 2, h_m_out)
             c_last = tf.squeeze(tf.slice(state_fw, [0, L-1, 0], [-1, 1, d]), [1])
-            a_aug, r_aug = tf.split(3, 2, tf.slice(h_m_out, [0, 0, 0, 0], [-1, -1, -1, 2]) / 2.0)
-            tensors['a'] = tf.squeeze(a_aug, [-1])
-            tensors['r'] = tf.squeeze(r_aug, [-1])
+            af_aug, rf_aug = tf.split(3, 2, tf.slice(h_m_fw, [0, 0, 0, 0], [-1, -1, -1, 2]) / 2.0)
+            tensors['af'] = tf.squeeze(af_aug, [-1])
+            tensors['rf'] = tf.squeeze(rf_aug, [-1])
+            ab_aug, rb_aug = tf.split(3, 2, tf.slice(h_m_bw, [0, 0, 0, 0], [-1, -1, -1, 2]) / 2.0)
+            tensors['ab'] = tf.squeeze(ab_aug, [-1])
+            tensors['rb'] = tf.squeeze(rb_aug, [-1])
 
         with tf.variable_scope("selection"):
             w = tf.tanh(linear([c_last], d, True))

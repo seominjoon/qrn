@@ -91,9 +91,9 @@ def list_results(args):
         question = _decode(idx2word_dict, Q[id_])
         facts = [_decode(idx2word_dict, x) for x in X[id_]]
         correct = eval_d['correct']
-        a_raw = np.transpose(eval_d['a'])  # [M, L]
+        a_raw = np.transpose(eval_d['af'])  # [M, L]
         a = [["%.2f" % val for val in l] for l in a_raw]
-        r_raw = np.transpose(eval_d['r'])  # [M, L]
+        r_raw = np.transpose(eval_d['rf'])  # [M, L]
         r = [["%.2f" % val for val in l] for l in r_raw]
         row = {'id': id_,
                'facts': facts,

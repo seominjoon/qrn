@@ -586,7 +586,8 @@ def dynamic_bidirectional_rnn(fw_cell, bw_cell, inputs, sequence_length=None, in
                               time_major=False, scope=None, feed_prev_out=False,
                               num_layers=1, share_vars=True):
     with vs.variable_scope(scope or "Bi-RNN") as root_scope:
-        outputs_list = []
+        outputs_fw_list = []
+        outputs_bw_list = []
         state_fw_list = []
         state_bw_list = []
         for layer_idx in range(num_layers):
@@ -603,14 +604,16 @@ def dynamic_bidirectional_rnn(fw_cell, bw_cell, inputs, sequence_length=None, in
                 outputs_bw = reverse_sequence(outputs_bw_rev, sequence_length, 1)
                 outputs = outputs_fw + outputs_bw
                 inputs = outputs
-                outputs_list.append(outputs)
+                outputs_fw_list.append(outputs_fw)
+                outputs_bw_list.append(outputs_bw)
                 state_fw_list.append(state_fw)
                 state_bw_list.append(state_bw)
                 if share_vars:
                     root_scope.reuse_variables()
-        outputs_comb = transpose(pack(outputs_list), [1, 0, 2, 3])  # [N, L, M, d]
+        outputs_fw_comb = transpose(pack(outputs_fw_list), [1, 0, 2, 3])  # [N, L, M, d]
+        outputs_bw_comb = transpose(pack(outputs_bw_list), [1, 0, 2, 3])  # [N, L, M, d]
         state_fw_comb = transpose(pack(state_fw_list), [1, 0, 2])  # [N, L, d]
         state_bw_comb = transpose(pack(state_bw_list), [1, 0, 2])  # [N, L, d]
-    return outputs_comb, state_fw_comb, state_bw_comb
+    return outputs_fw_comb, outputs_bw_comb, state_fw_comb, state_bw_comb
 
 
