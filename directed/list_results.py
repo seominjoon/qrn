@@ -93,13 +93,13 @@ def list_results(args):
         correct = eval_d['correct']
         a_raw = np.transpose(eval_d['a'])  # [M, L]
         a = [["%.2f" % val for val in l] for l in a_raw]
-        o_raw = np.transpose(eval_d['o'])  # [M, L]
-        o = [["%.2f" % val for val in l] for l in o_raw]
+        r_raw = np.transpose(eval_d['r'])  # [M, L]
+        r = [["%.2f" % val for val in l] for l in r_raw]
         row = {'id': id_,
                'facts': facts,
                'question': question,
                'attentions': a,
-               'output_gates': o,
+               'output_gates': r,
                'num_layers': len(a[0]),
                'correct': correct,
                'task': T[i],

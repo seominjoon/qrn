@@ -91,19 +91,24 @@ class Tower(BaseTower):
         with tf.variable_scope("networks"):
             m_mask = tf.reduce_max(tf.cast(x_mask, 'int64'), 2, name='m_mask')  # [N, M]
             m_length = tf.reduce_sum(m_mask, 1, name='m_length')  # [N]
-            rsm_cell = RSMCell(d, forget_bias=forget_bias, wd=wd,
-                               initializer=tf.random_uniform_initializer(-np.sqrt(3), np.sqrt(3)))
+            fw_cell = RSMCell(d, forget_bias=forget_bias, wd=wd,
+                              initializer=tf.random_uniform_initializer(-np.sqrt(3), np.sqrt(3)))
+            bw_cell = RSMCell(d, forget_bias=forget_bias, wd=wd,
+                              initializer=tf.random_uniform_initializer(-np.sqrt(3), np.sqrt(3)))
             us = tf.tile(tf.expand_dims(u, 1, name='u_prev_aug'), [1, M, 1])  # [N, d] -> [N, M, d]
-            v_m_in = tf.concat(2, [us, m], name='v_in')
-            v_m_out, state_fw, state_bw = dynamic_bidirectional_rnn(rsm_cell, v_m_in, sequence_length=m_length,
+            h_m_in = tf.concat(2, [us, m], name='h_in')
+            dummy = tf.zeros([N, M, 2])
+            h_m_in = tf.concat(2, [dummy, h_m_in])
+            h_m_out, state_fw, state_bw = dynamic_bidirectional_rnn(fw_cell, bw_cell, h_m_in, sequence_length=m_length,
                                                                     dtype='float', num_layers=L)
-            v, m = tf.split(2, 2, v_m_out)
-            # v_out_last = tf.split(1, 2 * L, state_fw)[-1]
+            # h, m = tf.split(2, 2, h_m_out)
+            c_last = tf.squeeze(tf.slice(state_fw, [0, L-1, 0], [-1, 1, d]), [1])
+            a_aug, r_aug = tf.split(3, 2, tf.slice(h_m_out, [0, 0, 0, 0], [-1, -1, -1, 2]) / 2.0)
+            tensors['a'] = tf.squeeze(a_aug, [-1])
+            tensors['r'] = tf.squeeze(r_aug, [-1])
 
         with tf.variable_scope("selection"):
-            gru_cell = GRUCell(d, input_size=3*d, wd=wd)
-            gru_in = tf.concat(2, [us, v, us * v], name='gru_in')
-            _, w = dynamic_rnn(gru_cell, gru_in, sequence_length=m_length, dtype='float')
+            w = tf.tanh(linear([c_last], d, True))
 
         with tf.variable_scope("class"):
             W = tf.transpose(A.emb_mat, name='W')

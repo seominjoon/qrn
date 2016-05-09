@@ -202,8 +202,8 @@ class RSMCell(RNNCell):
     """
     def __init__(self, num_units, forget_bias=1.0, var_on_cpu=True, wd=0.0, initializer=None):
         self._num_units = num_units
-        self._input_size = num_units * 2
-        self._output_size = num_units * 2
+        self._input_size = num_units * 2 + 2
+        self._output_size = num_units * 2 + 2
         self._state_size = num_units * 2
         self._var_on_cpu = var_on_cpu
         self._wd = wd
@@ -225,6 +225,7 @@ class RSMCell(RNNCell):
     def __call__(self, inputs, state, scope=None):
         with tf.variable_scope(scope or type(self).__name__):  # "RSMCell"
             with tf.name_scope("Split"):  # Reset gate and update gate.
+                inputs = tf.slice(inputs, [0, 2], [-1, -1])
                 c, h = tf.split(1, 2, state)
                 u, x = tf.split(1, 2, inputs)
 
@@ -245,6 +246,7 @@ class RSMCell(RNNCell):
             with tf.name_scope("Concat"):
                 new_state = tf.concat(1, [new_c, new_h])
                 outputs = tf.concat(1, [new_h, x])
+                outputs = tf.concat(1, [a, r, outputs])
 
         return outputs, new_state
 
