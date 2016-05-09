@@ -251,6 +251,47 @@ class RSMCell(RNNCell):
         return outputs, new_state
 
 
+class PassingCell(RNNCell):
+    def __init__(self, num_units, forget_bias=1.0, var_on_cpu=True, wd=0.0, initializer=None):
+        self._num_units = num_units
+        self._input_size = num_units * 2
+        self._output_size = num_units * 2
+        self._state_size = num_units
+        self._var_on_cpu = var_on_cpu
+        self._wd = wd
+        self._initializer = initializer
+        self._forget_bias = forget_bias
+
+    @property
+    def input_size(self):
+        return self._input_size
+
+    @property
+    def output_size(self):
+        return self._output_size
+
+    @property
+    def state_size(self):
+        return self._state_size
+
+    def __call__(self, inputs, state, scope=None):
+        with tf.variable_scope(scope or type(self).__name__):  # "RSMCell"
+            with tf.name_scope("Split"):  # Reset gate and update gate.
+                u, h = tf.split(1, 2, inputs)
+
+            with tf.name_scope("Gate"):
+                a_raw = linear(u, 1, True, var_on_cpu=self._var_on_cpu,
+                               initializer=self._initializer, scope='a_raw')
+                a = tf.sigmoid(a_raw - self._forget_bias)  # [N, 1]
+
+            with tf.name_scope("Main"):
+                new_state = a * h + (1 - a) * state
+                outputs = tf.concat(1, [u, new_state])
+
+        return outputs, new_state
+
+
+
 class DropoutWrapper(RNNCell):
     """Operator adding dropout to inputs and outputs of the given cell."""
 
