@@ -5,10 +5,10 @@ from tensorflow.python.ops.rnn_cell import MultiRNNCell
 from directed.base_model import BaseTower, BaseRunner
 from my.tensorflow import flatten, exp_mask
 from my.tensorflow.nn import linear, relu1, dists
-from my.tensorflow.rnn import dynamic_rnn
+from my.tensorflow.rnn import dynamic_rnn, dynamic_bidirectional_rnn
 import numpy as np
 
-from my.tensorflow.rnn_cell import BasicLSTMCell, GRUCell, GRUXCell, DropoutWrapper, XGRUCell
+from my.tensorflow.rnn_cell import XGRUCell, RSMCell
 
 
 class Embedder(object):
@@ -88,42 +88,19 @@ class Tower(BaseTower):
             u = encoder(Aq, q_mask)  # [N, d]
             m = encoder(Ax, x_mask)  # [N, M, d]
 
-        with tf.name_scope("pre_layers"):
+        with tf.name_scope("networks"):
             m_mask = tf.reduce_max(tf.cast(x_mask, 'int64'), 2, name='m_mask')  # [N, M]
             m_length = tf.reduce_sum(m_mask, 1, name='m_length')  # [N]
-            cell = XGRUCell(d, input_size=1+d, wd=wd)
-            u_prev = u
-            us_prev = tf.tile(tf.expand_dims(u, 1, name='u_prev_aug'), [1, M, 1])  # [N, d] -> [N, M, d]
-            a_list = []
-            o_list = []
-
-        with tf.variable_scope("layers") as scope:
-            for layer_idx in range(L):
-                with tf.name_scope("layer_{}".format(layer_idx)):
-                    init = tf.random_uniform_initializer(-np.sqrt(3), np.sqrt(3))
-                    a_raw = linear(dists(us_prev, m), 1, True,
-                                   squeeze=True, initializer=init, scope='a_raw')
-                    a = tf.mul(tf.sigmoid(a_raw - forget_bias), tf.cast(m_mask, 'float'), name='o')
-                    o_raw = linear(dists(us_prev, m), 1, True, squeeze=True, initializer=init, scope='o_raw')
-                    o = tf.mul(tf.nn.sigmoid(o_raw), tf.cast(m_mask, 'float'), name='o')
-                    a_list.append(a)
-                    o_list.append(o)
-                    aoum = tf.concat(2, [tf.expand_dims(a, -1), tf.expand_dims(o, -1), us_prev, m], name='aoum')
-                    us_f, state = dynamic_rnn(cell, aoum, sequence_length=m_length, dtype='float', scope='u_f')
-                    u_prev, _ = tf.split(1, 2, state)
-                    us_b_rev, _ = dynamic_rnn(cell, tf.reverse_sequence(aoum, m_length, 1),
-                                              sequence_length=m_length, dtype='float', scope='u_b')
-                    us_b = tf.reverse_sequence(us_b_rev, m_length, 1, name='us_b')
-                    us_prev = us_f + us_b
-                    scope.reuse_variables()
-
-            a_comb = tf.transpose(tf.pack(a_list), [1, 0, 2], name='a_comb')  # [N, L, M]
-            o_comb = tf.transpose(tf.pack(o_list), [1, 0, 2], name='o_comb')  # [N, L, M]
-            tensors['a'] = a_comb
-            tensors['o'] = o_comb
+            cell = RSMCell(d, forget_bias=forget_bias, wd=wd,
+                           initializer=tf.random_uniform_initializer(-np.sqrt(3), np.sqrt(3)))
+            us = tf.tile(tf.expand_dims(u, 1, name='u_prev_aug'), [1, M, 1])  # [N, d] -> [N, M, d]
+            vm_in = tf.concat(2, [us, m], name='v_in')
+            vm_out, state_fw, state_bw = dynamic_bidirectional_rnn(cell, vm_in, sequence_length=m_length,
+                                                                  dtype='float', num_layers=L)
+            v_out_last = tf.split(1, 2 * L, state_fw)[-1]
 
         with tf.variable_scope("class"):
-            w = tf.tanh(linear([u_prev], d, True), name='w')
+            w = tf.tanh(linear([v_out_last], d, True), name='w')
             W = tf.transpose(A.emb_mat, name='W')
             logits = tf.matmul(w, W, name='logits')
             yp = tf.cast(tf.argmax(logits, 1), 'int32')

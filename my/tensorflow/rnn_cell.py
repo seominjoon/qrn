@@ -202,6 +202,8 @@ class RSMCell(RNNCell):
     def __init__(self, num_units, forget_bias=1.0, var_on_cpu=True, wd=0.0, initializer=None):
         self._num_units = num_units
         self._input_size = num_units * 2
+        self._output_size = num_units * 2
+        self._state_size = num_units * 2
         self._var_on_cpu = var_on_cpu
         self._wd = wd
         self._initializer = initializer
@@ -209,15 +211,15 @@ class RSMCell(RNNCell):
 
     @property
     def input_size(self):
-        return 2 * self._input_size
+        return self._input_size
 
     @property
     def output_size(self):
-        return 2 * self._num_units
+        return self._output_size
 
     @property
     def state_size(self):
-        return 2 * self._num_units
+        return self._state_size
 
     def __call__(self, inputs, state, scope=None):
         with tf.variable_scope(scope or type(self).__name__):  # "RSMCell"
@@ -226,11 +228,11 @@ class RSMCell(RNNCell):
                 u, x = tf.split(1, 2, inputs)
 
             with tf.variable_scope("Gate"):
-                gates_raw = linear(u * x, 2, True, squeeze=True, var_on_cpu=self._var_on_cpu,
+                gates_raw = linear(u * x, 2, True, var_on_cpu=self._var_on_cpu,
                                    initializer=self._initializer, scope='a_raw')
                 a_raw, o_raw = tf.split(1, 2, gates_raw)
-                a = tf.sigmoid(a_raw - self._forget_bias)
-                o = tf.sigmoid(o_raw)
+                a = tf.sigmoid(a_raw - self._forget_bias)  # [N, 1]
+                o = tf.sigmoid(o_raw)  # [N, 1]
 
             with tf.variable_scope("Main"):
                 new_c_t = tf.tanh(linear(inputs, self._num_units, True,
