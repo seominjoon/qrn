@@ -91,6 +91,7 @@ class GRUCell(RNNCell):
         with tf.variable_scope(scope or type(self).__name__):  # "GRUCell"
             with tf.variable_scope("Gates"):  # Reset gate and update gate.
                 # We start with bias of 1.0 to not reset and not update.
+                state = tf.reshape(state, inputs.get_shape().as_list())  # explicit shape definition, to use my linaer function
                 r, u = tf.split(1, 2, linear([inputs, state],
                                                     2 * self._num_units, True, 1.0))
                 r, u = tf.sigmoid(r), tf.sigmoid(u)
@@ -240,7 +241,7 @@ class RSMCell(RNNCell):
                 new_c = a * new_c_t + (1 - a) * c
                 new_h = a * o * new_c_t + (1 - a) * h
 
-            with tf.name_scope("Post"):
+            with tf.name_scope("Concat"):
                 new_state = tf.concat(1, [new_c, new_h])
                 outputs = tf.concat(1, [new_h, x])
 

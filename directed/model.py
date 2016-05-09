@@ -8,7 +8,7 @@ from my.tensorflow.nn import linear, relu1, dists
 from my.tensorflow.rnn import dynamic_rnn, dynamic_bidirectional_rnn
 import numpy as np
 
-from my.tensorflow.rnn_cell import XGRUCell, RSMCell
+from my.tensorflow.rnn_cell import RSMCell, GRUCell
 
 
 class Embedder(object):
@@ -88,19 +88,23 @@ class Tower(BaseTower):
             u = encoder(Aq, q_mask)  # [N, d]
             m = encoder(Ax, x_mask)  # [N, M, d]
 
-        with tf.name_scope("networks"):
+        with tf.variable_scope("networks"):
             m_mask = tf.reduce_max(tf.cast(x_mask, 'int64'), 2, name='m_mask')  # [N, M]
             m_length = tf.reduce_sum(m_mask, 1, name='m_length')  # [N]
-            cell = RSMCell(d, forget_bias=forget_bias, wd=wd,
-                           initializer=tf.random_uniform_initializer(-np.sqrt(3), np.sqrt(3)))
+            rsm_cell = RSMCell(d, forget_bias=forget_bias, wd=wd,
+                               initializer=tf.random_uniform_initializer(-np.sqrt(3), np.sqrt(3)))
             us = tf.tile(tf.expand_dims(u, 1, name='u_prev_aug'), [1, M, 1])  # [N, d] -> [N, M, d]
-            vm_in = tf.concat(2, [us, m], name='v_in')
-            vm_out, state_fw, state_bw = dynamic_bidirectional_rnn(cell, vm_in, sequence_length=m_length,
-                                                                  dtype='float', num_layers=L)
-            v_out_last = tf.split(1, 2 * L, state_fw)[-1]
+            v_m_in = tf.concat(2, [us, m], name='v_in')
+            v_m_out, state_fw, state_bw = dynamic_bidirectional_rnn(rsm_cell, v_m_in, sequence_length=m_length,
+                                                                    dtype='float', num_layers=L)
+            v, m = tf.split(2, 2, v_m_out)
+            # v_out_last = tf.split(1, 2 * L, state_fw)[-1]
+
+        with tf.variable_scope("selection"):
+            gru_cell = GRUCell(d, wd=wd)
+            _, w = dynamic_rnn(gru_cell, v * m, sequence_length=m_length, dtype='float')
 
         with tf.variable_scope("class"):
-            w = tf.tanh(linear([v_out_last], d, True), name='w')
             W = tf.transpose(A.emb_mat, name='W')
             logits = tf.matmul(w, W, name='logits')
             yp = tf.cast(tf.argmax(logits, 1), 'int32')

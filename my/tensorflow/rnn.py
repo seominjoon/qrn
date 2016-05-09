@@ -19,7 +19,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from tensorflow import constant, reverse, reverse_sequence, name_scope, get_variable_scope, concat
+from tensorflow import constant, reverse, reverse_sequence, name_scope, get_variable_scope, concat, get_collection
 from tensorflow.python.framework import dtypes
 from tensorflow.python.framework import ops
 from tensorflow.python.framework import tensor_shape
@@ -593,11 +593,12 @@ def dynamic_bidirectional_rnn(cell, inputs, sequence_length=None, initial_state=
             with name_scope(scope_name) if share_vars else vs.variable_scope(scope_name):
                 outputs_fw, state_fw = dynamic_rnn(cell, inputs, sequence_length=sequence_length, initial_state=initial_state,
                                                    dtype=dtype, parallel_iterations=parallel_iterations, swap_memory=swap_memory,
-                                                   time_major=time_major, scope="Fw", feed_prev_out=feed_prev_out)
+                                                   time_major=time_major, scope='FW', feed_prev_out=feed_prev_out)
+                # TODO : share variables between fw and bw?
                 inputs_rev = reverse_sequence(inputs, sequence_length, 1)
                 outputs_bw_rev, state_bw = dynamic_rnn(cell, inputs_rev, sequence_length=sequence_length, initial_state=initial_state,
                                                        dtype=dtype, parallel_iterations=parallel_iterations, swap_memory=swap_memory,
-                                                       time_major=time_major, scope="BW", feed_prev_out=feed_prev_out)
+                                                       time_major=time_major, scope='BW', feed_prev_out=feed_prev_out)
                 outputs_bw = reverse_sequence(outputs_bw_rev, sequence_length, 1)
                 outputs = outputs_fw + outputs_bw
                 inputs = outputs
