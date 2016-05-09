@@ -96,27 +96,27 @@ class Tower(BaseTower):
             bw_cell = RSMCell(d, forget_bias=forget_bias, wd=wd,
                               initializer=tf.random_uniform_initializer(-np.sqrt(3), np.sqrt(3)))
             us = tf.tile(tf.expand_dims(u, 1, name='u_prev_aug'), [1, M, 1])  # [N, d] -> [N, M, d]
-            h_m_in = tf.concat(2, [us, m], name='h_in')  # [N, M, 2*d]
+            m_h_in = tf.concat(2, [m, us, us], name='h_in')  # [N, M, 3*d]
             dummy = tf.zeros([N, M, 2])
-            h_m_in = tf.concat(2, [dummy, h_m_in])  # [N, M, 2*d + 2]
-            h_m_out, state_fw, state_bw, h_m_fw, h_m_bw = \
-                dynamic_bidirectional_rnn(fw_cell, bw_cell, h_m_in,
+            m_h_in = tf.concat(2, [dummy, m_h_in])  # [N, M, 3*d + 2]
+            m_h_g_out, state_fw, state_bw, m_h_g_fw, m_h_g_bw = \
+                dynamic_bidirectional_rnn(fw_cell, bw_cell, m_h_in,
                                           sequence_length=m_length, dtype='float', num_layers=L)
-            h, m = tf.split(2, 2, tf.slice(h_m_out, [0, 0, 2], [-1, -1, -1]))  # [N, M, d]
+            m, h, g = tf.split(2, 3, tf.slice(m_h_g_out, [0, 0, 2], [-1, -1, -1]))  # [N, M, d]
+
             c_last = tf.squeeze(tf.slice(state_fw, [0, L-1, 0], [-1, 1, d]), [1])
-            af_aug, rf_aug = tf.split(3, 2, tf.slice(h_m_fw, [0, 0, 0, 0], [-1, -1, -1, 2]))
+            af_aug, rf_aug = tf.split(3, 2, tf.slice(m_h_g_fw, [0, 0, 0, 0], [-1, -1, -1, 2]))
             af = tensors['af'] = tf.squeeze(af_aug, [-1])
             rf = tensors['rf'] = tf.squeeze(rf_aug, [-1])
-            ab_aug, rb_aug = tf.split(3, 2, tf.slice(h_m_bw, [0, 0, 0, 0], [-1, -1, -1, 2]))
+            ab_aug, rb_aug = tf.split(3, 2, tf.slice(m_h_g_bw, [0, 0, 0, 0], [-1, -1, -1, 2]))
             ab = tensors['ab'] = tf.squeeze(ab_aug, [-1])
             rb = tensors['rb'] = tf.squeeze(rb_aug, [-1])
 
         with tf.variable_scope("selection"):
-            rf_last = tf.transpose(tf.slice(rf, [0, L-1, 0], [-1, -1, -1]), [0, 2, 1])
             fw_gru_cell = GRUCell(d, wd=wd)
             bw_gru_cell = GRUCell(d, wd=wd)
             out, _, _, _, _ = \
-                dynamic_bidirectional_rnn(fw_gru_cell, bw_gru_cell, h * us * rf_last, sequence_length=m_length, dtype='float')
+                dynamic_bidirectional_rnn(fw_gru_cell, bw_gru_cell, g * us, sequence_length=m_length, dtype='float')
             passing_cell = PassingCell(d, wd=wd)
             _, last = dynamic_rnn(passing_cell, tf.concat(2, [out, h]), sequence_length=m_length, dtype='float')
             w = tf.tanh(linear([last], d, True))

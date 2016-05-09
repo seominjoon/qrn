@@ -202,8 +202,8 @@ class RSMCell(RNNCell):
     """
     def __init__(self, num_units, forget_bias=1.0, var_on_cpu=True, wd=0.0, initializer=None):
         self._num_units = num_units
-        self._input_size = num_units * 2 + 2
-        self._output_size = num_units * 2 + 2
+        self._input_size = num_units * 3 + 2
+        self._output_size = num_units * 3 + 2
         self._state_size = num_units * 2
         self._var_on_cpu = var_on_cpu
         self._wd = wd
@@ -227,7 +227,7 @@ class RSMCell(RNNCell):
             with tf.name_scope("Split"):  # Reset gate and update gate.
                 inputs = tf.slice(inputs, [0, 2], [-1, -1])
                 c, h = tf.split(1, 2, state)
-                u, x = tf.split(1, 2, inputs)
+                x, u, g = tf.split(1, 3, inputs)
 
             with tf.variable_scope("Gate"):
                 gates_raw = linear(u * x, 2, True, var_on_cpu=self._var_on_cpu,
@@ -238,14 +238,15 @@ class RSMCell(RNNCell):
                 # o = 1 - a * (1 - r)  # effective output gate
 
             with tf.variable_scope("Main"):
-                new_c_t = tf.tanh(linear(inputs, self._num_units, True,
-                                         var_on_cpu=self._var_on_cpu, wd=self._wd), name='new_c_t')
-                new_c = a * new_c_t + (1 - a) * c
-                new_h = a * r * new_c_t + (1 - a) * h
+                c_t = tf.tanh(linear(inputs, self._num_units, True,
+                                     var_on_cpu=self._var_on_cpu, wd=self._wd), name='new_c_t')
+                new_c = a * c_t + (1 - a) * c
+                new_g = r * c_t
+                new_h = a * new_g + (1 - a) * h
 
             with tf.name_scope("Concat"):
                 new_state = tf.concat(1, [new_c, new_h])
-                outputs = tf.concat(1, [new_h, x])
+                outputs = tf.concat(1, [x, new_h, new_g])
                 outputs = tf.concat(1, [a, r, outputs])
 
         return outputs, new_state
