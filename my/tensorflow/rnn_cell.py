@@ -157,8 +157,18 @@ class CRUCell(RNNCell):
         return out, out
 
 
+class BiRNNCell(RNNCell):
+    def set_forward(self):
+        raise NotImplementedError()
 
-class RSMCell(RNNCell):
+    def set_backward(self):
+        raise NotImplementedError()
+
+    def reuse_variables(self):
+        raise NotImplementedError()
+
+
+class RSMCell(BiRNNCell):
     """
     Recurrent State Machine
     """
@@ -171,6 +181,17 @@ class RSMCell(RNNCell):
         self._wd = wd
         self._initializer = initializer
         self._forget_bias = forget_bias
+        self._reuse_flag = False
+        self._is_forward = True
+
+    def set_forward(self):
+        self._is_forward = True
+
+    def set_backward(self):
+        self._reuse_flag = True
+        self._is_forward = False
+
+
 
     @property
     def input_size(self):
@@ -191,7 +212,7 @@ class RSMCell(RNNCell):
                 c, h = tf.split(1, 2, state)
                 x, u, g = tf.split(1, 3, inputs)
 
-            with tf.variable_scope("Gate"):
+            with tf.variable_scope("Gate", reuse=self._reuse_flag):
                 gates_raw = linear(u * x, 2, True, var_on_cpu=self._var_on_cpu,
                                    initializer=self._initializer, scope='a_raw')
                 a_raw, r_raw = tf.split(1, 2, gates_raw)
@@ -199,7 +220,7 @@ class RSMCell(RNNCell):
                 r = tf.sigmoid(r_raw)  # [N, 1], reset gate
                 # o = 1 - a * (1 - r)  # effective output gate
 
-            with tf.variable_scope("Main"):
+            with tf.variable_scope("Forward" if self._is_forward else "Backward"):
                 c_t = tf.tanh(linear(inputs, self._num_units, True,
                                      var_on_cpu=self._var_on_cpu, wd=self._wd), name='new_c_t')
                 new_c = a * c_t + (1 - a) * c
@@ -214,12 +235,13 @@ class RSMCell(RNNCell):
         return outputs, new_state
 
 
-class PassingCell(RNNCell):
+class TempCell(RNNCell):
+    """For task 3. Temporary"""
     def __init__(self, num_units, forget_bias=1.0, var_on_cpu=True, wd=0.0, initializer=None):
         self._num_units = num_units
-        self._input_size = 2 * num_units
+        self._input_size = 2 * num_units + 1
         self._output_size = num_units
-        self._state_size = num_units
+        self._state_size = 2 * num_units
         self._var_on_cpu = var_on_cpu
         self._wd = wd
         self._initializer = initializer
@@ -238,21 +260,23 @@ class PassingCell(RNNCell):
         return self._state_size
 
     def __call__(self, inputs, state, scope=None):
-        with tf.variable_scope(scope or type(self).__name__):  # "PassingCell"
-            with tf.name_scope("Split"):  # Reset gate and update gate.
-                pass
+        with tf.variable_scope(scope or type(self).__name__):
+            with tf.name_scope("Split"):
+                o = tf.slice(inputs, [0, 0], [-1, 1])
+                x, u = tf.split(1, 2, tf.slice(inputs, [0, 1], [-1, -1]))
+                c, h = tf.split(1, 2, state)
 
-            with tf.name_scope("Gate"):
-                a_raw = linear(inputs * state, 1, True, var_on_cpu=self._var_on_cpu,
+            with tf.variable_scope("Gate"):
+                a_raw = linear(x * u, 1, True, var_on_cpu=self._var_on_cpu,
                                initializer=self._initializer, scope='a_raw')
                 a = tf.sigmoid(a_raw - self._forget_bias)  # [N, 1]
 
             with tf.name_scope("Main"):
-                h_t = tf.tanh(linear([inputs, state], self._num_units, True, var_on_cpu=self._var_on_cpu,
-                                     initializer=self._initializer, scope='h_t'))
-                new_state = a * h_t + (1 - a) * state
+                new_c = o * x + (1 - o) * c
+                new_h = a * c + (1 - a) * h
+                new_state = tf.concat(1, [new_c, new_h])
 
-        return new_state, new_state
+        return new_h, new_state
 
 
 

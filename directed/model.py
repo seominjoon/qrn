@@ -8,7 +8,7 @@ from my.tensorflow.nn import linear, relu1, dists
 from my.tensorflow.rnn import dynamic_rnn, dynamic_bidirectional_rnn
 import numpy as np
 
-from my.tensorflow.rnn_cell import RSMCell, GRUCell, PassingCell
+from my.tensorflow.rnn_cell import RSMCell, GRUCell, TempCell
 
 
 class Embedder(object):
@@ -91,16 +91,14 @@ class Tower(BaseTower):
         with tf.variable_scope("networks"):
             m_mask = tf.reduce_max(tf.cast(x_mask, 'int64'), 2, name='m_mask')  # [N, M]
             m_length = tf.reduce_sum(m_mask, 1, name='m_length')  # [N]
-            fw_cell = RSMCell(d, forget_bias=forget_bias, wd=wd,
-                              initializer=tf.random_uniform_initializer(-np.sqrt(3), np.sqrt(3)))
-            bw_cell = RSMCell(d, forget_bias=forget_bias, wd=wd,
-                              initializer=tf.random_uniform_initializer(-np.sqrt(3), np.sqrt(3)))
+            initializer = tf.random_uniform_initializer(-np.sqrt(3), np.sqrt(3))
+            cell = RSMCell(d, forget_bias=forget_bias, wd=wd, initializer=initializer)
             us = tf.tile(tf.expand_dims(u, 1, name='u_prev_aug'), [1, M, 1])  # [N, d] -> [N, M, d]
             m_h_in = tf.concat(2, [m, us, us], name='h_in')  # [N, M, 3*d]
             dummy = tf.zeros([N, M, 2])
             m_h_in = tf.concat(2, [dummy, m_h_in])  # [N, M, 3*d + 2]
             m_h_g_out, state_fw, state_bw, m_h_g_fw, m_h_g_bw = \
-                dynamic_bidirectional_rnn(fw_cell, bw_cell, m_h_in,
+                dynamic_bidirectional_rnn(cell, m_h_in,
                                           sequence_length=m_length, dtype='float', num_layers=L)
             m, h, g = tf.split(2, 3, tf.slice(m_h_g_out, [0, 0, 2], [-1, -1, -1]))  # [N, M, d]
 
@@ -113,6 +111,8 @@ class Tower(BaseTower):
             rb = tensors['rb'] = tf.squeeze(rb_aug, [-1])
 
         with tf.variable_scope("selection"):
+            # temp_cell = TempCell(d, wd=wd)
+            # temp_in = tf.concat()
             w = tf.tanh(linear([c_last], d, True, wd=wd))
 
         with tf.variable_scope("class"):

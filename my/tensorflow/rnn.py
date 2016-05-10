@@ -33,6 +33,8 @@ from tensorflow.python.ops import rnn_cell
 from tensorflow.python.ops import tensor_array_ops
 from tensorflow.python.ops import variable_scope as vs
 
+from my.tensorflow.rnn_cell import BiRNNCell
+
 
 def rnn(cell, inputs, initial_state=None, dtype=None,
         sequence_length=None, scope=None):
@@ -581,10 +583,11 @@ def _dynamic_rnn_loop(
   return (final_outputs, final_state)
 
 
-def dynamic_bidirectional_rnn(fw_cell, bw_cell, inputs, sequence_length=None, initial_state=None,
+def dynamic_bidirectional_rnn(cell, inputs, sequence_length=None, initial_state=None,
                               dtype=None, parallel_iterations=None, swap_memory=False,
                               time_major=False, scope=None, feed_prev_out=False,
-                              num_layers=1, share_vars=True):
+                              num_layers=1, reuse_layers=True):
+    isinstance(cell, BiRNNCell)
     with vs.variable_scope(scope or "Bi-RNN") as root_scope:
         outputs_fw_list = []
         outputs_bw_list = []
@@ -593,15 +596,16 @@ def dynamic_bidirectional_rnn(fw_cell, bw_cell, inputs, sequence_length=None, in
         outputs = None
         for layer_idx in range(num_layers):
             scope_name = "layer_{}".format(layer_idx)
-            with name_scope(scope_name) if share_vars else vs.variable_scope(scope_name):
-                outputs_fw, state_fw = dynamic_rnn(fw_cell, inputs, sequence_length=sequence_length, initial_state=initial_state,
+            with name_scope(scope_name) if reuse_layers else vs.variable_scope(scope_name):
+                cell.set_forward()
+                outputs_fw, state_fw = dynamic_rnn(cell, inputs, sequence_length=sequence_length, initial_state=initial_state,
                                                    dtype=dtype, parallel_iterations=parallel_iterations, swap_memory=swap_memory,
-                                                   time_major=time_major, scope='FW', feed_prev_out=feed_prev_out)
-                # TODO : share variables between fw and bw?
+                                                   time_major=time_major, feed_prev_out=feed_prev_out)
+                cell.set_backward()
                 inputs_rev = reverse_sequence(inputs, sequence_length, 1)
-                outputs_bw_rev, state_bw = dynamic_rnn(bw_cell, inputs_rev, sequence_length=sequence_length, initial_state=initial_state,
+                outputs_bw_rev, state_bw = dynamic_rnn(cell, inputs_rev, sequence_length=sequence_length, initial_state=initial_state,
                                                        dtype=dtype, parallel_iterations=parallel_iterations, swap_memory=swap_memory,
-                                                       time_major=time_major, scope='BW', feed_prev_out=feed_prev_out)
+                                                       time_major=time_major, feed_prev_out=feed_prev_out)
                 outputs_bw = reverse_sequence(outputs_bw_rev, sequence_length, 1)
                 outputs = outputs_fw + outputs_bw
                 inputs = outputs
@@ -609,7 +613,7 @@ def dynamic_bidirectional_rnn(fw_cell, bw_cell, inputs, sequence_length=None, in
                 outputs_bw_list.append(outputs_bw)
                 state_fw_list.append(state_fw)
                 state_bw_list.append(state_bw)
-                if share_vars:
+                if reuse_layers:
                     root_scope.reuse_variables()
         outputs_fw_comb = transpose(pack(outputs_fw_list), [1, 0, 2, 3])  # [N, L, M, d]
         outputs_bw_comb = transpose(pack(outputs_bw_list), [1, 0, 2, 3])  # [N, L, M, d]
