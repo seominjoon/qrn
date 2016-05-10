@@ -56,7 +56,7 @@ class Tower(BaseTower):
         placeholders = self.placeholders
         tensors = self.tensors
         variables_dict = self.variables_dict
-        N, J, V, Q, M = params.batch_size, params.max_sent_size, params.vocab_size, params.max_ques_size, params.max_num_sents
+        N, J, V, Q, M = params.batch_size, params.max_sent_size, params.vocab_size, params.max_ques_size, params.mem_size
         d = params.hidden_size
         L = params.mem_num_layers
         forget_bias = params.forget_bias
@@ -113,11 +113,7 @@ class Tower(BaseTower):
             rb = tensors['rb'] = tf.squeeze(rb_aug, [-1])
 
         with tf.variable_scope("selection"):
-            fw_gru_cell = GRUCell(d, wd=wd)
-            bw_gru_cell = GRUCell(d, wd=wd)
-            out, fw, bw, _, _ = \
-                dynamic_bidirectional_rnn(fw_gru_cell, bw_gru_cell, g, sequence_length=m_length, initial_state=u)
-            w = tf.squeeze(fw + bw, [1])
+            w = tf.tanh(linear([c_last], d, True, wd=wd))
 
         with tf.variable_scope("class"):
             W = tf.transpose(A.emb_mat, name='W')
@@ -141,7 +137,7 @@ class Tower(BaseTower):
 
     def get_feed_dict(self, batch, mode, **kwargs):
         params = self.params
-        N, J, V, M = params.batch_size, params.max_sent_size, params.vocab_size, params.max_num_sents
+        N, J, V, M = params.batch_size, params.max_sent_size, params.vocab_size, params.mem_size
         x = np.zeros([N, M, J], dtype='int32')
         x_mask = np.zeros([N, M, J], dtype='bool')
         q = np.zeros([N, J], dtype='int32')
@@ -159,6 +155,8 @@ class Tower(BaseTower):
 
         X, Q, S, Y, H, T = batch
         for i, para in enumerate(X):
+            if len(para) > M:
+                para = para[-M:]
             for jj, sent in enumerate(para):
                 # j = len(para) - jj - 1  # reverting story sequence, last to first
                 j = jj

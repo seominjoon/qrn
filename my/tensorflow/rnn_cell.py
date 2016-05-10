@@ -157,44 +157,6 @@ class CRUCell(RNNCell):
         return out, out
 
 
-class XGRUCell(RNNCell):
-    def __init__(self, num_units, input_size=None, var_on_cpu=True, wd=0.0):
-        self._num_units = num_units
-        self._input_size = num_units if input_size is None else input_size
-        self.var_on_cpu = var_on_cpu
-        self.wd = wd
-
-    @property
-    def input_size(self):
-        return self._input_size
-
-    @property
-    def output_size(self):
-        return self._num_units
-
-    @property
-    def state_size(self):
-        return 2 * self._num_units
-
-    def __call__(self, inputs, state, scope=None):
-        """First two units of inputs are external gates (attention and output gates)
-        1 + 1 + d
-        a   o   x
-        """
-        with tf.variable_scope(scope or type(self).__name__):  # "GRUCell"
-            c, h = tf.split(1, 2, state)
-            with tf.variable_scope("Slice"):  # Reset gate and update gate.
-                # We start with bias of 1.0 to not reset and not update.
-                a = tf.slice(inputs, [0, 0], [-1, 1], name='a')
-                o = tf.slice(inputs, [0, 1], [-1, 1], name='o')
-                x = tf.slice(inputs, [0, 2], [-1, -1], name='x')
-            with tf.variable_scope("Main"):
-                new_c_t = tf.tanh(linear([x], self._num_units, True, var_on_cpu=self.var_on_cpu, wd=self.wd))
-                new_c = a * new_c_t + (1 - a) * c
-                new_h = a * o * new_c_t + (1 - a) * h
-                new_state = tf.concat(1, [new_c, new_h])
-        return new_h, new_state
-
 
 class RSMCell(RNNCell):
     """
@@ -255,7 +217,7 @@ class RSMCell(RNNCell):
 class PassingCell(RNNCell):
     def __init__(self, num_units, forget_bias=1.0, var_on_cpu=True, wd=0.0, initializer=None):
         self._num_units = num_units
-        self._input_size = num_units
+        self._input_size = 2 * num_units
         self._output_size = num_units
         self._state_size = num_units
         self._var_on_cpu = var_on_cpu
