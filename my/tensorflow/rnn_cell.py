@@ -236,8 +236,8 @@ class RSMCell(BiRNNCell):
             o_bw = tf.slice(bw_outputs, [0, 0, 0], [-1, -1, 1])
             _, h_bw = tf.split(2, 2, tf.slice(bw_outputs, [0, 0, 1], [-1, -1, -1]))
             o = tf.maximum(o_fw, o_bw)
-            # h = o_fw * h_fw + tf.maximum(o_bw - o_fw, 0) * h_bw
-            h = h_fw + h_bw
+            h = o_fw * h_fw + tf.maximum(o_bw - o_fw, 0) * h_bw
+            # h = h_fw + h_bw
             outputs = tf.concat(2, [o, x, h])
         return outputs
 
