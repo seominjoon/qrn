@@ -223,7 +223,7 @@ class RSMCell(BiRNNCell):
             new_a = tf.sigmoid(linear([x * u], 1, True, scope='a_raw', var_on_cpu=self._var_on_cpu,
                                wd=self._wd, initializer=self._initializer), name='a')
             v = tf.tanh(linear([x, u], self._num_units, True,
-                            var_on_cpu=self._var_on_cpu, wd=self._wd, scope='c_t_raw'), name='c_t')
+                            var_on_cpu=self._var_on_cpu, wd=self._wd, scope='v_raw'), name='v')
             new_inputs = tf.concat(2, [new_a, x, u, v])  # [N, J, 3*d + 1]
         return new_inputs
 

@@ -23,7 +23,7 @@ flags.DEFINE_float("init_lr", 0.5, "Initial learning rate [0.5]")
 flags.DEFINE_integer("lr_anneal_period", 20, "Anneal period [20]")
 flags.DEFINE_float("lr_anneal_ratio", 0.5, "Anneal ratio [0.5")
 flags.DEFINE_integer("num_epochs", 100, "Total number of epochs for training [100]")
-flags.DEFINE_string("opt", 'basic', 'Optimizer: basic | adagrad | adam [basic]')
+flags.DEFINE_string("opt", 'adam', 'Optimizer: basic | adagrad | adam [basic]')
 
 # Training and testing options
 flags.DEFINE_boolean("train", False, "Train? Test if False [False]")
