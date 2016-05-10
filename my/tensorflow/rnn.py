@@ -598,18 +598,19 @@ def dynamic_bidirectional_rnn(cell, pre_inputs, sequence_length=None, initial_st
         for layer_idx in range(num_layers):
             scope_name = "layer_{}".format(layer_idx)
             with name_scope(scope_name) if reuse_layers else vs.variable_scope(scope_name):
-                inputs = cell.pre(pre_inputs)
-                outputs_fw, state_fw = dynamic_rnn(cell, inputs, sequence_length=sequence_length, initial_state=initial_state,
+                fw_inputs = cell.pre(pre_inputs, 'fw_inputs')
+                bw_inputs = cell.pre(pre_inputs, 'bw_inputs')
+                outputs_fw, state_fw = dynamic_rnn(cell, fw_inputs, sequence_length=sequence_length, initial_state=initial_state,
                     dtype=dtype, parallel_iterations=parallel_iterations, swap_memory=swap_memory,
                     time_major=time_major, feed_prev_out=feed_prev_out, scope='FW')
-                inputs_rev = reverse_sequence(inputs, sequence_length, 1)
+                inputs_rev = reverse_sequence(bw_inputs, sequence_length, 1)
                 outputs_bw_rev, state_bw = dynamic_rnn(cell, inputs_rev, sequence_length=sequence_length, initial_state=initial_state,
                     dtype=dtype, parallel_iterations=parallel_iterations, swap_memory=swap_memory,
                     time_major=time_major, feed_prev_out=feed_prev_out, scope='BW')
                 outputs_bw = reverse_sequence(outputs_bw_rev, sequence_length, 1)
                 outputs = cell.post(outputs_fw, outputs_bw)
                 pre_inputs = outputs
-                inputs_list.append(inputs)
+                inputs_list.append(fw_inputs)
                 outputs_list.append(outputs)
                 outputs_fw_list.append(outputs_fw)
                 outputs_bw_list.append(outputs_bw)
