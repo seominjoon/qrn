@@ -219,8 +219,7 @@ class RSMCell(BiRNNCell):
         """Preprocess inputs to be used by the cell. Assumes [N, J, *]
         [x, u]"""
         with tf.variable_scope(scope or "pre"):
-            o = tf.slice(inputs, [0, 0, 0], [-1, -1, 1])
-            x, u = tf.split(2, 2, tf.slice(inputs, [0, 0, 1], [-1, -1, -1]))  # [N, J, d]
+            x, u = tf.split(2, 2, inputs)  # [N, J, d]
             new_a = tf.sigmoid(linear([x * u], 1, True, scope='a_raw', var_on_cpu=self._var_on_cpu,
                                wd=self._wd, initializer=self._initializer), name='a')
             v = tf.tanh(linear([x, u], self._num_units, True,
@@ -235,10 +234,8 @@ class RSMCell(BiRNNCell):
             x, h_fw = tf.split(2, 2, tf.slice(fw_outputs, [0, 0, 1], [-1, -1, -1]))
             o_bw = tf.slice(bw_outputs, [0, 0, 0], [-1, -1, 1])
             _, h_bw = tf.split(2, 2, tf.slice(bw_outputs, [0, 0, 1], [-1, -1, -1]))
-            o = tf.maximum(o_fw, o_bw)
-            h = o_fw * h_fw + tf.maximum(o_bw - o_fw, 0) * h_bw
-            # h = h_fw + h_bw
-            outputs = tf.concat(2, [o, x, h])
+            h = h_fw + h_bw
+            outputs = tf.concat(2, [x, h])
         return outputs
 
 

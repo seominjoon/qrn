@@ -94,7 +94,7 @@ class Tower(BaseTower):
             initializer = tf.random_uniform_initializer(-np.sqrt(3), np.sqrt(3))
             cell = RSMCell(d, forget_bias=forget_bias, wd=wd, initializer=initializer)
             us = tf.tile(tf.expand_dims(u, 1, name='u_prev_aug'), [1, M, 1])  # [N, d] -> [N, M, d]
-            in_ = tf.concat(2, [tf.ones([N, M, 1]), m, us], name='x_h_in')  # [N, M, 2*d + 1]
+            in_ = tf.concat(2, [m, us], name='x_h_in')  # [N, M, 2*d + 1]
             out_, fw_state, bw_state, bi_tensors = dynamic_bidirectional_rnn(cell, in_,
                 sequence_length=m_length, dtype='float', num_layers=L)
             fw_c, fw_h = tf.split(1, 2, tf.slice(fw_state, [0, 1], [-1, -1]))
