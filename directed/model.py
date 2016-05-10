@@ -94,30 +94,18 @@ class Tower(BaseTower):
             initializer = tf.random_uniform_initializer(-np.sqrt(3), np.sqrt(3))
             cell = RSMCell(d, forget_bias=forget_bias, wd=wd, initializer=initializer)
             us = tf.tile(tf.expand_dims(u, 1, name='u_prev_aug'), [1, M, 1])  # [N, d] -> [N, M, d]
-            m_h_in = tf.concat(2, [m, us, us], name='h_in')  # [N, M, 3*d]
-            dummy = tf.zeros([N, M, 2])
-            m_h_in = tf.concat(2, [dummy, m_h_in])  # [N, M, 3*d + 2]
-            m_h_g_out, state_fw, state_bw, m_h_g_fw, m_h_g_bw = \
-                dynamic_bidirectional_rnn(cell, m_h_in,
-                                          sequence_length=m_length, dtype='float', num_layers=L)
-            m, h, g = tf.split(2, 3, tf.slice(m_h_g_out, [0, 0, 2], [-1, -1, -1]))  # [N, M, d]
-
-            c_last = tf.squeeze(tf.slice(state_fw, [0, L-1, 0], [-1, 1, d]), [1])
-            af_aug, rf_aug = tf.split(3, 2, tf.slice(m_h_g_fw, [0, 0, 0, 0], [-1, -1, -1, 2]))
-            af = tensors['af'] = tf.squeeze(af_aug, [-1], name='af')
-            rf = tensors['rf'] = tf.squeeze(rf_aug, [-1], name='rf')
-            ab_aug, rb_aug = tf.split(3, 2, tf.slice(m_h_g_bw, [0, 0, 0, 0], [-1, -1, -1, 2]))
-            ab = tensors['ab'] = tf.squeeze(ab_aug, [-1], name='ab')
-            rb = tensors['rb'] = tf.squeeze(rb_aug, [-1], name='rb')
-            # Note that af = ab because they are shared
+            in_ = tf.concat(2, [tf.ones([N, M, 1]), m, us, us], name='x_h_in')  # [N, M, 3*d + 1]
+            out_, fw_state, bw_state, bi_tensors = dynamic_bidirectional_rnn(cell, in_,
+                sequence_length=m_length, dtype='float', num_layers=L)
+            fw_c, fw_h = tf.split(1, 2, fw_state)
 
         with tf.variable_scope("selection"):
-            a_last = tf.transpose(tf.slice(af, [0, L-1, 0], [-1, -1, -1]), [0, 2, 1])  # [N, M, 1]
-            temp_cell = TempCell(d, wd=wd)
-            temp_in = tf.concat(2, [a_last, g, us])  # [N, M, 2*d + 1]
-            temp_out, temp_state = dynamic_rnn(temp_cell, temp_in, sequence_length=m_length, dtype='float')
-            c, h = tf.split(1, 2, temp_state)
-            w = tf.tanh(linear([h], d, True, wd=wd))
+            # a_last = tf.transpose(tf.slice(af, [0, L-1, 0], [-1, -1, -1]), [0, 2, 1])  # [N, M, 1]
+            # temp_cell = TempCell(d, wd=wd)
+            # temp_in = tf.concat(2, [a_last, g, us])  # [N, M, 2*d + 1]
+            # temp_out, temp_state = dynamic_rnn(temp_cell, temp_in, sequence_length=m_length, dtype='float')
+            # c, h = tf.split(1, 2, temp_state)
+            w = tf.tanh(linear([fw_c], d, True, wd=wd))
 
         with tf.variable_scope("class"):
             W = tf.transpose(A.emb_mat, name='W')

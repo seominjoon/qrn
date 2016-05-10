@@ -583,45 +583,47 @@ def _dynamic_rnn_loop(
   return (final_outputs, final_state)
 
 
-def dynamic_bidirectional_rnn(cell, inputs, sequence_length=None, initial_state=None,
+def dynamic_bidirectional_rnn(cell, pre_inputs, sequence_length=None, initial_state=None,
                               dtype=None, parallel_iterations=None, swap_memory=False,
                               time_major=False, scope=None, feed_prev_out=False,
                               num_layers=1, reuse_layers=True):
     isinstance(cell, BiRNNCell)
     with vs.variable_scope(scope or "Bi-RNN") as root_scope:
+        inputs_list = []
+        outputs_list = []
         outputs_fw_list = []
         outputs_bw_list = []
         state_fw_list = []
         state_bw_list = []
-        outputs = None
         for layer_idx in range(num_layers):
             scope_name = "layer_{}".format(layer_idx)
             with name_scope(scope_name) if reuse_layers else vs.variable_scope(scope_name):
-                cell.set_forward()
-                with name_scope("FW"):
-                    outputs_fw, state_fw = dynamic_rnn(cell, inputs, sequence_length=sequence_length, initial_state=initial_state,
-                        dtype=dtype, parallel_iterations=parallel_iterations, swap_memory=swap_memory,
-                        time_major=time_major, feed_prev_out=feed_prev_out)
-                cell.set_backward()
-                cell.reuse_variables()
+                inputs = cell.pre(pre_inputs)
+                outputs_fw, state_fw = dynamic_rnn(cell, inputs, sequence_length=sequence_length, initial_state=initial_state,
+                    dtype=dtype, parallel_iterations=parallel_iterations, swap_memory=swap_memory,
+                    time_major=time_major, feed_prev_out=feed_prev_out, scope='FW')
                 inputs_rev = reverse_sequence(inputs, sequence_length, 1)
-                with name_scope("BW"):
-                    outputs_bw_rev, state_bw = dynamic_rnn(cell, inputs_rev, sequence_length=sequence_length, initial_state=initial_state,
-                        dtype=dtype, parallel_iterations=parallel_iterations, swap_memory=swap_memory,
-                        time_major=time_major, feed_prev_out=feed_prev_out)
+                outputs_bw_rev, state_bw = dynamic_rnn(cell, inputs_rev, sequence_length=sequence_length, initial_state=initial_state,
+                    dtype=dtype, parallel_iterations=parallel_iterations, swap_memory=swap_memory,
+                    time_major=time_major, feed_prev_out=feed_prev_out, scope='BW')
                 outputs_bw = reverse_sequence(outputs_bw_rev, sequence_length, 1)
-                outputs = outputs_fw + outputs_bw
-                inputs = outputs
+                outputs = cell.post(outputs_fw, outputs_bw)
+                pre_inputs = outputs
+                inputs_list.append(inputs)
+                outputs_list.append(outputs)
                 outputs_fw_list.append(outputs_fw)
                 outputs_bw_list.append(outputs_bw)
                 state_fw_list.append(state_fw)
                 state_bw_list.append(state_bw)
                 if reuse_layers:
                     root_scope.reuse_variables()
-        outputs_fw_comb = transpose(pack(outputs_fw_list), [1, 0, 2, 3])  # [N, L, M, d]
-        outputs_bw_comb = transpose(pack(outputs_bw_list), [1, 0, 2, 3])  # [N, L, M, d]
-        state_fw_comb = transpose(pack(state_fw_list), [1, 0, 2])  # [N, L, d]
-        state_bw_comb = transpose(pack(state_bw_list), [1, 0, 2])  # [N, L, d]
-    return outputs, state_fw_comb, state_bw_comb, outputs_fw_comb, outputs_bw_comb
+        tensors = dict()
+        tensors['in'] = transpose(pack(inputs_list), [1, 0, 2, 3])
+        tensors['out'] = transpose(pack(outputs_list), [1, 0, 2, 3])
+        tensors['fw_out'] = transpose(pack(outputs_fw_list), [1, 0, 2, 3])  # [N, L, M, d]
+        tensors['bw_out'] = transpose(pack(outputs_bw_list), [1, 0, 2, 3])  # [N, L, M, d]
+        tensors['fw_state'] = transpose(pack(state_fw_list), [1, 0, 2])  # [N, L, d]
+        tensors['bw_state'] = transpose(pack(state_bw_list), [1, 0, 2])  # [N, L, d]
+    return outputs_list[-1], state_fw_list[-1], state_bw_list[-1], tensors
 
 
