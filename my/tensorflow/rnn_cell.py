@@ -171,9 +171,9 @@ class RSMCell(BiRNNCell):
     """
     def __init__(self, num_units, forget_bias=1.0, var_on_cpu=True, wd=0.0, initializer=None):
         self._num_units = num_units
-        self._input_size = num_units * 2 + 1
-        self._output_size = num_units * 3 + 2
-        self._state_size = num_units * 2
+        self._input_size = num_units * 3 + 1
+        self._output_size = num_units * 2 + 1
+        self._state_size = num_units * 2 + 1
         self._var_on_cpu = var_on_cpu
         self._wd = wd
         self._initializer = initializer
@@ -198,19 +198,20 @@ class RSMCell(BiRNNCell):
             with tf.name_scope("Split"):  # Reset gate and update gate.
                 a = tf.slice(inputs, [0, 0], [-1, 1])
                 x, u, v = tf.split(1, 3, tf.slice(inputs, [0, 1], [-1, -1]))
-                c, h = tf.split(1, 2, state)
+                o = tf.slice(state, [0, 0], [-1, 1])
+                c, h = tf.split(1, 2, tf.slice(state, [0, 1], [-1, -1]))
 
             with tf.variable_scope("Main"):
                 r_raw = linear([x * u], 1, True, scope='a_raw', var_on_cpu=self._var_on_cpu,
                                wd=self._wd, initializer=self._initializer)
                 r = tf.sigmoid(r_raw, name='a')
+                new_o = a * r + (1 - a) * o
                 new_c = a * v + (1 - a) * c
                 new_h = a * r * v + (1 - a) * h
 
             with tf.name_scope("Concat"):
-                new_state = tf.concat(1, [new_c, new_h])
-                outputs = tf.concat(1, [x, h, v])
-                outputs = tf.concat(1, [a, r, outputs])
+                new_state = tf.concat(1, [new_o, new_c, new_h])
+                outputs = tf.concat(1, [new_o, x, new_h])
 
         return outputs, new_state
 
@@ -218,27 +219,26 @@ class RSMCell(BiRNNCell):
         """Preprocess inputs to be used by the cell. Assumes [N, J, *]
         [x, u]"""
         with tf.variable_scope(scope or "pre"):
-            a = tf.slice(inputs, [0, 0, 0], [-1, -1, 1])
-            x, h, v = tf.split(2, 3, tf.slice(inputs, [0, 0, 1], [-1, -1, -1]))  # [N, J, d]
-            new_h = a * v + (1 - a) * h
-            new_a = tf.sigmoid(linear([x * new_h], 1, True, scope='a_raw', var_on_cpu=self._var_on_cpu,
+            o = tf.slice(inputs, [0, 0, 0], [-1, -1, 1])
+            x, u = tf.split(2, 2, tf.slice(inputs, [0, 0, 1], [-1, -1, -1]))  # [N, J, d]
+            new_a = tf.sigmoid(linear([x * u], 1, True, scope='a_raw', var_on_cpu=self._var_on_cpu,
                                wd=self._wd, initializer=self._initializer), name='a')
-            new_v = tf.tanh(linear([x, new_h], self._num_units, True,
+            v = tf.tanh(linear([x, u], self._num_units, True,
                             var_on_cpu=self._var_on_cpu, wd=self._wd, scope='c_t_raw'), name='c_t')
-            new_inputs = tf.concat(2, [new_a, x, new_h, new_v])  # [N, J, 3*d + 1]
+            new_inputs = tf.concat(2, [new_a, x, u, v])  # [N, J, 3*d + 1]
         return new_inputs
 
     def post(self, fw_outputs, bw_outputs, scope=None):
         """Combines two outputs to one outputs"""
         with tf.name_scope(scope or "post"):
-            a, r_fw = tf.split(2, 2, tf.slice(fw_outputs, [0, 0, 0], [-1, -1, 2]))
-            x, h_fw, v = tf.split(2, 3, tf.slice(fw_outputs, [0, 0, 2], [-1, -1, -1]))
-            _, r_bw = tf.split(2, 2, tf.slice(bw_outputs, [0, 0, 0], [-1, -1, 2]))
-            _, h_bw, _ = tf.split(2, 3, tf.slice(bw_outputs, [0, 0, 2], [-1, -1, -1]))
-            r = tf.maximum(r_bw, r_fw)
-            new_r_bw = r - r_fw  # activate only if r_fw is 0
-            h = r_fw * h_fw + new_r_bw * h_bw
-            outputs = tf.concat(2, [a, x, h, v])
+            o_fw = tf.slice(fw_outputs, [0, 0, 0], [-1, -1, 1])
+            x, h_fw = tf.split(2, 2, tf.slice(fw_outputs, [0, 0, 1], [-1, -1, -1]))
+            o_bw = tf.slice(bw_outputs, [0, 0, 0], [-1, -1, 1])
+            _, h_bw = tf.split(2, 2, tf.slice(bw_outputs, [0, 0, 1], [-1, -1, -1]))
+            o = tf.maximum(o_fw, o_bw)
+            # h = o_fw * h_fw + tf.maximum(o_bw - o_fw, 0) * h_bw
+            h = h_fw + h_bw
+            outputs = tf.concat(2, [o, x, h])
         return outputs
 
 
