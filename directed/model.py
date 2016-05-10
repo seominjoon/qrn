@@ -113,10 +113,10 @@ class Tower(BaseTower):
             rb = tensors['rb'] = tf.squeeze(rb_aug, [-1])
 
         with tf.variable_scope("selection"):
-            fw_p_cell = PassingCell(d, wd=wd)
-            bw_p_cell = PassingCell(d, wd=wd)
+            fw_gru_cell = GRUCell(d, wd=wd)
+            bw_gru_cell = GRUCell(d, wd=wd)
             out, fw, bw, _, _ = \
-                dynamic_bidirectional_rnn(fw_p_cell, bw_p_cell, g, sequence_length=m_length, initial_state=u)
+                dynamic_bidirectional_rnn(fw_gru_cell, bw_gru_cell, g, sequence_length=m_length, initial_state=u)
             w = tf.squeeze(fw + bw, [1])
 
         with tf.variable_scope("class"):
