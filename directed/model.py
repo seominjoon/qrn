@@ -109,11 +109,15 @@ class Tower(BaseTower):
             ab_aug, rb_aug = tf.split(3, 2, tf.slice(m_h_g_bw, [0, 0, 0, 0], [-1, -1, -1, 2]))
             ab = tensors['ab'] = tf.squeeze(ab_aug, [-1], name='ab')
             rb = tensors['rb'] = tf.squeeze(rb_aug, [-1], name='rb')
+            # Note that af = ab because they are shared
 
         with tf.variable_scope("selection"):
-            # temp_cell = TempCell(d, wd=wd)
-            # temp_in = tf.concat()
-            w = tf.tanh(linear([c_last], d, True, wd=wd))
+            a_last = tf.transpose(tf.slice(af, [0, L-1, 0], [-1, -1, -1]), [0, 2, 1])  # [N, M, 1]
+            temp_cell = TempCell(d, wd=wd)
+            temp_in = tf.concat(2, [a_last, g, us])  # [N, M, 2*d + 1]
+            temp_out, temp_state = dynamic_rnn(temp_cell, temp_in, sequence_length=m_length, dtype='float')
+            c, h = tf.split(1, 2, temp_state)
+            w = tf.tanh(linear([h], d, True, wd=wd))
 
         with tf.variable_scope("class"):
             W = tf.transpose(A.emb_mat, name='W')
