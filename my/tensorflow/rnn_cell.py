@@ -187,11 +187,11 @@ class RSMCell(BiRNNCell):
     def set_forward(self):
         self._is_forward = True
 
-    def set_backward(self):
+    def reuse_variables(self):
         self._reuse_flag = True
+
+    def set_backward(self):
         self._is_forward = False
-
-
 
     @property
     def input_size(self):
@@ -212,17 +212,19 @@ class RSMCell(BiRNNCell):
                 c, h = tf.split(1, 2, state)
                 x, u, g = tf.split(1, 3, inputs)
 
-            with tf.variable_scope("Gate", reuse=self._reuse_flag):
-                gates_raw = linear(u * x, 2, True, var_on_cpu=self._var_on_cpu,
-                                   initializer=self._initializer, scope='a_raw')
-                a_raw, r_raw = tf.split(1, 2, gates_raw)
+            with tf.variable_scope("Shared", reuse=self._reuse_flag):
+                a_raw = linear(u * x, 1, True, var_on_cpu=self._var_on_cpu,
+                               initializer=self._initializer, scope='a_raw')
                 a = tf.sigmoid(a_raw - self._forget_bias)  # [N, 1]
-                r = tf.sigmoid(r_raw)  # [N, 1], reset gate
                 # o = 1 - a * (1 - r)  # effective output gate
 
             with tf.variable_scope("Forward" if self._is_forward else "Backward"):
+                r_raw = linear(u * x, 1, True, var_on_cpu=self._var_on_cpu,
+                               initializer=self._initializer, scope='r_raw')
+                r = tf.sigmoid(r_raw)  # [N, 1], reset gate
+
                 c_t = tf.tanh(linear(inputs, self._num_units, True,
-                                     var_on_cpu=self._var_on_cpu, wd=self._wd), name='new_c_t')
+                                     var_on_cpu=self._var_on_cpu, wd=self._wd, scope='c_t_raw'), name='c_t')
                 new_c = a * c_t + (1 - a) * c
                 new_g = a * r * c_t
                 new_h = new_g + (1 - a) * h

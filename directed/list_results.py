@@ -91,16 +91,22 @@ def list_results(args):
         question = _decode(idx2word_dict, Q[id_])
         facts = [_decode(idx2word_dict, x) for x in X[id_]]
         correct = eval_d['correct']
-        a_raw = np.transpose(eval_d['af'])  # [M, L]
-        a = [["%.2f" % val for val in l] for l in a_raw]
-        r_raw = np.transpose(eval_d['rf'])  # [M, L]
-        r = [["%.2f" % val for val in l] for l in r_raw]
+        af_raw = np.transpose(eval_d['af'])  # [M, L]
+        af = [["%.2f" % val for val in l] for l in af_raw]
+        rf_raw = np.transpose(eval_d['rf'])  # [M, L]
+        rf = [["%.2f" % val for val in l] for l in rf_raw]
+        ab_raw = np.transpose(eval_d['af'])  # [M, L]
+        ab = [["%.2f" % val for val in l] for l in ab_raw]
+        rb_raw = np.transpose(eval_d['rf'])  # [M, L]
+        rb = [["%.2f" % val for val in l] for l in rb_raw]
         row = {'id': id_,
                'facts': facts,
                'question': question,
-               'attentions': a,
-               'output_gates': r,
-               'num_layers': len(a[0]),
+               'af': af,
+               'rf': rf,
+               'ab': ab,
+               'rb': rb,
+               'num_layers': len(af[0]),
                'correct': correct,
                'task': T[i],
                'y': idx2word_dict[Y[id_]],

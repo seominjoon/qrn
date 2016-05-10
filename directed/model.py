@@ -104,11 +104,11 @@ class Tower(BaseTower):
 
             c_last = tf.squeeze(tf.slice(state_fw, [0, L-1, 0], [-1, 1, d]), [1])
             af_aug, rf_aug = tf.split(3, 2, tf.slice(m_h_g_fw, [0, 0, 0, 0], [-1, -1, -1, 2]))
-            af = tensors['af'] = tf.squeeze(af_aug, [-1])
-            rf = tensors['rf'] = tf.squeeze(rf_aug, [-1])
+            af = tensors['af'] = tf.squeeze(af_aug, [-1], name='af')
+            rf = tensors['rf'] = tf.squeeze(rf_aug, [-1], name='rf')
             ab_aug, rb_aug = tf.split(3, 2, tf.slice(m_h_g_bw, [0, 0, 0, 0], [-1, -1, -1, 2]))
-            ab = tensors['ab'] = tf.squeeze(ab_aug, [-1])
-            rb = tensors['rb'] = tf.squeeze(rb_aug, [-1])
+            ab = tensors['ab'] = tf.squeeze(ab_aug, [-1], name='ab')
+            rb = tensors['rb'] = tf.squeeze(rb_aug, [-1], name='rb')
 
         with tf.variable_scope("selection"):
             # temp_cell = TempCell(d, wd=wd)

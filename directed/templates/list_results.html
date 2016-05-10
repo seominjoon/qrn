@@ -45,21 +45,22 @@
                         <tr>
                             <th>facts</th>
                             {% for layer_idx in range(row.num_layers) %}
-                            <th colspan="2">{{ layer_idx + 1 }}</th>
+                            <th colspan="4">{{ layer_idx + 1 }}</th>
                             {% endfor %}
                         </tr>
                         <tr>
                             <td></td>
                             {% for layer_idx in range(row.num_layers) %}
-                            <td>a</td><td>o</td>
+                            <td>a</td><td>rf</td><td>rb</td>
                             {% endfor %}
                         </tr>
-                        {% for fact, attention, output_gate in zip(row.facts, row.attentions, row.output_gates) %}
+                        {% for fact, afs, rfs, rbs in zip(row.facts, row.af, row.rf, row.rb) %}
                         <tr>
                             <td>{{ fact }}</td>
-                            {% for a, o in zip(attention, output_gate) %}
-                            <td class="att">{{ a }}</td>
-                            <td class="att">{{ o }}</td>
+                            {% for l in zip(afs, rfs, rbs) %}
+                            {% for val in l %}
+                            <td class="att">{{ val }}</td>
+                            {% endfor %}
                             {% endfor %}
                         </tr>
                         {% endfor %}

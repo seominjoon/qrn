@@ -598,14 +598,17 @@ def dynamic_bidirectional_rnn(cell, inputs, sequence_length=None, initial_state=
             scope_name = "layer_{}".format(layer_idx)
             with name_scope(scope_name) if reuse_layers else vs.variable_scope(scope_name):
                 cell.set_forward()
-                outputs_fw, state_fw = dynamic_rnn(cell, inputs, sequence_length=sequence_length, initial_state=initial_state,
-                                                   dtype=dtype, parallel_iterations=parallel_iterations, swap_memory=swap_memory,
-                                                   time_major=time_major, feed_prev_out=feed_prev_out)
+                with name_scope("FW"):
+                    outputs_fw, state_fw = dynamic_rnn(cell, inputs, sequence_length=sequence_length, initial_state=initial_state,
+                        dtype=dtype, parallel_iterations=parallel_iterations, swap_memory=swap_memory,
+                        time_major=time_major, feed_prev_out=feed_prev_out)
                 cell.set_backward()
+                cell.reuse_variables()
                 inputs_rev = reverse_sequence(inputs, sequence_length, 1)
-                outputs_bw_rev, state_bw = dynamic_rnn(cell, inputs_rev, sequence_length=sequence_length, initial_state=initial_state,
-                                                       dtype=dtype, parallel_iterations=parallel_iterations, swap_memory=swap_memory,
-                                                       time_major=time_major, feed_prev_out=feed_prev_out)
+                with name_scope("BW"):
+                    outputs_bw_rev, state_bw = dynamic_rnn(cell, inputs_rev, sequence_length=sequence_length, initial_state=initial_state,
+                        dtype=dtype, parallel_iterations=parallel_iterations, swap_memory=swap_memory,
+                        time_major=time_major, feed_prev_out=feed_prev_out)
                 outputs_bw = reverse_sequence(outputs_bw_rev, sequence_length, 1)
                 outputs = outputs_fw + outputs_bw
                 inputs = outputs
