@@ -172,7 +172,7 @@ class RSMCell(BiRNNCell):
     def __init__(self, num_units, forget_bias=1.0, var_on_cpu=True, wd=0.0, initializer=None):
         self._num_units = num_units
         self._input_size = num_units * 3 + 1
-        self._output_size = num_units * 2 + 1
+        self._output_size = num_units * 3 + 2
         self._state_size = num_units * 2 + 1
         self._var_on_cpu = var_on_cpu
         self._wd = wd
@@ -207,11 +207,12 @@ class RSMCell(BiRNNCell):
                 r = tf.sigmoid(r_raw, name='a')
                 new_o = a * r + (1 - a) * o
                 new_c = a * v + (1 - a) * c
-                new_h = a * r * v + (1 - a) * h
+                g = r * v
+                new_h = a * g + (1 - a) * h
 
             with tf.name_scope("Concat"):
                 new_state = tf.concat(1, [new_o, new_c, new_h])
-                outputs = tf.concat(1, [new_o, x, new_h])
+                outputs = tf.concat(1, [a, new_o, x, new_h, g])
 
         return outputs, new_state
 
@@ -219,28 +220,26 @@ class RSMCell(BiRNNCell):
         """Preprocess inputs to be used by the cell. Assumes [N, J, *]
         [x, u]"""
         with tf.variable_scope(scope or "pre"):
-            x, u = tf.split(2, 2, inputs)  # [N, J, d]
+            x, u, g = tf.split(2, 3, tf.slice(inputs, [0, 0, 1], [-1, -1, -1]))  # [N, J, d]
 
             a_raw = linear([x * u], 1, True, scope='a_raw', var_on_cpu=self._var_on_cpu,
                            wd=self._wd, initializer=self._initializer)
             a = tf.sigmoid(a_raw - self._forget_bias, name='a')
             v = tf.tanh(linear([x, u], self._num_units, True,
-                            var_on_cpu=self._var_on_cpu, wd=self._wd, scope='v_raw'), name='v')
+                        var_on_cpu=self._var_on_cpu, wd=self._wd, scope='v_raw'), name='v')
             new_inputs = tf.concat(2, [a, x, u, v])  # [N, J, 3*d + 1]
         return new_inputs
 
     def post(self, fw_outputs, bw_outputs, scope=None):
         """Combines two outputs to one outputs"""
         with tf.name_scope(scope or "post"):
-            o_fw = tf.slice(fw_outputs, [0, 0, 0], [-1, -1, 1])
-            x, h_fw = tf.split(2, 2, tf.slice(fw_outputs, [0, 0, 1], [-1, -1, -1]))
-            o_bw = tf.slice(bw_outputs, [0, 0, 0], [-1, -1, 1])
-            _, h_bw = tf.split(2, 2, tf.slice(bw_outputs, [0, 0, 1], [-1, -1, -1]))
+            a = tf.slice(fw_outputs, [0, 0, 0], [-1, -1, 1])
+            x, h_fw, g_fw = tf.split(2, 3, tf.slice(fw_outputs, [0, 0, 2], [-1, -1, -1]))
+            _, h_bw, g_bw = tf.split(2, 3, tf.slice(bw_outputs, [0, 0, 2], [-1, -1, -1]))
             h = h_fw + h_bw
-            outputs = tf.concat(2, [x, h])
+            g = g_fw + g_bw
+            outputs = tf.concat(2, [a, x, h, g])
         return outputs
-
-
 
 
 class TempCell(RNNCell):
@@ -271,21 +270,20 @@ class TempCell(RNNCell):
         with tf.variable_scope(scope or type(self).__name__):
             with tf.name_scope("Split"):
                 o = tf.slice(inputs, [0, 0], [-1, 1])
-                x, u = tf.split(1, 2, tf.slice(inputs, [0, 1], [-1, -1]))
+                g, u = tf.split(1, 2, tf.slice(inputs, [0, 1], [-1, -1]))
                 c, h = tf.split(1, 2, state)
 
             with tf.variable_scope("Gate"):
-                a_raw = linear(x * u, 1, True, var_on_cpu=self._var_on_cpu,
+                a_raw = linear(g * u, 1, True, var_on_cpu=self._var_on_cpu,
                                initializer=self._initializer, scope='a_raw')
                 a = tf.sigmoid(a_raw - self._forget_bias)  # [N, 1]
 
             with tf.name_scope("Main"):
-                new_c = o * x + (1 - o) * c
-                new_h = a * c + (1 - a) * h
+                new_c = o * g + (1 - o) * c
+                new_h = a * c + (1 - a) * h  # update h to prev c if and only if current g ~ u
                 new_state = tf.concat(1, [new_c, new_h])
 
         return new_h, new_state
-
 
 
 class DropoutWrapper(RNNCell):

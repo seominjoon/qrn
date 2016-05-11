@@ -94,21 +94,23 @@ class Tower(BaseTower):
             initializer = tf.random_uniform_initializer(-np.sqrt(3), np.sqrt(3))
             cell = RSMCell(d, forget_bias=forget_bias, wd=wd, initializer=initializer)
             us = tf.tile(tf.expand_dims(u, 1, name='u_prev_aug'), [1, M, 1])  # [N, d] -> [N, M, d]
-            in_ = tf.concat(2, [m, us], name='x_h_in')  # [N, M, 2*d + 1]
+            in_ = tf.concat(2, [tf.ones([N, M, 1]), m, us, tf.zeros([N, M, d])], name='x_h_in')  # [N, M, 3*d + 1]
             out_, fw_state, bw_state, bi_tensors = dynamic_bidirectional_rnn(cell, in_,
                 sequence_length=m_length, dtype='float', num_layers=L)
+            a = tf.slice(out_, [0, 0, 0], [-1, -1, 1])  # [N, M, 1]
+            _, _, g = tf.split(2, 3, tf.slice(out_, [0, 0, 1], [-1, -1, -1]))
             fw_c, fw_h = tf.split(1, 2, tf.slice(fw_state, [0, 1], [-1, -1]))
+
             tensors['a'] = tf.squeeze(tf.slice(bi_tensors['in'], [0, 0, 0, 0], [-1, -1, -1, 1]), [3])
             tensors['of'] = tf.squeeze(tf.slice(bi_tensors['fw_out'], [0, 0, 0, 0], [-1, -1, -1, 1]), [3])
             tensors['ob'] = tf.squeeze(tf.slice(bi_tensors['bw_out'], [0, 0, 0, 0], [-1, -1, -1, 1]), [3])
 
         with tf.variable_scope("selection"):
-            # a_last = tf.transpose(tf.slice(af, [0, L-1, 0], [-1, -1, -1]), [0, 2, 1])  # [N, M, 1]
-            # temp_cell = TempCell(d, wd=wd)
-            # temp_in = tf.concat(2, [a_last, g, us])  # [N, M, 2*d + 1]
-            # temp_out, temp_state = dynamic_rnn(temp_cell, temp_in, sequence_length=m_length, dtype='float')
-            # c, h = tf.split(1, 2, temp_state)
-            w = tf.tanh(linear([fw_c], d, True, wd=wd))
+            temp_cell = TempCell(d, wd=wd)
+            temp_in = tf.concat(2, [a, g, us])  # [N, M, 2*d + 1]
+            temp_out, temp_state = dynamic_rnn(temp_cell, temp_in, sequence_length=m_length, dtype='float')
+            c, h = tf.split(1, 2, temp_state)
+            w = tf.tanh(linear([h], d, True, wd=wd))
 
         with tf.variable_scope("class"):
             W = tf.transpose(A.emb_mat, name='W')
