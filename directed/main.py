@@ -51,7 +51,7 @@ flags.DEFINE_integer("rnn_num_layers", 1, "RNN number of layers [1]")
 flags.DEFINE_float("keep_prob", 0.5, "Keep probability of RNN inputs [0.5]")
 flags.DEFINE_integer("mem_num_layers", 2, "Number of memory layers [2]")
 flags.DEFINE_float("wd", 0, "Weight decay [0]")
-flags.DEFINE_float("forget_bias", 2.5, "Forget bias [2.5]")
+flags.DEFINE_float("forget_bias", 1.0, "Forget bias [1.0]")
 flags.DEFINE_integer("mem_size", 50, "Memory size (from most recent) [50]")
 
 FLAGS = flags.FLAGS
