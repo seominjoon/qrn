@@ -220,11 +220,13 @@ class RSMCell(BiRNNCell):
         [x, u]"""
         with tf.variable_scope(scope or "pre"):
             x, u = tf.split(2, 2, inputs)  # [N, J, d]
-            new_a = tf.sigmoid(linear([x * u], 1, True, scope='a_raw', var_on_cpu=self._var_on_cpu,
-                               wd=self._wd, initializer=self._initializer), name='a')
+
+            a_raw = linear([x * u], 1, True, scope='a_raw', var_on_cpu=self._var_on_cpu,
+                           wd=self._wd, initializer=self._initializer)
+            a = tf.sigmoid(a_raw - self._forget_bias, name='a')
             v = tf.tanh(linear([x, u], self._num_units, True,
                             var_on_cpu=self._var_on_cpu, wd=self._wd, scope='v_raw'), name='v')
-            new_inputs = tf.concat(2, [new_a, x, u, v])  # [N, J, 3*d + 1]
+            new_inputs = tf.concat(2, [a, x, u, v])  # [N, J, 3*d + 1]
         return new_inputs
 
     def post(self, fw_outputs, bw_outputs, scope=None):
