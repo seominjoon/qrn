@@ -202,8 +202,8 @@ class RSMCell(BiRNNCell):
                 c, h = tf.split(1, 2, tf.slice(state, [0, 1], [-1, -1]))
 
             with tf.variable_scope("Main"):
-                r_raw = linear([x * u], 1, True, scope='a_raw', var_on_cpu=self._var_on_cpu,
-                               wd=self._wd, initializer=self._initializer)
+                r_raw = linear([x * u], 1, True, scope='r_raw', var_on_cpu=self._var_on_cpu,
+                               initializer=self._initializer)
                 r = tf.sigmoid(r_raw, name='a')
                 new_o = a * r + (1 - a) * o
                 new_c = a * v + (1 - a) * c

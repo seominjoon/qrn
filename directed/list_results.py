@@ -75,7 +75,6 @@ def list_results(args):
     metadata_path = os.path.join(target_dir, 'metadata.json')
     data = json.load(open(data_path, 'r'))
     X, Q, S, Y, H, T = data
-    print(len(X[0]))
     mode2idxs_dict = json.load(open(mode2idxs_path, 'r'))
     word2idx_dict = json.load(open(word2idx_path, 'r'))
     idx2word_dict = {idx: word for word, idx in word2idx_dict.items()}
@@ -89,14 +88,12 @@ def list_results(args):
         eval_dd[id_] = eval_d
 
     rows = []
-    pbar = get_pbar(len(eval_dd)).start()
     for i, (id_, eval_d) in enumerate(eval_dd.items()):
         question = _decode(idx2word_dict, Q[id_])
         para = X[_id]
-        print(len(para))
-        if len(para) > mem_size:
-            para = para[-mem_size:]
         facts = [_decode(idx2word_dict, x) for x in para]
+        print(len(para))
+        print(len(facts))
         correct = eval_d['correct']
         a_raw = np.transpose(eval_d['a'])  # [M, L]
         a = [["%.2f" % val for val in l] for l in a_raw]
@@ -129,8 +126,6 @@ def list_results(args):
             with open(html_path, "wb") as f:
                 f.write(template.render(**var_dict).encode('UTF-8'))
             rows = []
-        pbar.update(i)
-    pbar.finish()
 
     os.chdir(html_dir)
     port = args.port

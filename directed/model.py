@@ -17,10 +17,13 @@ class Embedder(object):
 
 
 class VariableEmbedder(Embedder):
-    def __init__(self, params, initializer=None, name="variable_embedder"):
+    def __init__(self, params, wd=0.0, initializer=None, name="variable_embedder"):
         V, d = params.vocab_size, params.hidden_size
         with tf.variable_scope(name):
             self.emb_mat = tf.get_variable("emb_mat", dtype='float', shape=[V, d], initializer=initializer)
+            if wd:
+                weight_decay = tf.mul(tf.nn.l2_loss(self.emb_mat), wd, name='weight_loss')
+                tf.add_to_collection('losses', weight_decay)
 
     def __call__(self, word, name="embedded_content"):
         out = tf.nn.embedding_lookup(self.emb_mat, word, name=name)
@@ -47,6 +50,7 @@ class PositionEncoder(object):
             l = self.b + self.w/length_aug
             mask_aug = tf.expand_dims(mask, -1)
             f = tf.reduce_sum(Ax * l * tf.cast(mask_aug, 'float'), length_dim_index, name='f')  # [N, S, d]
+
             return f
 
 
@@ -60,7 +64,9 @@ class Tower(BaseTower):
         d = params.hidden_size
         L = params.mem_num_layers
         forget_bias = params.forget_bias
+        keep_prob = params.keep_prob
         wd = params.wd
+        tower_scope = tf.get_variable_scope()
         with tf.name_scope("placeholders"):
             x = tf.placeholder('int32', shape=[N, M, J], name='x')
             x_mask = tf.placeholder('bool', shape=[N, M, J], name='x_mask')
@@ -76,11 +82,11 @@ class Tower(BaseTower):
             placeholders['is_train'] = is_train
 
         with tf.variable_scope("embedding"):
-            A = VariableEmbedder(params, name='A')
-            Aq = A(q, name='Ax')  # [N, S, J, d]
-            Ax = A(x, name='Cx')  # [N, S, J, d]
+            A = VariableEmbedder(params, wd=wd, name='A')
+            Aq = A(q, name='Aq')  # [N, S, J, d]
+            Ax = A(x, name='Ax')  # [N, S, J, d]
 
-        with tf.variable_scope("encoding"):
+        with tf.name_scope("encoding"):
             # encoder = GRU(params, is_train)
             # _, u = encoder(Aq, length=q_length, dtype='float', name='u')  # [N, d]
             # _, f = encoder(Ax, length=x_length, dtype='float', name='f')  # [N, S, d]
@@ -113,7 +119,7 @@ class Tower(BaseTower):
             c, h = tf.split(1, 2, temp_state)
             w = tf.tanh(linear([h], d, True, wd=wd))
 
-        with tf.variable_scope("class"):
+        with tf.name_scope("class"):
             W = tf.transpose(A.emb_mat, name='W')
             logits = tf.matmul(w, W, name='logits')
             yp = tf.cast(tf.argmax(logits, 1), 'int32')
@@ -121,13 +127,13 @@ class Tower(BaseTower):
             tensors['yp'] = yp
             tensors['correct'] = correct
 
-        with tf.name_scope("loss") as scope:
+        with tf.name_scope("loss"):
             with tf.name_scope("ans_loss"):
                 ce = tf.nn.sparse_softmax_cross_entropy_with_logits(logits, y, name='ce')
                 avg_ce = tf.reduce_mean(ce, name='avg_ce')
                 tf.add_to_collection('losses', avg_ce)
 
-            losses = tf.get_collection('losses', scope=scope)
+            losses = tf.get_collection('losses')
             loss = tf.add_n(losses, name='loss')
             tensors['loss'] = loss
 
