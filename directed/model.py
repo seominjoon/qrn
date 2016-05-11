@@ -8,7 +8,7 @@ from my.tensorflow.nn import linear, relu1, dists
 from my.tensorflow.rnn import dynamic_rnn, dynamic_bidirectional_rnn
 import numpy as np
 
-from my.tensorflow.rnn_cell import RSMCell, GRUCell, TempCell
+from my.tensorflow.rnn_cell import RSMCell, GRUCell, TempCell, BiDropoutWrapper, DropoutWrapper
 
 
 class Embedder(object):
@@ -99,6 +99,7 @@ class Tower(BaseTower):
             m_length = tf.reduce_sum(m_mask, 1, name='m_length')  # [N]
             initializer = tf.random_uniform_initializer(-np.sqrt(3), np.sqrt(3))
             cell = RSMCell(d, forget_bias=forget_bias, wd=wd, initializer=initializer)
+            cell = BiDropoutWrapper(cell, input_keep_prob=keep_prob, is_train=is_train)
             us = tf.tile(tf.expand_dims(u, 1, name='u_prev_aug'), [1, M, 1])  # [N, d] -> [N, M, d]
             in_ = tf.concat(2, [tf.ones([N, M, 1]), m, us, tf.zeros([N, M, d])], name='x_h_in')  # [N, M, 3*d + 1]
             out_, fw_state, bw_state, bi_tensors = dynamic_bidirectional_rnn(cell, in_,
@@ -113,6 +114,7 @@ class Tower(BaseTower):
 
         with tf.variable_scope("selection"):
             temp_cell = TempCell(d, wd=wd)
+            temp_cell = DropoutWrapper(temp_cell, input_keep_prob=keep_prob, is_train=is_train)
             temp_in = tf.concat(2, [a, g, us])  # [N, M, 2*d + 1]
             temp_out, temp_state = dynamic_rnn(temp_cell, temp_in, sequence_length=m_length, dtype='float')
             tensors['s'] = tf.squeeze(temp_out, [2])
