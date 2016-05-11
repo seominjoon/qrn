@@ -25,6 +25,7 @@ def get_args():
     parser.add_argument("--port", type=int, default=8000)
     parser.add_argument("--host", type=str, default="0.0.0.0")
     parser.add_argument("--open", type=str, default='False')
+    parser.add_argument("--mem_size", type=int, default=50)
 
     args = parser.parse_args()
     return args
@@ -41,6 +42,7 @@ def list_results(args):
     num_per_page = args.num_per_page
     data_dir = args.data_dir
     task = args.task
+    mem_size = args.mem_size
 
     target_dir = os.path.join(data_dir, task.zfill(2))
 
@@ -73,6 +75,7 @@ def list_results(args):
     metadata_path = os.path.join(target_dir, 'metadata.json')
     data = json.load(open(data_path, 'r'))
     X, Q, S, Y, H, T = data
+    print(len(X[0]))
     mode2idxs_dict = json.load(open(mode2idxs_path, 'r'))
     word2idx_dict = json.load(open(word2idx_path, 'r'))
     idx2word_dict = {idx: word for word, idx in word2idx_dict.items()}
@@ -89,7 +92,11 @@ def list_results(args):
     pbar = get_pbar(len(eval_dd)).start()
     for i, (id_, eval_d) in enumerate(eval_dd.items()):
         question = _decode(idx2word_dict, Q[id_])
-        facts = [_decode(idx2word_dict, x) for x in X[id_]]
+        para = X[_id]
+        print(len(para))
+        if len(para) > mem_size:
+            para = para[-mem_size:]
+        facts = [_decode(idx2word_dict, x) for x in para]
         correct = eval_d['correct']
         a_raw = np.transpose(eval_d['a'])  # [M, L]
         a = [["%.2f" % val for val in l] for l in a_raw]
@@ -97,12 +104,14 @@ def list_results(args):
         of = [["%.2f" % val for val in l] for l in of_raw]
         ob_raw = np.transpose(eval_d['ob'])  # [M, L]
         ob = [["%.2f" % val for val in l] for l in ob_raw]
+        s = ["%.2f" % val for val in eval_d['s']]
         row = {'id': id_,
                'facts': facts,
                'question': question,
                'a': a,
                'of': of,
                'ob': ob,
+               's': s,
                'num_layers': len(a[0]),
                'correct': correct,
                'task': T[i],

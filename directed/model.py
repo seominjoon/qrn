@@ -109,6 +109,7 @@ class Tower(BaseTower):
             temp_cell = TempCell(d, wd=wd)
             temp_in = tf.concat(2, [a, g, us])  # [N, M, 2*d + 1]
             temp_out, temp_state = dynamic_rnn(temp_cell, temp_in, sequence_length=m_length, dtype='float')
+            tensors['s'] = tf.squeeze(temp_out, [2])
             c, h = tf.split(1, 2, temp_state)
             w = tf.tanh(linear([h], d, True, wd=wd))
 

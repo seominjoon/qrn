@@ -247,7 +247,7 @@ class TempCell(RNNCell):
     def __init__(self, num_units, forget_bias=1.0, var_on_cpu=True, wd=0.0, initializer=None):
         self._num_units = num_units
         self._input_size = 2 * num_units + 1
-        self._output_size = num_units
+        self._output_size = 1
         self._state_size = 2 * num_units
         self._var_on_cpu = var_on_cpu
         self._wd = wd
@@ -283,7 +283,7 @@ class TempCell(RNNCell):
                 new_h = a * c + (1 - a) * h  # update h to prev c if and only if current g ~ u
                 new_state = tf.concat(1, [new_c, new_h])
 
-        return new_h, new_state
+        return a, new_state
 
 
 class DropoutWrapper(RNNCell):

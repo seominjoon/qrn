@@ -47,14 +47,16 @@
                             {% for layer_idx in range(row.num_layers) %}
                             <th colspan="3">{{ layer_idx + 1 }}</th>
                             {% endfor %}
+                            <th>s</th>
                         </tr>
                         <tr>
                             <td></td>
                             {% for layer_idx in range(row.num_layers) %}
                             <td>a</td><td>of</td><td>ob</td>
                             {% endfor %}
+                            <td></td>
                         </tr>
-                        {% for fact, as_, ofs, obs in zip(row.facts, row.a, row.of, row.ob) %}
+                        {% for fact, as_, ofs, obs, ss in zip(row.facts, row.a, row.of, row.ob, row.s) %}
                         <tr>
                             <td>{{ fact }}</td>
                             {% for l in zip(as_, ofs, obs) %}
@@ -62,6 +64,7 @@
                             <td class="att">{{ val }}</td>
                             {% endfor %}
                             {% endfor %}
+                            <td class="att">{{ ss }}</td>
                         </tr>
                         {% endfor %}
                     </table>
