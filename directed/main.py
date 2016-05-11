@@ -38,6 +38,7 @@ flags.DEFINE_integer("val_period", 5, "Validation period (for display purpose on
 flags.DEFINE_integer("save_period", 10, "Save period [10]")
 flags.DEFINE_string("config", 'None', "Config name (e.g. local) to load. 'None' to use configs here. [None]")
 flags.DEFINE_string("config_ext", ".json", "Config file extension: .json | .tsv [.json]")
+flags.DEFINE_integer("run_id", 0, "Run id [0]")
 
 # Debugging
 flags.DEFINE_boolean("draft", False, "Draft? (quick initialize) [False]")
@@ -68,12 +69,18 @@ def mkdirs(config):
     if not os.path.exists(saves_dir):
         os.mkdir(saves_dir)
 
-    eval_dir = os.path.join(evals_dir, config.model_name)
-    eval_subdir = os.path.join(eval_dir, "%s-%s" % (str(config.config).zfill(2), config.task.zfill(2)))
-    log_dir = os.path.join(logs_dir, config.model_name)
-    log_subdir = os.path.join(log_dir, "%s-%s" % (str(config.config).zfill(2), config.task.zfill(2)))
-    save_dir = os.path.join(saves_dir, config.model_name)
-    save_subdir = os.path.join(save_dir, "%s-%s" % (str(config.config).zfill(2), config.task.zfill(2)))
+    model_name = config.model_name
+    config_id = str(config.config).zfill(2)
+    run_id = str(config.run_id).zfill(2)
+    task = config.task.zfill(2)
+    subdir_name = "-".join([config_id, task, run_id])
+
+    eval_dir = os.path.join(evals_dir, model_name)
+    eval_subdir = os.path.join(eval_dir, subdir_name)
+    log_dir = os.path.join(logs_dir, model_name)
+    log_subdir = os.path.join(log_dir, subdir_name)
+    save_dir = os.path.join(saves_dir, model_name)
+    save_subdir = os.path.join(save_dir, subdir_name)
     config.eval_dir = eval_subdir
     config.log_dir = log_subdir
     config.save_dir = save_subdir
