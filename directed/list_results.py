@@ -90,10 +90,6 @@ def list_results(args):
     rows = []
     for i, (id_, eval_d) in enumerate(eval_dd.items()):
         question = _decode(idx2word_dict, Q[id_])
-        para = X[_id]
-        facts = [_decode(idx2word_dict, x) for x in para]
-        print(len(para))
-        print(len(facts))
         correct = eval_d['correct']
         a_raw = np.transpose(eval_d['a'])  # [M, L]
         a = [["%.2f" % val for val in l] for l in a_raw]
@@ -102,6 +98,10 @@ def list_results(args):
         ob_raw = np.transpose(eval_d['ob'])  # [M, L]
         ob = [["%.2f" % val for val in l] for l in ob_raw]
         s = ["%.2f" % val for val in eval_d['s']]
+        para = X[id_]
+        if len(para) > len(a_raw):
+            para = para[-len(a_raw):]
+        facts = [_decode(idx2word_dict, x) for x in para]
         row = {'id': id_,
                'facts': facts,
                'question': question,

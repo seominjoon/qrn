@@ -146,7 +146,7 @@ class BaseRunner(object):
 
         return (num_corrects, loss, summary, global_step), valuess
 
-    def train(self, train_data_set, num_epochs, val_data_set=None,
+    def train(self, train_data_set, num_epochs, val_data_set=None, eval_ph_names=(),
               eval_tensor_names=(), num_batches=None, val_num_batches=None):
         assert isinstance(train_data_set, DataSet)
         assert self.initialized, "Initialize tower before training."
@@ -185,7 +185,8 @@ class BaseRunner(object):
             if epoch % params.save_period == 0:
                 self.save()
 
-    def eval(self, data_set, eval_tensor_names=(), num_batches=None):
+    def eval(self, data_set, eval_tensor_names=(), eval_ph_names=(), num_batches=None):
+        # TODO : eval_ph_names
         assert isinstance(data_set, DataSet)
         assert self.initialized, "Initialize tower before training."
 

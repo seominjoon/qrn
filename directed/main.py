@@ -152,6 +152,7 @@ def main(_):
 
     # TODO : specify eval tensor names to save in evals folder
     eval_tensor_names = ['a', 's', 'of', 'ob', 'correct', 'yp']
+    eval_ph_names = ['q', 'q_mask', 'x', 'x_mask', 'y']
 
     graph = tf.Graph()
     # TODO : initialize BaseTower-subclassed objects
@@ -166,11 +167,11 @@ def main(_):
                 runner.load()
             runner.train(comb_train_ds, config.num_epochs, val_data_set=comb_dev_ds,
                          eval_tensor_names=eval_tensor_names, num_batches=config.train_num_batches,
-                         val_num_batches=config.val_num_batches)
+                         val_num_batches=config.val_num_batches, eval_ph_names=eval_ph_names)
         else:
             runner.load()
             runner.eval(comb_test_ds, eval_tensor_names=eval_tensor_names,
-                        num_batches=config.test_num_batches)
+                        num_batches=config.test_num_batches, eval_ph_names=eval_ph_names)
 
 
 if __name__ == "__main__":
