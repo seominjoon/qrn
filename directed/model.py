@@ -117,7 +117,7 @@ class Tower(BaseTower):
             sel_in = tf.concat(2, [a, g])
             sel_out, _, _, _ = dynamic_bidirectional_rnn(prev_cell, sel_in, sequence_length=m_length, dtype='float')
             g_prev, g_next = tf.split(2, 2, sel_out)  # [N, M, d]
-            s_raw = linear([g_next * us], 1, True, initializer=initializer)
+            s_raw = linear([g_next * us], 1, True)
             s = tf.nn.sigmoid(s_raw - 1.0) * a
             final_in = tf.concat(2, [s, g])
             final_out, final_state = dynamic_rnn(cur_cell, final_in, sequence_length=m_length, dtype='float')
