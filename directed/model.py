@@ -117,11 +117,11 @@ class Tower(BaseTower):
             temp_out, temp_state = dynamic_rnn(temp_cell, temp_in, sequence_length=m_length, dtype='float')
             tensors['s'] = tf.squeeze(temp_out, [2])
             c, h = tf.split(1, 2, temp_state)
-            w = tf.tanh(linear([h], d, True, wd=wd))
+            # w = tf.tanh(linear([h], d, True, wd=wd))
 
         with tf.name_scope("class"):
             W = tf.transpose(A.emb_mat, name='W')
-            logits = tf.matmul(w, W, name='logits')
+            logits = tf.matmul(h, W, name='logits')
             yp = tf.cast(tf.argmax(logits, 1), 'int32')
             correct = tf.equal(yp, y)
             tensors['yp'] = yp
