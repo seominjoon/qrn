@@ -98,7 +98,7 @@ class Tower(BaseTower):
             m_mask = tf.reduce_max(tf.cast(x_mask, 'int64'), 2, name='m_mask')  # [N, M]
             m_length = tf.reduce_sum(m_mask, 1, name='m_length')  # [N]
             initializer = tf.random_uniform_initializer(-np.sqrt(3), np.sqrt(3))
-            cell = RSMCell(d, forget_bias=forget_bias, wd=wd)
+            cell = RSMCell(d, forget_bias=forget_bias, wd=wd, initializer=initializer)
             us = tf.tile(tf.expand_dims(u, 1, name='u_prev_aug'), [1, M, 1])  # [N, d] -> [N, M, d]
             in_ = tf.concat(2, [tf.ones([N, M, 1]), m, us, tf.zeros([N, M, d])], name='x_h_in')  # [N, M, 3*d + 1]
             out_, fw_state, bw_state, bi_tensors = dynamic_bidirectional_rnn(cell, in_,
@@ -117,8 +117,8 @@ class Tower(BaseTower):
             sel_in = tf.concat(2, [a, g])
             sel_out, _, _, _ = dynamic_bidirectional_rnn(prev_cell, sel_in, sequence_length=m_length, dtype='float')
             g_prev, g_next = tf.split(2, 2, sel_out)  # [N, M, d]
-            s_raw = linear([g_next * us], 1, True)
-            s = tf.nn.sigmoid(s_raw - forget_bias) * a
+            s_raw = linear([g_next * us], 1, True, initializer=initializer)
+            s = tf.nn.sigmoid(s_raw) * a
             final_in = tf.concat(2, [s, g])
             final_out, final_state = dynamic_rnn(cur_cell, final_in, sequence_length=m_length, dtype='float')
             tensors['s'] = tf.squeeze(s, [2])
