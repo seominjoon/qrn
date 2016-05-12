@@ -119,18 +119,22 @@ class Tower(BaseTower):
             tensors['s'] = tf.squeeze(temp_out, [2])
             c, h = tf.split(1, 2, temp_state)
             """
-            passing_cell = PassingCell(d)
+            prev_cell = PassingCell(d, cur=False)
+            cur_cell = PassingCell(d)
             sel_in = tf.concat(2, [a, g])
-            sel_out, _, _, _ = dynamic_bidirectional_rnn(passing_cell, sel_in, sequence_length=m_length,
+            sel_out, _, _, _ = dynamic_bidirectional_rnn(prev_cell, sel_in, sequence_length=m_length,
                                                          dtype='float')
             g_prev, g_next = tf.split(2, 2, sel_out)  # [N, M, d]
-            s_raw = linear([g_prev * us, g_next * us], 1, True, squeeze=True)
-            s = tf.nn.softmax(s_raw + tf.log(tf.squeeze(a, [2]) + 1.0e-9), name='s')
+            s_raw = linear([g_prev * us, g_next * us], 1, True)
+            s = tf.nn.sigmoid(s_raw) * a
+
             tensors['s'] = s
-            g_star = tf.reduce_sum(tf.expand_dims(s, -1) * g, 1, name='g_star')
+
+            final_in = tf.concat(2, [s, g])
+            final_out, final_state = dynamic_rnn(cur_cell, final_in, sequence_length=m_length, dtype='float')
 
         with tf.variable_scope("class"):
-            w = tf.tanh(linear([g_star], d, True, wd=wd))
+            w = tf.tanh(linear([final_state], d, True, wd=wd))
             W = tf.transpose(A.emb_mat, name='W')
             logits = tf.matmul(w, W, name='logits')
             yp = tf.cast(tf.argmax(logits, 1), 'int32')

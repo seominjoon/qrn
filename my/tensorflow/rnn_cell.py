@@ -243,11 +243,12 @@ class RSMCell(BiRNNCell):
 
 
 class PassingCell(BiRNNCell):
-    def __init__(self, num_units):
+    def __init__(self, num_units, cur=True):
         self._num_units = num_units
         self._input_size = num_units + 1
         self._output_size = num_units
         self._state_size = num_units
+        self._cur = cur  # if cur is False, then output prev
 
     @property
     def input_size(self):
@@ -266,7 +267,7 @@ class PassingCell(BiRNNCell):
             a = tf.slice(inputs, [0, 0], [-1, 1])
             g = tf.slice(inputs, [0, 1], [-1, -1])
             new_state = a * g + (1 - a) * state
-            outputs = state
+            outputs = new_state if self._cur else state
 
         return outputs, new_state
 
