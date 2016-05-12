@@ -165,8 +165,9 @@ def main(_):
     val_acc = -1
     num_trials = 1
     while val_acc < config.min_val_acc and num_trials < config.max_num_trials:
-        print("-" * 80)
-        print("Trial {}".format(num_trials))
+        if config.train:
+            print("-" * 80)
+            print("Trial {}".format(num_trials))
         mkdirs(config)
         graph = tf.Graph()
         # TODO : initialize BaseTower-subclassed objects
@@ -186,8 +187,10 @@ def main(_):
                 runner.load()
                 runner.eval(comb_test_ds, eval_tensor_names=eval_tensor_names,
                             num_batches=config.test_num_batches, eval_ph_names=eval_ph_names)
+                break
         num_trials += 1
-    print("Num trials: {}".format(num_trials))
+    if config.train:
+        print("Num trials: {}".format(num_trials))
 
 
 if __name__ == "__main__":
