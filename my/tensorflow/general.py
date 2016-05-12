@@ -1,6 +1,7 @@
 import tensorflow as tf
 from functools import reduce
 from operator import mul
+import numpy as np
 
 VERY_BIG_NUMBER = 1e10
 VERY_POSITIVE_NUMBER = VERY_BIG_NUMBER
@@ -111,3 +112,16 @@ def exp_mask(val, mask, name="masked_val"):
         Same shape as val, where some elements are very small (exponentially zero)
     """
     return tf.add(val, (1 - tf.cast(mask, 'float')) * VERY_NEGATIVE_NUMBER, name=name)
+
+
+def translate(tensor, translation):
+    shape = tensor.get_shape().as_list()
+    translation = np.array(translation, dtype='int32')
+    start = np.maximum(translation, np.zeros(translation.shape)).astype('int32')
+    stop = np.minimum(shape, shape + translation).astype('int32')
+    size = (stop - start).astype('int32')
+    left_padding = list(start.astype('int32'))
+    right_padding = list((shape - stop).astype('int32'))
+    paddings = list(zip(left_padding, right_padding))
+    return tf.pad(tf.slice(tensor, start, size), paddings, mode='CONSTANT')
+

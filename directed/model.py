@@ -3,7 +3,7 @@ import tensorflow as tf
 from tensorflow.python.ops.rnn_cell import MultiRNNCell
 
 from directed.base_model import BaseTower, BaseRunner
-from my.tensorflow import flatten, exp_mask
+from my.tensorflow import flatten, exp_mask, translate
 from my.tensorflow.nn import linear, relu1, dists
 from my.tensorflow.rnn import dynamic_rnn, dynamic_bidirectional_rnn
 import numpy as np
@@ -112,28 +112,26 @@ class Tower(BaseTower):
             tensors['ob'] = tf.squeeze(tf.slice(bi_tensors['bw_out'], [0, 0, 0, 0], [-1, -1, -1, 1]), [3])
 
         with tf.variable_scope("selection"):
-            """
-            prev_cell = PassingCell(d, cur=False)
-            cur_cell = PassingCell(d)
-            sel_in = tf.concat(2, [a, g])
-            sel_out, _, _, _ = dynamic_bidirectional_rnn(prev_cell, sel_in, sequence_length=m_length, dtype='float')
-            g_prev, g_next = tf.split(2, 2, sel_out)  # [N, M, d]
-            s_raw = linear([g_next * us], 1, True)
+            passing_cell = PassingCell(d)
+            g_prev = translate(g, [0, 1, 0])
+            g_next = translate(g, [0, -1, 0])
+            s_raw = linear([g_next * us], 1, True, scope='s_raw')
             s = tf.nn.sigmoid(s_raw - 1.0) * a
             final_in = tf.concat(2, [s, g])
-            final_out, final_state = dynamic_rnn(cur_cell, final_in, sequence_length=m_length, dtype='float')
+            final_out, final_state = dynamic_rnn(passing_cell, final_in, sequence_length=m_length, dtype='float')
             tensors['s'] = tf.squeeze(s, [2])
-            """
+            w = tf.tanh(linear([final_state], d, True, wd=wd, scope='w_raw'))
 
+            """
             temp_cell = TempCell(d, wd=wd)
             temp_in = tf.concat(2, [a, g, us])  # [N, M, 2*d + 1]
             temp_out, temp_state = dynamic_rnn(temp_cell, temp_in, sequence_length=m_length, dtype='float')
             tensors['s'] = tf.squeeze(temp_out, [2])
             c, h = tf.split(1, 2, temp_state)
             w = tf.tanh(linear([h], d, True, wd=wd))
+            """
 
         with tf.variable_scope("class"):
-            # w = tf.tanh(linear([final_state], d, True, wd=wd))
             W = tf.transpose(A.emb_mat, name='W')
             logits = tf.matmul(w, W, name='logits')
             yp = tf.cast(tf.argmax(logits, 1), 'int32')
