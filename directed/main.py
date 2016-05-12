@@ -39,7 +39,7 @@ flags.DEFINE_integer("save_period", 10, "Save period [10]")
 flags.DEFINE_string("config", 'None', "Config name (e.g. local) to load. 'None' to use configs here. [None]")
 flags.DEFINE_string("config_ext", ".json", "Config file extension: .json | .tsv [.json]")
 flags.DEFINE_integer("run_id", 0, "Run id [0]")
-flags.DEFINE_float("min_val_acc", 0.0, "Min val acc [0.0]")
+flags.DEFINE_float("min_val_acc", 0.9, "Min val acc [0.0]")
 flags.DEFINE_integer("max_num_trials", 50, "Max num trials [50]")
 
 # Debugging
