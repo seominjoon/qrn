@@ -26,6 +26,7 @@ def get_args():
     parser.add_argument("--host", type=str, default="0.0.0.0")
     parser.add_argument("--open", type=str, default='False')
     parser.add_argument("--mem_size", type=int, default=50)
+    parser.add_argument("--run_id", type=str, default="0")
 
     args = parser.parse_args()
     return args
@@ -37,17 +38,19 @@ def _decode(decoder, sent):
 
 def list_results(args):
     model_name = args.model_name
-    config_name = args.config_name
+    config_name = args.config_name.zfill(2)
     data_type = args.data_type
     num_per_page = args.num_per_page
     data_dir = args.data_dir
-    task = args.task
+    task = args.task.zfill(2)
     mem_size = args.mem_size
+    run_id = args.run_id.zfill(2)
 
     target_dir = os.path.join(data_dir, task.zfill(2))
 
     epoch = args.epoch
-    evals_dir = os.path.join("evals", model_name, "{}-{}".format(config_name.zfill(2), task.zfill(2)))
+    subdir_name = "-".join([config_name, task, run_id])
+    evals_dir = os.path.join("evals", model_name, subdir_name)
     evals_name = "%s_%s.json" % (data_type, str(epoch).zfill(4))
     evals_path = os.path.join(evals_dir, evals_name)
     evals = json.load(open(evals_path, 'r'))

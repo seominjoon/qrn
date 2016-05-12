@@ -8,7 +8,7 @@ from my.tensorflow.nn import linear, relu1, dists
 from my.tensorflow.rnn import dynamic_rnn, dynamic_bidirectional_rnn
 import numpy as np
 
-from my.tensorflow.rnn_cell import RSMCell, GRUCell, TempCell, BiDropoutWrapper, DropoutWrapper
+from my.tensorflow.rnn_cell import RSMCell, GRUCell, TempCell, BiDropoutWrapper, DropoutWrapper, PassingCell
 
 
 class Embedder(object):
@@ -112,16 +112,27 @@ class Tower(BaseTower):
             tensors['ob'] = tf.squeeze(tf.slice(bi_tensors['bw_out'], [0, 0, 0, 0], [-1, -1, -1, 1]), [3])
 
         with tf.variable_scope("selection"):
+            """
             temp_cell = TempCell(d, wd=wd)
             temp_in = tf.concat(2, [a, g, us])  # [N, M, 2*d + 1]
             temp_out, temp_state = dynamic_rnn(temp_cell, temp_in, sequence_length=m_length, dtype='float')
             tensors['s'] = tf.squeeze(temp_out, [2])
             c, h = tf.split(1, 2, temp_state)
-            # w = tf.tanh(linear([h], d, True, wd=wd))
+            """
+            passing_cell = PassingCell(d)
+            sel_in = tf.concat(2, [a, g])
+            sel_out, _, _, _ = dynamic_bidirectional_rnn(passing_cell, sel_in, sequence_length=m_length,
+                                                         dtype='float')
+            g_prev, g_next = tf.split(2, 2, sel_out)  # [N, M, d]
+            s_raw = linear([g_prev * us, g_next * us], 1, True, squeeze=True)
+            s = tf.nn.softmax(s_raw + tf.log(tf.squeeze(a, [2]) + 1.0e-9), name='s')
+            tensors['s'] = s
+            g_star = tf.reduce_sum(tf.expand_dims(s, -1) * g, 1, name='g_star')
 
-        with tf.name_scope("class"):
+        with tf.variable_scope("class"):
+            w = tf.tanh(linear([g_star], d, True, wd=wd))
             W = tf.transpose(A.emb_mat, name='W')
-            logits = tf.matmul(h, W, name='logits')
+            logits = tf.matmul(w, W, name='logits')
             yp = tf.cast(tf.argmax(logits, 1), 'int32')
             correct = tf.equal(yp, y)
             tensors['yp'] = yp

@@ -159,7 +159,7 @@ class CRUCell(RNNCell):
 
 class BiRNNCell(RNNCell):
     def pre(self, inputs):
-        raise NotImplementedError()
+        return inputs
 
     def post(self, fw_outputs, bw_outputs):
         raise NotImplementedError()
@@ -240,6 +240,38 @@ class RSMCell(BiRNNCell):
             g = g_fw + g_bw
             outputs = tf.concat(2, [a, x, h, g])
         return outputs
+
+
+class PassingCell(BiRNNCell):
+    def __init__(self, num_units):
+        self._num_units = num_units
+        self._input_size = num_units + 1
+        self._output_size = num_units
+        self._state_size = num_units
+
+    @property
+    def input_size(self):
+        return self._input_size
+
+    @property
+    def output_size(self):
+        return self._output_size
+
+    @property
+    def state_size(self):
+        return self._state_size
+
+    def __call__(self, inputs, state, scope=None):
+        with tf.name_scope(scope or self.__class__.__name__):
+            a = tf.slice(inputs, [0, 0], [-1, 1])
+            g = tf.slice(inputs, [0, 1], [-1, -1])
+            new_state = a * g + (1 - a) * state
+            outputs = state
+
+        return outputs, new_state
+
+    def post(self, fw_outputs, bw_outputs):
+        return tf.concat(2, [fw_outputs, bw_outputs])
 
 
 class TempCell(RNNCell):
