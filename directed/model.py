@@ -112,13 +112,6 @@ class Tower(BaseTower):
             tensors['ob'] = tf.squeeze(tf.slice(bi_tensors['bw_out'], [0, 0, 0, 0], [-1, -1, -1, 1]), [3])
 
         with tf.variable_scope("selection"):
-            """
-            temp_cell = TempCell(d, wd=wd)
-            temp_in = tf.concat(2, [a, g, us])  # [N, M, 2*d + 1]
-            temp_out, temp_state = dynamic_rnn(temp_cell, temp_in, sequence_length=m_length, dtype='float')
-            tensors['s'] = tf.squeeze(temp_out, [2])
-            c, h = tf.split(1, 2, temp_state)
-            """
             prev_cell = PassingCell(d, cur=False)
             cur_cell = PassingCell(d)
             sel_in = tf.concat(2, [a, g])
@@ -128,7 +121,7 @@ class Tower(BaseTower):
             s_raw = linear([g_prev * us, g_next * us], 1, True)
             s = tf.nn.sigmoid(s_raw) * a
 
-            tensors['s'] = s
+            tensors['s'] = tf.squeeze(s, [2])
 
             final_in = tf.concat(2, [s, g])
             final_out, final_state = dynamic_rnn(cur_cell, final_in, sequence_length=m_length, dtype='float')
