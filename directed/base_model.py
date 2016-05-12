@@ -154,6 +154,7 @@ class BaseRunner(object):
         sess = self.sess
         writer = self.writer
         params = self.params
+        val_acc = None
         # if num batches is specified, then train only that many
         num_batches = num_batches or train_data_set.get_num_batches(partial=False)
         num_iters_per_epoch = int(num_batches / self.num_towers)
@@ -180,10 +181,12 @@ class BaseRunner(object):
 
             if val_data_set and epoch % params.val_period == 0:
                 self.eval(train_data_set, eval_tensor_names=eval_tensor_names, num_batches=val_num_batches)
-                self.eval(val_data_set, eval_tensor_names=eval_tensor_names, num_batches=val_num_batches)
+                val_acc = self.eval(val_data_set, eval_tensor_names=eval_tensor_names, num_batches=val_num_batches)
 
             if epoch % params.save_period == 0:
                 self.save()
+
+        return val_acc
 
     def eval(self, data_set, eval_tensor_names=(), eval_ph_names=(), num_batches=None):
         # TODO : eval_ph_names
@@ -224,8 +227,9 @@ class BaseRunner(object):
         loss = total_loss / total
         data_set.reset()
 
+        acc = float(num_corrects) / total
         print("at epoch %d: acc = %.2f%% = %d / %d, loss = %.4f" %
-              (epoch, 100 * float(num_corrects)/total, num_corrects, total, loss))
+              (epoch, 100 * acc, num_corrects, total, loss))
 
         # For outputting eval json files
         ids = [data_set.idx2id[idx] for idx in idxs]
@@ -234,6 +238,7 @@ class BaseRunner(object):
         out = {'ids': ids, 'values': values}
         eval_path = os.path.join(params.eval_dir, "%s_%s.json" % (data_set.name, str(epoch).zfill(4)))
         json.dump(out, open(eval_path, 'w'))
+        return acc
 
     def _get_train_op(self, **kwargs):
         return self.train_ops['all']
