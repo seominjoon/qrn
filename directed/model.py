@@ -115,16 +115,13 @@ class Tower(BaseTower):
             prev_cell = PassingCell(d, cur=False)
             cur_cell = PassingCell(d)
             sel_in = tf.concat(2, [a, g])
-            sel_out, _, _, _ = dynamic_bidirectional_rnn(prev_cell, sel_in, sequence_length=m_length,
-                                                         dtype='float')
+            sel_out, _, _, _ = dynamic_bidirectional_rnn(prev_cell, sel_in, sequence_length=m_length, dtype='float')
             g_prev, g_next = tf.split(2, 2, sel_out)  # [N, M, d]
             s_raw = linear([g_prev * us, g_next * us], 1, True)
-            s = tf.nn.sigmoid(s_raw) * a
-
-            tensors['s'] = tf.squeeze(s, [2])
-
+            s = tf.nn.sigmoid(s_raw - forget_bias) * a
             final_in = tf.concat(2, [s, g])
             final_out, final_state = dynamic_rnn(cur_cell, final_in, sequence_length=m_length, dtype='float')
+            tensors['s'] = tf.squeeze(s, [2])
 
         with tf.variable_scope("class"):
             w = tf.tanh(linear([final_state], d, True, wd=wd))
