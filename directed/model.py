@@ -82,7 +82,7 @@ class Tower(BaseTower):
             placeholders['is_train'] = is_train
 
         with tf.variable_scope("embedding"):
-            A = VariableEmbedder(params, wd=wd, name='A')
+            A = VariableEmbedder(params, wd=wd, name='A', initializer=self.default_initializer)
             Aq = A(q, name='Aq')  # [N, S, J, d]
             Ax = A(x, name='Ax')  # [N, S, J, d]
 
@@ -132,8 +132,7 @@ class Tower(BaseTower):
             """
 
         with tf.variable_scope("class"):
-            # W = tf.transpose(A.emb_mat, name='W')
-            W = tf.get_variable('W', shape=[d, V], dtype='float')
+            W = tf.transpose(A.emb_mat, name='W')
             logits = tf.matmul(w, W, name='logits')
             yp = tf.cast(tf.argmax(logits, 1), 'int32')
             correct = tf.equal(yp, y)
