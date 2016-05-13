@@ -24,6 +24,7 @@ class VariableEmbedder(Embedder):
             initializer = tf.truncated_normal_initializer(0.0, params.init_std/np.sqrt(d))
         with tf.variable_scope(name):
             self.emb_mat = tf.get_variable("emb_mat", dtype='float', shape=[V, d], initializer=initializer)
+            # TODO : not sure wd is appropriate for embedding matrix
             if wd:
                 weight_decay = tf.mul(tf.nn.l2_loss(self.emb_mat), wd, name='weight_loss')
                 tf.add_to_collection('losses', weight_decay)
@@ -83,7 +84,7 @@ class Tower(BaseTower):
             placeholders['is_train'] = is_train
 
         with tf.variable_scope("embedding"):
-            A = VariableEmbedder(params, wd=wd, name='A')
+            A = VariableEmbedder(params, name='A')
             Aq = A(q, name='Aq')  # [N, S, J, d]
             Ax = A(x, name='Ax')  # [N, S, J, d]
 
@@ -112,8 +113,8 @@ class Tower(BaseTower):
             passing_cell = PassingCell(d)
             g_prev = translate(g, [0, 1, 0])
             g_next = translate(g, [0, -1, 0])
-            s_raw = linear([g_next * us], 1, True, initializer=self.initializer, scope='s_raw')
-            s = tf.nn.sigmoid(s_raw - 1.0) * a
+            s_raw = linear([g_next * us, g_prev * us], 1, True, initializer=self.initializer, scope='s_raw')
+            s = tf.nn.sigmoid(s_raw - forget_bias) * a
             final_in = tf.concat(2, [s, g])
             final_out, final_state = dynamic_rnn(passing_cell, final_in, sequence_length=m_length, dtype='float')
             tensors['s'] = tf.squeeze(s, [2])
