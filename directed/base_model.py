@@ -186,12 +186,12 @@ class BaseRunner(object):
 
             if val_data_set and epoch % params.val_period == 0:
                 self.eval(train_data_set, eval_tensor_names=eval_tensor_names, num_batches=val_num_batches)
-                val_acc = self.eval(val_data_set, eval_tensor_names=eval_tensor_names, num_batches=val_num_batches)
+                val_loss, val_acc = self.eval(val_data_set, eval_tensor_names=eval_tensor_names, num_batches=val_num_batches)
 
             if epoch % params.save_period == 0:
                 self.save()
 
-        return val_acc
+        return val_loss, val_acc
 
     def eval(self, data_set, eval_tensor_names=(), eval_ph_names=(), num_batches=None):
         # TODO : eval_ph_names
@@ -233,7 +233,7 @@ class BaseRunner(object):
                 pbar.update(iter_idx)
         if progress:
             pbar.finish()
-        loss = total_loss / total
+        loss = float(total_loss) / total
         data_set.reset()
 
         acc = float(num_corrects) / total
@@ -247,7 +247,7 @@ class BaseRunner(object):
         out = {'ids': ids, 'values': values}
         eval_path = os.path.join(params.eval_dir, "%s_%s.json" % (data_set.name, str(epoch).zfill(4)))
         json.dump(out, open(eval_path, 'w'))
-        return acc
+        return loss, acc
 
     def _get_train_op(self, **kwargs):
         return self.train_ops['all']

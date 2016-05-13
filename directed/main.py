@@ -39,7 +39,7 @@ flags.DEFINE_integer("save_period", 10, "Save period [10]")
 flags.DEFINE_string("config", 'None', "Config name (e.g. local) to load. 'None' to use configs here. [None]")
 flags.DEFINE_string("config_ext", ".json", "Config file extension: .json | .tsv [.json]")
 flags.DEFINE_integer("run_id", 0, "Run id [0]")
-flags.DEFINE_float("min_val_acc", 1.0, "Min val acc [1.0]")
+flags.DEFINE_float("max_val_loss", 0.0, "Max val loss [0.0]")
 flags.DEFINE_integer("max_num_trials", 50, "Max num trials [50]")
 
 # Debugging
@@ -161,11 +161,11 @@ def main(_):
     eval_tensor_names = ['a', 's', 'of', 'ob', 'correct', 'yp']
     eval_ph_names = ['q', 'q_mask', 'x', 'x_mask', 'y']
 
-    val_acc = -1
-    val_accs = []
+    val_loss = 9999
+    val_losses = []
     test_accs = []
     num_trials = 1
-    while val_acc < config.min_val_acc and num_trials <= config.max_num_trials:
+    while val_loss > config.max_val_loss and num_trials <= config.max_num_trials:
         if config.train:
             print("-" * 80)
             print("Trial {}".format(num_trials))
@@ -181,21 +181,21 @@ def main(_):
             if config.train:
                 if config.load:
                     runner.load()
-                val_acc = runner.train(comb_train_ds, config.num_epochs, val_data_set=comb_dev_ds,
-                                       eval_tensor_names=eval_tensor_names, num_batches=config.train_num_batches,
-                                       val_num_batches=config.val_num_batches, eval_ph_names=eval_ph_names)
-                val_accs.append(val_acc)
+                val_loss, val_acc = runner.train(comb_train_ds, config.num_epochs, val_data_set=comb_dev_ds,
+                                                 eval_tensor_names=eval_tensor_names, num_batches=config.train_num_batches,
+                                                 val_num_batches=config.val_num_batches, eval_ph_names=eval_ph_names)
+                val_losses.append(val_loss)
             else:
                 runner.load()
-            test_acc = runner.eval(comb_test_ds, eval_tensor_names=eval_tensor_names,
+            test_loss, test_acc = runner.eval(comb_test_ds, eval_tensor_names=eval_tensor_names,
                                    num_batches=config.test_num_batches, eval_ph_names=eval_ph_names)
             test_accs.append(test_acc)
 
         if config.train:
             print("-" * 80)
             print("Num trials: {}".format(num_trials))
-            print("Best val acc: {}".format(max(val_accs)))
-            print("Test acc at best val acc: {}".format(max(zip(val_accs, test_accs), key=lambda x: x[0])[1]))
+            print("Min val loss: {:.4f}".format(min(val_losses)))
+            print("Test acc at min val acc: {:.4f}".format(min(zip(val_losses, test_accs), key=lambda x: x[0])[1]))
 
         num_trials += 1
 

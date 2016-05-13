@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 
 import numpy as np
@@ -59,7 +60,7 @@ def read_data(params, mode):
     return data_sets
 
 def read_one_data(params, mode, task):
-    print("loading {} data for task {}... ".format(mode, task))
+    logging.info("loading {} data for task {}... ".format(mode, task))
     task_dir = os.path.join(params.data_dir, task.zfill(2))
     batch_size = params.batch_size
 
