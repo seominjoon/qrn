@@ -2,6 +2,7 @@ import itertools
 import json
 import os
 from collections import defaultdict
+import logging
 
 import numpy as np
 import tensorflow as tf
@@ -154,6 +155,7 @@ class BaseRunner(object):
         sess = self.sess
         writer = self.writer
         params = self.params
+        progress = params.progress
         val_acc = None
         # if num batches is specified, then train only that many
         num_batches = num_batches or train_data_set.get_num_batches(partial=False)
@@ -163,17 +165,20 @@ class BaseRunner(object):
         epoch_op = self.tensors['epoch']
         epoch = sess.run(epoch_op)
         print("training %d epochs ... " % num_epochs)
-        print("num iters per epoch: %d" % num_iters_per_epoch)
-        print("starting from epoch %d." % (epoch+1))
+        logging.info("num iters per epoch: %d" % num_iters_per_epoch)
+        logging.info("starting from epoch %d." % (epoch+1))
         while epoch < num_epochs:
             train_args = self._get_train_args(epoch)
-            pbar = get_pbar(num_iters_per_epoch, "epoch %s|" % str(epoch+1).zfill(num_digits)).start()
+            if progress:
+                pbar = get_pbar(num_iters_per_epoch, "epoch %s|" % str(epoch+1).zfill(num_digits)).start()
             for iter_idx in range(num_iters_per_epoch):
                 batches = [train_data_set.get_next_labeled_batch() for _ in range(self.num_towers)]
                 _, summary, global_step = self._train_batches(batches, **train_args)
                 writer.add_summary(summary, global_step)
-                pbar.update(iter_idx)
-            pbar.finish()
+                if progress:
+                    pbar.update(iter_idx)
+            if progress:
+                pbar.finish()
             train_data_set.complete_epoch()
 
             assign_op = epoch_op.assign_add(1)
@@ -197,6 +202,7 @@ class BaseRunner(object):
         sess = self.sess
         epoch_op = self.tensors['epoch']
         epoch = sess.run(epoch_op)
+        progress = params.progress
         num_batches = num_batches or data_set.get_num_batches(partial=True)
         num_iters = int(np.ceil(num_batches / self.num_towers))
         num_corrects, total, total_loss = 0, 0, 0.0
@@ -207,7 +213,8 @@ class BaseRunner(object):
             N = data_set.num_examples
         eval_args = self._get_eval_args(epoch)
         string = "eval on %s, N=%d|" % (data_set.name, N)
-        pbar = get_pbar(num_iters, prefix=string).start()
+        if progress:
+            pbar = get_pbar(num_iters, prefix=string).start()
         for iter_idx in range(num_iters):
             batches = []
             for _ in range(self.num_towers):
@@ -222,14 +229,16 @@ class BaseRunner(object):
             for eval_value_batch in eval_value_batches:
                 eval_values.append([x.tolist() for x in eval_value_batch])  # numpy.array.toList
             total_loss += cur_avg_loss * cur_num
-            pbar.update(iter_idx)
-        pbar.finish()
+            if progress:
+                pbar.update(iter_idx)
+        if progress:
+            pbar.finish()
         loss = total_loss / total
         data_set.reset()
 
         acc = float(num_corrects) / total
-        print("at epoch %d: acc = %.2f%% = %d / %d, loss = %.4f" %
-              (epoch, 100 * acc, num_corrects, total, loss))
+        print("%s at epoch %d: acc = %.2f%% = %d / %d, loss = %.4f" %
+              (data_set.name, epoch, 100 * acc, num_corrects, total, loss))
 
         # For outputting eval json files
         ids = [data_set.idx2id[idx] for idx in idxs]
@@ -271,10 +280,10 @@ class BaseRunner(object):
         save_dir = params.save_dir
         name = params.model_name
         global_step = self.tensors['global_step']
-        print("saving model ...")
+        logging.info("saving model ...")
         save_path = os.path.join(save_dir, name)
         self.saver.save(sess, save_path, global_step)
-        print("saving done.")
+        logging.info("saving done.")
 
     def load(self):
         assert self.initialized, "Initialize tower before loading."
@@ -282,11 +291,11 @@ class BaseRunner(object):
         sess = self.sess
         params = self.params
         save_dir = params.save_dir
-        print("loading model ...")
+        logging.info("loading model ...")
         checkpoint = tf.train.get_checkpoint_state(save_dir)
         assert checkpoint is not None, "Cannot load checkpoint at %s" % save_dir
         self.saver.restore(sess, checkpoint.model_checkpoint_path)
-        print("loading done.")
+        logging.info("loading done.")
 
 
 class BaseTower(object):

@@ -31,15 +31,15 @@ flags.DEFINE_integer("val_num_batches", 0, "Val num batches. 0 for max possible.
 flags.DEFINE_integer("train_num_batches", 0, "Train num batches. 0 for max possible [0]")
 flags.DEFINE_integer("test_num_batches", 0, "Test num batches. 0 for max possible [0]")
 flags.DEFINE_boolean("load", False, "Load from saved model? [False]")
-flags.DEFINE_boolean("progress", True, "Show progress bar? [True]")
+flags.DEFINE_boolean("progress", False, "Show progress bar? [False]")
 flags.DEFINE_string("device_type", 'cpu', "cpu | gpu [cpu]")
 flags.DEFINE_integer("num_devices", 1, "Number of devices to use. Only for multi-GPU. [1]")
-flags.DEFINE_integer("val_period", 5, "Validation period (for display purpose only) [5]")
+flags.DEFINE_integer("val_period", 10, "Validation period (for display purpose only) [10]")
 flags.DEFINE_integer("save_period", 10, "Save period [10]")
 flags.DEFINE_string("config", 'None', "Config name (e.g. local) to load. 'None' to use configs here. [None]")
 flags.DEFINE_string("config_ext", ".json", "Config file extension: .json | .tsv [.json]")
 flags.DEFINE_integer("run_id", 0, "Run id [0]")
-flags.DEFINE_float("min_val_acc", 0.9, "Min val acc [0.0]")
+flags.DEFINE_float("min_val_acc", 1.0, "Min val acc [1.0]")
 flags.DEFINE_integer("max_num_trials", 50, "Max num trials [50]")
 
 # Debugging
@@ -143,8 +143,7 @@ def main(_):
     if config.train:
         comb_train_ds = read_one_data(config, 'train', config.task)
         comb_dev_ds = read_one_data(config, 'dev', config.task)
-    else:
-        comb_test_ds = read_one_data(config, 'test', config.task)
+    comb_test_ds = read_one_data(config, 'test', config.task)
 
     # For quick draft initialize (deubgging).
     if config.draft:
@@ -163,8 +162,10 @@ def main(_):
     eval_ph_names = ['q', 'q_mask', 'x', 'x_mask', 'y']
 
     val_acc = -1
+    val_accs = []
+    test_accs = []
     num_trials = 1
-    while val_acc < config.min_val_acc and num_trials < config.max_num_trials:
+    while val_acc < config.min_val_acc and num_trials <= config.max_num_trials:
         if config.train:
             print("-" * 80)
             print("Trial {}".format(num_trials))
@@ -183,14 +184,20 @@ def main(_):
                 val_acc = runner.train(comb_train_ds, config.num_epochs, val_data_set=comb_dev_ds,
                                        eval_tensor_names=eval_tensor_names, num_batches=config.train_num_batches,
                                        val_num_batches=config.val_num_batches, eval_ph_names=eval_ph_names)
+                val_accs.append(val_acc)
             else:
                 runner.load()
-                runner.eval(comb_test_ds, eval_tensor_names=eval_tensor_names,
-                            num_batches=config.test_num_batches, eval_ph_names=eval_ph_names)
-                break
+            test_acc = runner.eval(comb_test_ds, eval_tensor_names=eval_tensor_names,
+                                   num_batches=config.test_num_batches, eval_ph_names=eval_ph_names)
+            test_accs.append(test_acc)
+
+        if config.train:
+            print("-" * 80)
+            print("Num trials: {}".format(num_trials))
+            print("Best val acc: {}".format(max(val_accs)))
+            print("Test acc at best val acc: {}".format(max(zip(val_accs, test_accs), key=lambda x: x[0])[1]))
+
         num_trials += 1
-    if config.train:
-        print("Num trials: {}".format(num_trials))
 
 
 if __name__ == "__main__":
