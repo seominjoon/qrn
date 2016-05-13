@@ -231,7 +231,7 @@ class Tower(BaseTower):
         if batch is None:
             return feed_dict
 
-        X, Q, S, Y, H = batch
+        X, Q, S, Y, H, T = batch
         for i, (para, supports) in enumerate(zip(X, S)):
             for j, support in enumerate(supports):
                 sent = para[support]
