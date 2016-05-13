@@ -16,31 +16,35 @@ flags.DEFINE_string("model_name", "directed", "Model name. This will be used for
 flags.DEFINE_string("data_dir", "data/babi", "Data directory [data/babi]")
 
 # Training parameters
+# These affect result performance
 flags.DEFINE_integer("batch_size", 32, "Batch size for each tower. [32]")
 flags.DEFINE_float("init_mean", 0, "Initial weight mean [0]")
 flags.DEFINE_float("init_std", 1.0, "Initial weight std [1.0]")
 flags.DEFINE_float("init_lr", 0.5, "Initial learning rate [0.5]")
-flags.DEFINE_integer("lr_anneal_period", 100, "Anneal period [20]")
+flags.DEFINE_integer("lr_anneal_period", 100, "Anneal period [100]")
 flags.DEFINE_float("lr_anneal_ratio", 0.5, "Anneal ratio [0.5")
 flags.DEFINE_integer("num_epochs", 100, "Total number of epochs for training [100]")
 flags.DEFINE_string("opt", 'adagrad', 'Optimizer: basic | adagrad | adam [basic]')
+flags.DEFINE_float("wd", 0.001, "Weight decay [0.001]")
+flags.DEFINE_integer("max_grad_norm", 0, "Max grad norm. 0 for no clipping [0]")
+flags.DEFINE_float("max_val_loss", 0.0, "Max val loss [0.0]")
+flags.DEFINE_integer("max_num_trials", 50, "Max num trials [50]")
 
 # Training and testing options
-flags.DEFINE_boolean("train", False, "Train? Test if False [False]")
+# These do not affect result performance (they affect duration though)
+flags.DEFINE_boolean("train", True, "Train (will override without load)? Test if False [True]")
 flags.DEFINE_integer("val_num_batches", 0, "Val num batches. 0 for max possible. [0]")
 flags.DEFINE_integer("train_num_batches", 0, "Train num batches. 0 for max possible [0]")
 flags.DEFINE_integer("test_num_batches", 0, "Test num batches. 0 for max possible [0]")
-flags.DEFINE_boolean("load", False, "Load from saved model? [False]")
+flags.DEFINE_boolean("load", True, "Load from saved model? [True]")
 flags.DEFINE_boolean("progress", False, "Show progress bar? [False]")
-flags.DEFINE_string("device_type", 'cpu', "cpu | gpu [cpu]")
+flags.DEFINE_string("device_type", 'gpu', "cpu | gpu [cpu]")
 flags.DEFINE_integer("num_devices", 1, "Number of devices to use. Only for multi-GPU. [1]")
 flags.DEFINE_integer("val_period", 10, "Validation period (for display purpose only) [10]")
 flags.DEFINE_integer("save_period", 10, "Save period [10]")
 flags.DEFINE_string("config", 'None', "Config name (e.g. local) to load. 'None' to use configs here. [None]")
 flags.DEFINE_string("config_ext", ".json", "Config file extension: .json | .tsv [.json]")
 flags.DEFINE_integer("run_id", 0, "Run id [0]")
-flags.DEFINE_float("max_val_loss", 0.0, "Max val loss [0.0]")
-flags.DEFINE_integer("max_num_trials", 50, "Max num trials [50]")
 
 # Debugging
 flags.DEFINE_boolean("draft", False, "Draft? (quick initialize) [False]")
@@ -49,11 +53,9 @@ flags.DEFINE_boolean("draft", False, "Draft? (quick initialize) [False]")
 # TODO : Any other options
 flags.DEFINE_string("task", "all", "Task number. [all]")
 flags.DEFINE_integer("hidden_size", 20, "Hidden size. [20]")
-flags.DEFINE_integer("max_grad_norm", 0, "Max grad norm. 0 for no clipping [0]")
 flags.DEFINE_integer("rnn_num_layers", 1, "RNN number of layers [1]")
 flags.DEFINE_float("keep_prob", 1.0, "Keep probability of RNN inputs [1.0]")
 flags.DEFINE_integer("mem_num_layers", 2, "Number of memory layers [2]")
-flags.DEFINE_float("wd", 0.001, "Weight decay [0.001]")
 flags.DEFINE_float("forget_bias", 2.5, "Forget bias [2.5]")
 flags.DEFINE_integer("mem_size", 50, "Memory size (from most recent) [50]")
 
