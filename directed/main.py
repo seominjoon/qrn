@@ -18,7 +18,7 @@ flags.DEFINE_string("data_dir", "data/babi", "Data directory [data/babi]")
 # Training parameters
 flags.DEFINE_integer("batch_size", 32, "Batch size for each tower. [32]")
 flags.DEFINE_float("init_mean", 0, "Initial weight mean [0]")
-flags.DEFINE_float("init_std", 0.1, "Initial weight std [0.1]")
+flags.DEFINE_float("init_std", 1.0, "Initial weight std [1.0]")
 flags.DEFINE_float("init_lr", 0.5, "Initial learning rate [0.5]")
 flags.DEFINE_integer("lr_anneal_period", 100, "Anneal period [20]")
 flags.DEFINE_float("lr_anneal_ratio", 0.5, "Anneal ratio [0.5")

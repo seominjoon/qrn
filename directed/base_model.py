@@ -304,7 +304,10 @@ class BaseTower(object):
         self.placeholders = {}
         self.tensors = {}
         self.variables_dict = {}
-        self.default_initializer = tf.truncated_normal_initializer(params.init_mean, params.init_std)
+        # this initializer is used for weight init that shouldn't be dependent on input size.
+        # for MLP weights, the tensorflow default initializer should be used,
+        # i.e. uniform unit scaling initializer
+        self.initializer = tf.truncated_normal_initializer(params.init_mean, params.init_std)
 
     def initialize(self):
         # Actual building

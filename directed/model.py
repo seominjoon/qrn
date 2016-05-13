@@ -19,6 +19,9 @@ class Embedder(object):
 class VariableEmbedder(Embedder):
     def __init__(self, params, wd=0.0, initializer=None, name="variable_embedder"):
         V, d = params.vocab_size, params.hidden_size
+        if initializer is None:
+            print(params.init_std)
+            initializer = tf.truncated_normal_initializer(0.0, params.init_std/np.sqrt(d))
         with tf.variable_scope(name):
             self.emb_mat = tf.get_variable("emb_mat", dtype='float', shape=[V, d], initializer=initializer)
             if wd:
@@ -92,8 +95,7 @@ class Tower(BaseTower):
         with tf.variable_scope("networks"):
             m_mask = tf.reduce_max(tf.cast(x_mask, 'int64'), 2, name='m_mask')  # [N, M]
             m_length = tf.reduce_sum(m_mask, 1, name='m_length')  # [N]
-            initializer = tf.random_uniform_initializer(-np.sqrt(3), np.sqrt(3))
-            cell = RSMCell(d, forget_bias=forget_bias, wd=wd, initializer=initializer)
+            cell = RSMCell(d, forget_bias=forget_bias, wd=wd, initializer=self.initializer)
             us = tf.tile(tf.expand_dims(u, 1, name='u_prev_aug'), [1, M, 1])  # [N, d] -> [N, M, d]
             in_ = tf.concat(2, [tf.ones([N, M, 1]), m, us, tf.zeros([N, M, d])], name='x_h_in')  # [N, M, 3*d + 1]
             out_, fw_state, bw_state, bi_tensors = dynamic_bidirectional_rnn(cell, in_,
@@ -110,7 +112,7 @@ class Tower(BaseTower):
             passing_cell = PassingCell(d)
             g_prev = translate(g, [0, 1, 0])
             g_next = translate(g, [0, -1, 0])
-            s_raw = linear([g_next * us], 1, True, scope='s_raw')
+            s_raw = linear([g_next * us], 1, True, initializer=self.initializer, scope='s_raw')
             s = tf.nn.sigmoid(s_raw - 1.0) * a
             final_in = tf.concat(2, [s, g])
             final_out, final_state = dynamic_rnn(passing_cell, final_in, sequence_length=m_length, dtype='float')
