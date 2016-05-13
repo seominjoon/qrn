@@ -64,9 +64,7 @@ class Tower(BaseTower):
         d = params.hidden_size
         L = params.mem_num_layers
         forget_bias = params.forget_bias
-        keep_prob = params.keep_prob
         wd = params.wd
-        tower_scope = tf.get_variable_scope()
         with tf.name_scope("placeholders"):
             x = tf.placeholder('int32', shape=[N, M, J], name='x')
             x_mask = tf.placeholder('bool', shape=[N, M, J], name='x_mask')
@@ -82,14 +80,11 @@ class Tower(BaseTower):
             placeholders['is_train'] = is_train
 
         with tf.variable_scope("embedding"):
-            A = VariableEmbedder(params, wd=wd, name='A', initializer=self.default_initializer)
+            A = VariableEmbedder(params, wd=wd, name='A')
             Aq = A(q, name='Aq')  # [N, S, J, d]
             Ax = A(x, name='Ax')  # [N, S, J, d]
 
         with tf.name_scope("encoding"):
-            # encoder = GRU(params, is_train)
-            # _, u = encoder(Aq, length=q_length, dtype='float', name='u')  # [N, d]
-            # _, f = encoder(Ax, length=x_length, dtype='float', name='f')  # [N, S, d]
             encoder = PositionEncoder(J, d)
             u = encoder(Aq, q_mask)  # [N, d]
             m = encoder(Ax, x_mask)  # [N, M, d]
