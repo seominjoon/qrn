@@ -172,7 +172,7 @@ class RSMCell(BiRNNCell):
     def __init__(self, num_units, forget_bias=1.0, var_on_cpu=True, wd=0.0, initializer=None):
         self._num_units = num_units
         self._input_size = num_units * 3 + 1
-        self._output_size = num_units * 3 + 2
+        self._output_size = num_units * 4 + 2
         self._state_size = num_units * 2 + 1
         self._var_on_cpu = var_on_cpu
         self._wd = wd
@@ -197,22 +197,22 @@ class RSMCell(BiRNNCell):
         with tf.variable_scope(scope or type(self).__name__):  # "RSMCell"
             with tf.name_scope("Split"):  # Reset gate and update gate.
                 a = tf.slice(inputs, [0, 0], [-1, 1])
-                x, u, v = tf.split(1, 3, tf.slice(inputs, [0, 1], [-1, -1]))
+                x, u, v_t = tf.split(1, 3, tf.slice(inputs, [0, 1], [-1, -1]))
                 o = tf.slice(state, [0, 0], [-1, 1])
-                c, h = tf.split(1, 2, tf.slice(state, [0, 1], [-1, -1]))
+                h, v = tf.split(1, 2, tf.slice(state, [0, 1], [-1, -1]))
 
             with tf.variable_scope("Main"):
                 r_raw = linear([x * u], 1, True, scope='r_raw', var_on_cpu=self._var_on_cpu,
                                initializer=self._initializer)
                 r = tf.sigmoid(r_raw, name='a')
                 new_o = a * r + (1 - a) * o
-                new_c = a * v + (1 - a) * c
+                new_v = a * v_t + (1 - a) * v
                 g = r * v
                 new_h = a * g + (1 - a) * h
 
             with tf.name_scope("Concat"):
-                new_state = tf.concat(1, [new_o, new_c, new_h])
-                outputs = tf.concat(1, [a, new_o, x, new_h, g])
+                new_state = tf.concat(1, [new_o, new_h, new_v])
+                outputs = tf.concat(1, [a, new_o, x, new_h, new_v, g])
 
         return outputs, new_state
 
@@ -220,25 +220,25 @@ class RSMCell(BiRNNCell):
         """Preprocess inputs to be used by the cell. Assumes [N, J, *]
         [x, u]"""
         with tf.variable_scope(scope or "pre"):
-            x, u, g = tf.split(2, 3, tf.slice(inputs, [0, 0, 1], [-1, -1, -1]))  # [N, J, d]
+            x, u, _, _ = tf.split(2, 4, tf.slice(inputs, [0, 0, 1], [-1, -1, -1]))  # [N, J, d]
 
             a_raw = linear([x * u], 1, True, scope='a_raw', var_on_cpu=self._var_on_cpu,
                            wd=self._wd, initializer=self._initializer)
             a = tf.sigmoid(a_raw - self._forget_bias, name='a')
-            v = tf.tanh(linear([x, u], self._num_units, True,
-                        var_on_cpu=self._var_on_cpu, wd=self._wd, scope='v_raw'), name='v')
-            new_inputs = tf.concat(2, [a, x, u, v])  # [N, J, 3*d + 1]
+            v_t = tf.tanh(linear([x, u], self._num_units, True,
+                          var_on_cpu=self._var_on_cpu, wd=self._wd, scope='v_raw'), name='v')
+            new_inputs = tf.concat(2, [a, x, u, v_t])  # [N, J, 3*d + 1]
         return new_inputs
 
     def post(self, fw_outputs, bw_outputs, scope=None):
         """Combines two outputs to one outputs"""
         with tf.name_scope(scope or "post"):
             a = tf.slice(fw_outputs, [0, 0, 0], [-1, -1, 1])
-            x, h_fw, g_fw = tf.split(2, 3, tf.slice(fw_outputs, [0, 0, 2], [-1, -1, -1]))
-            _, h_bw, g_bw = tf.split(2, 3, tf.slice(bw_outputs, [0, 0, 2], [-1, -1, -1]))
+            x, h_fw, v, g_fw = tf.split(2, 4, tf.slice(fw_outputs, [0, 0, 2], [-1, -1, -1]))
+            _, h_bw, v, g_bw = tf.split(2, 4, tf.slice(bw_outputs, [0, 0, 2], [-1, -1, -1]))
             h = h_fw + h_bw
             g = g_fw + g_bw
-            outputs = tf.concat(2, [a, x, h, g])
+            outputs = tf.concat(2, [a, x, h, v, g])
         return outputs
 
 

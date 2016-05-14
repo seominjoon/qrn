@@ -97,11 +97,12 @@ class Tower(BaseTower):
             m_length = tf.reduce_sum(m_mask, 1, name='m_length')  # [N]
             cell = RSMCell(d, forget_bias=forget_bias, wd=wd, initializer=self.initializer)
             us = tf.tile(tf.expand_dims(u, 1, name='u_prev_aug'), [1, M, 1])  # [N, d] -> [N, M, d]
-            in_ = tf.concat(2, [tf.ones([N, M, 1]), m, us, tf.zeros([N, M, d])], name='x_h_in')  # [N, M, 3*d + 1]
+            in_ = tf.concat(2, [tf.ones([N, M, 1]), m, us, tf.zeros([N, M, 2*d])], name='x_h_in')  # [N, M, 4*d + 1]
             out_, fw_state, bw_state, bi_tensors = dynamic_bidirectional_rnn(cell, in_,
                 sequence_length=m_length, dtype='float', num_layers=L)
             a = tf.slice(out_, [0, 0, 0], [-1, -1, 1])  # [N, M, 1]
-            _, _, g = tf.split(2, 3, tf.slice(out_, [0, 0, 1], [-1, -1, -1]))
+            # FIXME : g is not propagated! use c for passing cell!
+            _, _, v, g = tf.split(2, 4, tf.slice(out_, [0, 0, 1], [-1, -1, -1]))
             fw_c, fw_h = tf.split(1, 2, tf.slice(fw_state, [0, 1], [-1, -1]))
 
             tensors['a'] = tf.squeeze(tf.slice(bi_tensors['in'], [0, 0, 0, 0], [-1, -1, -1, 1]), [3])
@@ -110,9 +111,9 @@ class Tower(BaseTower):
 
         with tf.variable_scope("selection"):
             passing_cell = PassingCell(d)
-            g_prev = translate(g, [0, 1, 0])
-            g_next = translate(g, [0, -1, 0])
-            s_raw = linear([g_next * us, g_prev * us], 1, True, initializer=self.initializer, scope='s_raw')
+            v_prev = translate(v, [0, 1, 0])
+            v_next = translate(v, [0, -1, 0])
+            s_raw = linear([v_next * us, v_prev * us], 1, True, initializer=self.initializer, scope='s_raw')
             s = tf.nn.sigmoid(s_raw - forget_bias) * a
             final_in = tf.concat(2, [s, g])
             final_out, final_state = dynamic_rnn(passing_cell, final_in, sequence_length=m_length, dtype='float')
