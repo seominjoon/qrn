@@ -114,7 +114,7 @@ class Tower(BaseTower):
             passing_cell = PassingCell(d)
             v_prev = translate(v, [0, 1, 0])
             v_next = translate(v, [0, -1, 0])
-            s_raw = linear([v_next * us, v_prev * us], 1, True, initializer=self.initializer, scope='s_raw')
+            s_raw = linear([v_next * us], 1, True, initializer=self.initializer, scope='s_raw')
             s = tf.nn.sigmoid(s_raw - forget_bias) * a
             final_in = tf.concat(2, [s, g])
             final_out, final_state = dynamic_rnn(passing_cell, final_in, sequence_length=m_length, dtype='float')
