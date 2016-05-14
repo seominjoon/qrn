@@ -219,14 +219,13 @@ class RSMCell(BiRNNCell):
                 r_raw = linear([x * u], 1, True, scope='r_raw', var_on_cpu=self._var_on_cpu,
                                initializer=self._initializer)
                 r = tf.sigmoid(r_raw, name='a')
-                new_o = a * r + (1 - a) * o
+                new_o = r + (1 - a) * o
                 new_v = a * v_t + (1 - a) * v
-                g = r * v_t
-                new_h = a * g + (1 - a) * h
+                new_h = r * v_t + (1 - a) * h
 
             with tf.name_scope("Concat"):
                 new_state = tf.concat(1, [new_o, new_h, new_v])
-                outputs = tf.concat(1, [a, new_o, x, new_h, new_v, g])
+                outputs = tf.concat(1, [a, new_o, x, new_h, new_v, v_t])
 
         return outputs, new_state
 
@@ -234,11 +233,10 @@ class RSMCell(BiRNNCell):
         """Combines two outputs to one outputs"""
         with tf.name_scope(scope or "post"):
             a = tf.slice(fw_outputs, [0, 0, 0], [-1, -1, 1])
-            x, h_fw, v, g_fw = tf.split(2, 4, tf.slice(fw_outputs, [0, 0, 2], [-1, -1, -1]))
-            _, h_bw, v, g_bw = tf.split(2, 4, tf.slice(bw_outputs, [0, 0, 2], [-1, -1, -1]))
+            x, h_fw, v, v_t = tf.split(2, 4, tf.slice(fw_outputs, [0, 0, 2], [-1, -1, -1]))
+            _, h_bw, v, _ = tf.split(2, 4, tf.slice(bw_outputs, [0, 0, 2], [-1, -1, -1]))
             h = h_fw + h_bw
-            g = g_fw + g_bw
-            outputs = tf.concat(2, [a, x, h, v, g])
+            outputs = tf.concat(2, [a, x, h, v, v_t])
         return outputs
 
 
