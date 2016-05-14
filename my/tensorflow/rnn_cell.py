@@ -221,7 +221,7 @@ class RSMCell(BiRNNCell):
                 r = tf.sigmoid(r_raw, name='a')
                 new_o = r + (1 - a) * o
                 new_v = a * v_t + (1 - a) * v
-                new_h = r * v_t + (1 - a) * h
+                new_h = a * r * v_t + (1 - a) * h
 
             with tf.name_scope("Concat"):
                 new_state = tf.concat(1, [new_o, new_h, new_v])
