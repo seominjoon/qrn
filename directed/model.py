@@ -103,6 +103,7 @@ class Tower(BaseTower):
             a = tf.slice(out_, [0, 0, 0], [-1, -1, 1])  # [N, M, 1]
             _, _, v, g = tf.split(2, 4, tf.slice(out_, [0, 0, 1], [-1, -1, -1]))
             fw_h, fw_v = tf.split(1, 2, tf.slice(fw_state, [0, 1], [-1, -1]))
+            bw_h, bw_v = tf.split(1, 2, tf.slice(bw_state, [0, 1], [-1, -1]))
 
             _, fw_u_out, _, _ = tf.split(2, 4, tf.squeeze(tf.slice(bi_tensors['fw_out'], [0, L-1, 0, 2], [-1, -1, -1, -1]), [1]))
             _, bw_u_out, _, _ = tf.split(2, 4, tf.squeeze(tf.slice(bi_tensors['bw_out'], [0, L-1, 0, 2], [-1, -1, -1, -1]), [1]))
@@ -112,7 +113,7 @@ class Tower(BaseTower):
             tensors['ob'] = tf.squeeze(tf.slice(bi_tensors['bw_out'], [0, 0, 0, 0], [-1, -1, -1, 1]), [3])
 
         with tf.variable_scope("selection"):
-            w = tf.tanh(linear([fw_v + 0.0*fw_h], d, True, wd=wd))
+            w = tf.tanh(linear([fw_v + 0.00001*(fw_h+bw_h)], d, True, wd=wd))
             tensors['s'] = a
 
             """
