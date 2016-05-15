@@ -126,16 +126,18 @@ class Tower(BaseTower):
             w = tf.tanh(linear([final_state], d, True, wd=wd, scope='w_raw'))
             """
             passing_cell = PassingCell(1)
-            g_next = translate(g, [0, -1, 0])
-            s_raw = linear([g_next * us], 1, True, initializer=initializer, wd=wd, scope='s')
+            s_raw = linear([g * us], 1, True, initializer=initializer, wd=wd, scope='s')
             sel_in = tf.concat(2, [a, s_raw])
             bw_s_raw_rev, _ = dynamic_rnn(passing_cell, tf.reverse_sequence(sel_in, m_length, 1),
                                           sequence_length=m_length, dtype='float')
             bw_s_raw = tf.reverse_sequence(bw_s_raw_rev, m_length, 1)
-            s = tf.expand_dims(tf.nn.softmax(tf.squeeze(bw_s_raw + tf.log(a + 1.0e-9), [2])), -1)
-            h = tf.reduce_sum(s * g, 1)
+            bw_s = tf.sigmoid(bw_s_raw - 1.0)
+            bw_s_next = translate(bw_s, [0, -1, 0])
+            passing_cell = PassingCell(d)
+            temp_in = tf.concat(2, [bw_s_next, g])
+            temp_out, h = dynamic_rnn(passing_cell, temp_in, sequence_length=m_length, dtype='float')
             w = tf.tanh(linear([h], d, True, wd=wd, scope='w'))
-            tensors['s'] = s
+            tensors['s'] = bw_s_next
 
             """
             temp_cell = TempCell(d, wd=wd)
