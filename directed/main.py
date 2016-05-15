@@ -38,7 +38,7 @@ flags.DEFINE_integer("train_num_batches", 0, "Train num batches. 0 for max possi
 flags.DEFINE_integer("test_num_batches", 0, "Test num batches. 0 for max possible [0]")
 flags.DEFINE_boolean("load", True, "Load from saved model? [True]")
 flags.DEFINE_boolean("progress", False, "Show progress bar? [False]")
-flags.DEFINE_string("device_type", 'gpu', "cpu | gpu [cpu]")
+flags.DEFINE_string("device_type", 'gpu', "cpu | gpu [gpu]")
 flags.DEFINE_integer("num_devices", 1, "Number of devices to use. Only for multi-GPU. [1]")
 flags.DEFINE_integer("val_period", 10, "Validation period (for display purpose only) [10]")
 flags.DEFINE_integer("save_period", 10, "Save period [10]")

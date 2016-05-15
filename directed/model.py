@@ -102,7 +102,7 @@ class Tower(BaseTower):
                 sequence_length=m_length, dtype='float', num_layers=L)
             a = tf.slice(out_, [0, 0, 0], [-1, -1, 1])  # [N, M, 1]
             _, _, v, g = tf.split(2, 4, tf.slice(out_, [0, 0, 1], [-1, -1, -1]))
-            fw_c, fw_h = tf.split(1, 2, tf.slice(fw_state, [0, 1], [-1, -1]))
+            fw_h, fw_v = tf.split(1, 2, tf.slice(fw_state, [0, 1], [-1, -1]))
 
             _, fw_u_out, _, _ = tf.split(2, 4, tf.squeeze(tf.slice(bi_tensors['fw_out'], [0, L-1, 0, 2], [-1, -1, -1, -1]), [1]))
             _, bw_u_out, _, _ = tf.split(2, 4, tf.squeeze(tf.slice(bi_tensors['bw_out'], [0, L-1, 0, 2], [-1, -1, -1, -1]), [1]))
@@ -112,12 +112,8 @@ class Tower(BaseTower):
             tensors['ob'] = tf.squeeze(tf.slice(bi_tensors['bw_out'], [0, 0, 0, 0], [-1, -1, -1, 1]), [3])
 
         with tf.variable_scope("selection"):
-            u_prev = translate(fw_u_out, [0, 1, 0])
-            u_next = translate(bw_u_out, [0, -1, 0])
-            s = tf.sigmoid(linear([u_next * us], 1, True, scope='s'), name='s')
-            h = tf.reduce_sum(s * a * us, 1, name='h')
-            w = tf.tanh(linear([h], d, True, wd=wd))
-            tensors['s'] = s
+            w = tf.tanh(linear([fw_v], d, True, wd=wd))
+            tensors['s'] = a
 
             """
             temp_cell = TempCell(d, wd=wd)
