@@ -132,7 +132,7 @@ class Tower(BaseTower):
                                           sequence_length=m_length, dtype='float')
             bw_s_raw = tf.reverse_sequence(bw_s_raw_rev, m_length, 1)
             s_raw_next = translate(bw_s_raw, [0, -1, 0])
-            s = tf.expand_dims(tf.nn.softmax(tf.squeeze(s_raw_next, [2])), -1)
+            s = tf.expand_dims(tf.nn.softmax(tf.squeeze(s_raw_next + tf.log(a + 1.0e-9), [2])), -1)
             h = tf.reduce_sum(s * g, 1)
             w = tf.tanh(linear([h], d, True, wd=wd, scope='w'))
             tensors['s'] = s
