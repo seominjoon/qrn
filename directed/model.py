@@ -125,12 +125,26 @@ class Tower(BaseTower):
             tensors['s'] = tf.squeeze(s, [2])
             w = tf.tanh(linear([final_state], d, True, wd=wd, scope='w_raw'))
             """
+            passing_cell = PassingCell(1)
+            s_raw = linear([g * us], 1, True, initializer=initializer, wd=wd, scope='s')
+            sel_in = tf.concat(2, [a, s_raw])
+            bw_s_raw_rev, _ = dynamic_rnn(passing_cell, tf.reverse_sequence(sel_in, m_length, 1),
+                                          sequence_length=m_length, dtype='float')
+            bw_s_raw = tf.reverse_sequence(bw_s_raw_rev, m_length, 1)
+            s_raw_next = translate(bw_s_raw, [0, -1, 0])
+            s = tf.expand_dims(tf.nn.softmax(tf.squeeze(s_raw_next, [2])), -1)
+            h = tf.reduce_sum(s * g, 1)
+            w = tf.tanh(linear([h], d, True, wd=wd, scope='w'))
+            tensors['s'] = s
+
+            """
             temp_cell = TempCell(d, wd=wd)
             temp_in = tf.concat(2, [a, g, us])  # [N, M, 2*d + 1]
             temp_out, temp_state = dynamic_rnn(temp_cell, temp_in, sequence_length=m_length, dtype='float')
             tensors['s'] = tf.squeeze(temp_out, [2])
             c, h = tf.split(1, 2, temp_state)
             w = tf.tanh(linear([h], d, True, wd=wd))
+            """
 
         with tf.variable_scope("class"):
             W = tf.transpose(A.emb_mat, name='W')

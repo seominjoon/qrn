@@ -225,7 +225,7 @@ class RSMCell(BiRNNCell):
 
             with tf.name_scope("Concat"):
                 new_state = tf.concat(1, [new_o, new_h, new_v])
-                outputs = tf.concat(1, [a, new_o, x, new_h, new_v, v])
+                outputs = tf.concat(1, [a, new_o, x, new_h, new_v, g])
 
         return outputs, new_state
 
@@ -392,6 +392,48 @@ class TempCell(RNNCell):
 
         return a, new_state
 
+class MyCell(BiRNNCell):
+    """For task 3. Temporary"""
+    def __init__(self, num_units, forget_bias=1.0, var_on_cpu=True, wd=0.0, initializer=None):
+        self._num_units = num_units
+        self._input_size = 2 * num_units + 1
+        self._output_size = 1
+        self._state_size = 2 * num_units
+        self._var_on_cpu = var_on_cpu
+        self._wd = wd
+        self._initializer = initializer
+        self._forget_bias = forget_bias
+
+    @property
+    def input_size(self):
+        return self._input_size
+
+    @property
+    def output_size(self):
+        return self._output_size
+
+    @property
+    def state_size(self):
+        return self._state_size
+
+    def __call__(self, inputs, state, scope=None):
+        with tf.variable_scope(scope or type(self).__name__):
+            with tf.name_scope("Split"):
+                o = tf.slice(inputs, [0, 0], [-1, 1])
+                g, u = tf.split(1, 2, tf.slice(inputs, [0, 1], [-1, -1]))
+                c, h = tf.split(1, 2, state)
+
+            with tf.variable_scope("Gate"):
+                a_raw = linear(g * u, 1, True, var_on_cpu=self._var_on_cpu,
+                               initializer=self._initializer, scope='a_raw')
+                a = tf.sigmoid(a_raw - self._forget_bias)  # [N, 1]
+
+            with tf.name_scope("Main"):
+                new_c = o * g + (1 - o) * c
+                new_h = a * c + (1 - a) * h  # update h to prev c if and only if current g ~ u
+                new_state = tf.concat(1, [new_c, new_h])
+
+        return a, new_state
 
 class DropoutWrapper(RNNCell):
     """Operator adding dropout to inputs and outputs of the given cell."""
