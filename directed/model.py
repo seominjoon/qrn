@@ -134,7 +134,7 @@ class Tower(BaseTower):
             bw_s = tf.sigmoid(bw_s_raw - 1.0)
             bw_s_next = translate(bw_s, [0, -1, 0])
             passing_cell = PassingCell(d)
-            temp_in = tf.concat(2, [bw_s_next, g])
+            temp_in = tf.concat(2, [a*bw_s_next, g])
             temp_out, h = dynamic_rnn(passing_cell, temp_in, sequence_length=m_length, dtype='float')
             w = tf.tanh(linear([h], d, True, wd=wd, scope='w'))
             tensors['s'] = bw_s_next
