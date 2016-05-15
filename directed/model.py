@@ -112,7 +112,7 @@ class Tower(BaseTower):
             tensors['ob'] = tf.squeeze(tf.slice(bi_tensors['bw_out'], [0, 0, 0, 0], [-1, -1, -1, 1]), [3])
 
         with tf.variable_scope("selection"):
-            w = tf.tanh(linear([fw_v], d, True, wd=wd))
+            w = tf.tanh(linear([fw_v + 0.0*fw_h], d, True, wd=wd))
             tensors['s'] = a
 
             """
