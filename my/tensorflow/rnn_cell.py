@@ -311,7 +311,7 @@ class PropCell(BiRNNCell):
             bw_e = tf.slice(bw_outputs, [0, 0, 0], [-1, -1, 1])
             _, bw_u = tf.split(2, 2, tf.slice(bw_outputs, [0, 0, 1], [-1, -1, -1]))
             e = tf.maximum(fw_e, bw_e)
-            u = 0.5 * (fw_u + bw_u)
+            u = fw_u + bw_u
             outputs = tf.concat(2, [e, m, u])
         return outputs
 
