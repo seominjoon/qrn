@@ -160,7 +160,7 @@ def main(_):
     pprint(config.__dict__)
 
     # TODO : specify eval tensor names to save in evals folder
-    eval_tensor_names = ['a', 's', 'of', 'ob', 'correct', 'yp']
+    eval_tensor_names = ['correct', 'yp']
     eval_ph_names = ['q', 'q_mask', 'x', 'x_mask', 'y']
 
     val_loss = 9999
