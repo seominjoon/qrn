@@ -21,7 +21,7 @@ class VariableEmbedder(Embedder):
         V, d = params.vocab_size, params.hidden_size
         with tf.variable_scope(name):
             if initializer is None:
-                initializer = tf.truncated_normal_initializer(params.init_mean, params.ini_std/np.sqrt(d))
+                initializer = tf.truncated_normal_initializer(params.init_mean, params.init_std/np.sqrt(d))
             self.emb_mat = tf.get_variable("emb_mat", dtype='float', shape=[V, d], initializer=initializer)
             # TODO : not sure wd is appropriate for embedding matrix
             if wd:
