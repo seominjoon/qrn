@@ -357,7 +357,7 @@ def bidirectional_rnn(cell_fw, cell_bw, inputs,
 def dynamic_rnn(cell, inputs, sequence_length=None, initial_state=None,
                 dtype=None, parallel_iterations=None, swap_memory=False,
                 time_major=False, scope=None, feed_prev_out=False,
-                feed_exact=False):
+                backward=False):
   """Creates a recurrent neural network specified by RNNCell "cell".
   This function is functionally identical to the function `rnn` above, but
   performs fully dynamic unrolling of `inputs`.
@@ -416,6 +416,13 @@ def dynamic_rnn(cell, inputs, sequence_length=None, initial_state=None,
   if not isinstance(cell, rnn_cell.RNNCell):
     raise TypeError("cell must be an instance of RNNCell")
 
+  reverse_dim = 0 if time_major else 1
+  if backward:
+      if sequence_length is None:
+        inputs = reverse(inputs, reverse_dim)
+      else:
+        inputs = reverse_sequence(inputs, sequence_length, reverse_dim)
+
   # By default, time_major==False and inputs are batch-major: shaped
   #   [batch, time, depth]
   # For internal calculations, we transpose to [time, batch, depth]
@@ -468,6 +475,12 @@ def dynamic_rnn(cell, inputs, sequence_length=None, initial_state=None,
     # to shape [batch, time, depth]
     if not time_major:
       outputs = array_ops.transpose(outputs, [1, 0, 2])  # (T,B,D) => (B,T,D)
+
+    if backward:
+      if sequence_length is None:
+        outputs = reverse(outputs, reverse_dim)
+      else:
+        outputs = reverse_sequence(outputs, sequence_length, reverse_dim)
 
     return (outputs, final_state)
 

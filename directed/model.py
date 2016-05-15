@@ -101,43 +101,23 @@ class Tower(BaseTower):
             out_, fw_state, bw_state, bi_tensors = dynamic_bidirectional_rnn(cell, in_,
                 sequence_length=m_length, dtype='float', num_layers=L)
             a = tf.slice(out_, [0, 0, 0], [-1, -1, 1])  # [N, M, 1]
-            # FIXME : g is not propagated! use c for passing cell!
             _, _, v, g = tf.split(2, 4, tf.slice(out_, [0, 0, 1], [-1, -1, -1]))
             fw_c, fw_h = tf.split(1, 2, tf.slice(fw_state, [0, 1], [-1, -1]))
+
+            _, fw_u_out, _, _ = tf.split(2, 4, tf.squeeze(tf.slice(bi_tensors['fw_out'], [0, L-1, 0, 2], [-1, -1, -1, -1]), [1]))
+            _, bw_u_out, _, _ = tf.split(2, 4, tf.squeeze(tf.slice(bi_tensors['bw_out'], [0, L-1, 0, 2], [-1, -1, -1, -1]), [1]))
 
             tensors['a'] = tf.squeeze(tf.slice(bi_tensors['in'], [0, 0, 0, 0], [-1, -1, -1, 1]), [3])
             tensors['of'] = tf.squeeze(tf.slice(bi_tensors['fw_out'], [0, 0, 0, 0], [-1, -1, -1, 1]), [3])
             tensors['ob'] = tf.squeeze(tf.slice(bi_tensors['bw_out'], [0, 0, 0, 0], [-1, -1, -1, 1]), [3])
 
         with tf.variable_scope("selection"):
-            """
-            passing_cell = PassingCell(d)
-            mid_in = tf.concat(2, [a, g])
-            bw_out_rev, _ = dynamic_rnn(passing_cell, tf.reverse_sequence(mid_in, m_length, 1),
-                                        sequence_length=m_length, dtype='float')
-            bw_out = tf.reverse_sequence(bw_out_rev, m_length, 1)
-            g_next = translate(bw_out, [0, -1, 0])
-
-            s_raw = linear([g_next * us], 1, True, initializer=self.initializer, scope='s_raw')
-            s = tf.nn.sigmoid(s_raw - 1.0) * a
-            final_in = tf.concat(2, [s, g])
-            final_out, final_state = dynamic_rnn(passing_cell, final_in, sequence_length=m_length, dtype='float')
-            tensors['s'] = tf.squeeze(s, [2])
-            w = tf.tanh(linear([final_state], d, True, wd=wd, scope='w_raw'))
-            """
-            passing_cell = PassingCell(1)
-            s_raw = linear([g * us], 1, True, initializer=initializer, wd=wd, scope='s')
-            sel_in = tf.concat(2, [a, s_raw])
-            bw_s_raw_rev, _ = dynamic_rnn(passing_cell, tf.reverse_sequence(sel_in, m_length, 1),
-                                          sequence_length=m_length, dtype='float')
-            bw_s_raw = tf.reverse_sequence(bw_s_raw_rev, m_length, 1)
-            bw_s = tf.sigmoid(bw_s_raw - 1.0)
-            bw_s_next = translate(bw_s, [0, -1, 0])
-            passing_cell = PassingCell(d)
-            temp_in = tf.concat(2, [a*bw_s_next, g])
-            temp_out, h = dynamic_rnn(passing_cell, temp_in, sequence_length=m_length, dtype='float')
-            w = tf.tanh(linear([h], d, True, wd=wd, scope='w'))
-            tensors['s'] = bw_s_next
+            u_prev = translate(fw_u_out, [0, 1, 0])
+            u_next = translate(bw_u_out, [0, -1, 0])
+            s = tf.sigmoid(linear([u_next * us], 1, True, scope='s'), name='s')
+            h = tf.reduce_sum(s * a * us, 1, name='h')
+            w = tf.tanh(linear([h], d, True, wd=wd))
+            tensors['s'] = s
 
             """
             temp_cell = TempCell(d, wd=wd)
