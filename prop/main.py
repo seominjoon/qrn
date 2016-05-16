@@ -140,6 +140,8 @@ def main(_):
         config = get_config_from_file(FLAGS.__flags, config_path, FLAGS.config)
 
     load_meta_data(config)
+    if config.max_num_sents < config.mem_size:
+        config.mem_size = config.max_num_sents
 
     # load other files
     if config.train:
