@@ -101,6 +101,44 @@ class GRUCell(RNNCell):
         return new_h, new_h
 
 
+class XGRUCell(RNNCell):
+    """Gated Recurrent Unit cell (cf. http://arxiv.org/abs/1406.1078)."""
+
+    def __init__(self, num_units, input_size=None, var_on_cpu=True, wd=0.0):
+        self._num_units = num_units
+        self._input_size = num_units + 1 if input_size is None else input_size + 1
+        self.var_on_cpu = var_on_cpu
+        self.wd = wd
+
+    @property
+    def input_size(self):
+        return self._input_size
+
+    @property
+    def output_size(self):
+        return self._num_units
+
+    @property
+    def state_size(self):
+        return self._num_units
+
+    def __call__(self, inputs, state, scope=None):
+        """Gated recurrent unit (GRU) with nunits cells."""
+        with tf.variable_scope(scope or type(self).__name__):  # "GRUCell"
+            with tf.variable_scope("Gates"):  # Reset gate and update gate.
+                # We start with bias of 1.0 to not reset and not update.
+                state = tf.reshape(state, inputs.get_shape().as_list()[:-1] + state.get_shape().as_list()[-1:])
+                a = tf.slice(inputs, [0, 0], [-1, 1])
+                r, u = tf.split(1, 2, linear([tf.slice(inputs, [0, 1], [-1, -1]), state],
+                                             2 * self._num_units, True, 1.0))
+                r, u = tf.sigmoid(r), tf.sigmoid(u)
+                u = a * u
+            with tf.variable_scope("Candidate"):
+                c = tf.tanh(linear([inputs, r * state], self._num_units, True, var_on_cpu=self.var_on_cpu, wd=self.wd))
+            new_h = (1 - u) * state + u * c
+        return new_h, new_h
+
+
 class CRUCell(RNNCell):
     """Combinatorial Recurrent Unit Implementation
 

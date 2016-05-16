@@ -8,7 +8,7 @@ from my.tensorflow.nn import linear, relu1, dists
 from my.tensorflow.rnn import dynamic_rnn, dynamic_bidirectional_rnn
 import numpy as np
 
-from my.tensorflow.rnn_cell import RSMCell, GRUCell, TempCell, BiDropoutWrapper, DropoutWrapper, PassingCell
+from my.tensorflow.rnn_cell import RSMCell, GRUCell, TempCell, BiDropoutWrapper, DropoutWrapper, PassingCell, XGRUCell
 
 
 class Embedder(object):
@@ -114,9 +114,23 @@ class Tower(BaseTower):
             tensors['of'] = tf.squeeze(tf.slice(bi_tensors['fw_out'], [0, 0, 0, 0], [-1, -1, -1, 1]), [3])
             tensors['ob'] = tf.squeeze(tf.slice(bi_tensors['bw_out'], [0, 0, 0, 0], [-1, -1, -1, 1]), [3])
 
+        with tf.variable_scope("hmm"):
+            xgru_cell = XGRUCell(d)
+            passing_cell = PassingCell(d)
+            mid_in = tf.concat(2, [a, m])
+            mid_out, _ = dynamic_rnn(xgru_cell, mid_in, sequence_length=m_length, dtype='float')
+            s_raw = linear([mid_out], 1, True, initializer=initializer, scope='s')
+            s = tf.sigmoid(s_raw, name='s')
+            final_in = tf.concat(2, [a*s, g])
+            _, h = dynamic_rnn(passing_cell, final_in, sequence_length=m_length, dtype='float')
+            w = tf.tanh(linear([h], d, True, wd=wd, scope='w'))
+            tensors['s'] = tf.squeeze(s, [2])
+
+        """
         with tf.variable_scope("selection"):
             w = tf.tanh(linear([fw_v + 0.00001*(fw_h+bw_h)], d, True, wd=wd))
             tensors['s'] = a
+        """
 
         with tf.variable_scope("class"):
             W = tf.transpose(A.emb_mat, name='W')
