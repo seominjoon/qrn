@@ -20,8 +20,6 @@ class VariableEmbedder(Embedder):
     def __init__(self, params, wd=0.0, initializer=None, name="variable_embedder"):
         V, d = params.vocab_size, params.hidden_size
         with tf.variable_scope(name):
-            if initializer is None:
-                initializer = tf.truncated_normal_initializer(params.init_mean, params.init_std/np.sqrt(d))
             self.emb_mat = tf.get_variable("emb_mat", dtype='float', shape=[V, d], initializer=initializer)
             # TODO : not sure wd is appropriate for embedding matrix
             if wd:
@@ -69,6 +67,7 @@ class Tower(BaseTower):
         L = params.mem_num_layers
         forget_bias = params.forget_bias
         wd = params.wd
+        initializer = tf.random_uniform_initializer(-np.sqrt(3), np.sqrt(3))
         with tf.name_scope("placeholders"):
             x = tf.placeholder('int32', shape=[N, M, J], name='x')
             x_mask = tf.placeholder('bool', shape=[N, M, J], name='x_mask')
@@ -84,7 +83,7 @@ class Tower(BaseTower):
             placeholders['is_train'] = is_train
 
         with tf.variable_scope("embedding"):
-            A = VariableEmbedder(params, wd=wd, name='A')
+            A = VariableEmbedder(params, wd=wd, initializer=initializer, name='A')
             Aq = A(q, name='Aq')  # [N, S, J, d]
             Ax = A(x, name='Ax')  # [N, S, J, d]
 
