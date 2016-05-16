@@ -2,13 +2,13 @@ import tensorflow as tf
 # from tensorflow.python.ops.rnn import dynamic_rnn
 from tensorflow.python.ops.rnn_cell import MultiRNNCell
 
-from directed.base_model import BaseTower, BaseRunner
+from prop.base_model import BaseTower, BaseRunner
 from my.tensorflow import flatten, exp_mask, translate
 from my.tensorflow.nn import linear, relu1, dists
 from my.tensorflow.rnn import dynamic_rnn, dynamic_bidirectional_rnn
 import numpy as np
 
-from my.tensorflow.rnn_cell import RSMCell, GRUCell, TempCell, BiDropoutWrapper, DropoutWrapper, PassingCell
+from my.tensorflow.rnn_cell import RSMCell, GRUCell, TempCell, BiDropoutWrapper, DropoutWrapper, PassingCell, PropCell
 
 
 class Embedder(object):
@@ -20,6 +20,8 @@ class VariableEmbedder(Embedder):
     def __init__(self, params, wd=0.0, initializer=None, name="variable_embedder"):
         V, d = params.vocab_size, params.hidden_size
         with tf.variable_scope(name):
+            if initializer is None:
+                initializer = tf.truncated_normal_initializer(params.init_mean, params.init_std/np.sqrt(d))
             self.emb_mat = tf.get_variable("emb_mat", dtype='float', shape=[V, d], initializer=initializer)
             # TODO : not sure wd is appropriate for embedding matrix
             if wd:
@@ -95,7 +97,7 @@ class Tower(BaseTower):
             m_mask = tf.reduce_max(tf.cast(x_mask, 'int64'), 2, name='m_mask')  # [N, M]
             m_length = tf.reduce_sum(m_mask, 1, name='m_length')  # [N]
             initializer = tf.random_uniform_initializer(-np.sqrt(3), np.sqrt(3))
-            cell = RSMCell(d, forget_bias=forget_bias, wd=wd, initializer=initializer)
+            cell = PropCell(d, forget_bias=forget_bias, wd=wd, initializer=initializer)
             u_in = tf.tile(tf.expand_dims(u, 1, name='u_prev_aug'), [1, M, 1])  # [N, d] -> [N, M, d]
             e_in = tf.ones([N, M, 1])
             in_ = tf.concat(2, [e_in, m, u_in], name='in_')  # [N, M, 2*d + 1]
