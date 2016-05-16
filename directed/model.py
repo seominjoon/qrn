@@ -115,32 +115,8 @@ class Tower(BaseTower):
             tensors['ob'] = tf.squeeze(tf.slice(bi_tensors['bw_out'], [0, 0, 0, 0], [-1, -1, -1, 1]), [3])
 
         with tf.variable_scope("selection"):
-            initializer = tf.truncated_normal_initializer(params.init_mean, params.init_std/np.sqrt(d))
-            first = tf.tile(tf.get_variable('start', shape=[1, 1, d], dtype='float'), [N, 1, 1])
-            last = tf.tile(tf.get_variable("end", shape=[1, 1, d], dtype='float'), [N, 1, 1])
-            v_prev = tf.concat(1, [first, tf.slice(fw_v_out, [0, 0, 0], [-1, M-1, -1])])
-            bw_v_out_rev = tf.reverse_sequence(bw_v_out, m_length, 1)
-            v_next_rev = tf.concat(1, [last, tf.slice(bw_v_out_rev, [0, 0, 0], [-1, M-1, -1])])
-            v_next = tf.reverse_sequence(v_next_rev, m_length, 1)
-            s_raw = linear([v_prev * us, v_next * us], 1, True, initializer=initializer, scope='s')
-            s = a * tf.sigmoid(s_raw - forget_bias)
-            final_in = tf.concat(2, [s, g])
-            passing_cell = PassingCell(d)
-            final_out, final_state = dynamic_rnn(passing_cell, final_in, sequence_length=m_length, dtype='float')
-            tensors['s'] = tf.squeeze(s, [2])
-            w = tf.tanh(linear([final_state], d, True, wd=wd, scope='w'))
-
-            # w = tf.tanh(linear([fw_v + 0.00001*(fw_h+bw_h)], d, True, wd=wd))
-            # tensors['s'] = a
-
-            """
-            temp_cell = TempCell(d, wd=wd)
-            temp_in = tf.concat(2, [a, g, us])  # [N, M, 2*d + 1]
-            temp_out, temp_state = dynamic_rnn(temp_cell, temp_in, sequence_length=m_length, dtype='float')
-            tensors['s'] = tf.squeeze(temp_out, [2])
-            c, h = tf.split(1, 2, temp_state)
-            w = tf.tanh(linear([h], d, True, wd=wd))
-            """
+            w = tf.tanh(linear([fw_v + 0.00001*(fw_h+bw_h)], d, True, wd=wd))
+            tensors['s'] = a
 
         with tf.variable_scope("class"):
             W = tf.transpose(A.emb_mat, name='W')
