@@ -100,7 +100,7 @@ class Tower(BaseTower):
             us = tf.tile(tf.expand_dims(u, 1, name='u_prev_aug'), [1, M, 1])  # [N, d] -> [N, M, d]
             in_ = tf.concat(2, [tf.ones([N, M, 1]), m, us, tf.zeros([N, M, 2*d])], name='x_h_in')  # [N, M, 4*d + 1]
             out, fw_state, bw_state, bi_tensors = dynamic_bidirectional_rnn(cell, in_,
-                sequence_length=m_length, dtype='float', num_layers=L, reuse_layers=False)
+                sequence_length=m_length, dtype='float', num_layers=L)
             a = tf.slice(out, [0, 0, 0], [-1, -1, 1])  # [N, M, 1]
             _, _, v, g = tf.split(2, 4, tf.slice(out, [0, 0, 1], [-1, -1, -1]))
             fw_h, fw_v = tf.split(1, 2, tf.slice(fw_state, [0, 1], [-1, -1]))
