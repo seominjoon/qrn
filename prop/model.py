@@ -109,11 +109,6 @@ class Tower(BaseTower):
             _, bw_u_out = tf.split(2, 2, tf.squeeze(tf.slice(bi_tensors['bw_out'], [0, L-1, 0, 1], [-1, -1, -1, -1]), [1]))
 
         with tf.variable_scope("selection"):
-            u_last = tf.slice(fw_state, [0, 1], [-1, -1])
-            w = tf.tanh(linear([u_last], d, True, wd=wd, scope='w_raw'))
-
-        """
-        with tf.variable_scope("selection"):
             u_next = translate(bw_u_out, [0, -1, 0])
             u_prev = translate(fw_u_out, [0, 1, 0])
             passing_cell = PassingCell(d)
@@ -123,7 +118,6 @@ class Tower(BaseTower):
             final_out, final_state = dynamic_rnn(passing_cell, final_in, sequence_length=m_length, dtype='float')
             tensors['s'] = tf.squeeze(s, [2])
             w = tf.tanh(linear([final_state], d, True, wd=wd, scope='w_raw'))
-        """
 
         with tf.variable_scope("class"):
             W = tf.transpose(A.emb_mat, name='W')
