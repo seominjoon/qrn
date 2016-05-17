@@ -64,7 +64,7 @@ flags.DEFINE_integer("mem_size", 50, "Memory size (from most recent) [50]")
 FLAGS = flags.FLAGS
 
 
-def mkdirs(config):
+def mkdirs(config, num_trials):
     evals_dir = "evals"
     logs_dir = "logs"
     saves_dir = "saves"
@@ -78,11 +78,12 @@ def mkdirs(config):
     model_name = config.model_name
     config_id = str(config.config).zfill(2)
     run_id = str(config.run_id).zfill(2)
+    num_trials = str(num_trials).zfill(2)
     task = config.task.zfill(2)
     mid = config.lang
     if config.large:
         mid += "-10k"
-    subdir_name = "-".join([config_id, task, run_id])
+    subdir_name = "-".join([config_id, task, run_id, num_trials])
 
     eval_dir = os.path.join(evals_dir, model_name, mid)
     eval_subdir = os.path.join(eval_dir, subdir_name)
@@ -179,7 +180,8 @@ def main(_):
         if config.train:
             print("-" * 80)
             print("Trial {}".format(num_trials))
-        mkdirs(config)
+        mkdirs(config, num_trials)
+        trial_suffix = "-" + str(num_trials).zfill(2)
         graph = tf.Graph()
         # TODO : initialize BaseTower-subclassed objects
         towers = [Tower(config) for _ in range(config.num_devices)]
