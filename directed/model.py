@@ -20,7 +20,7 @@ class VariableEmbedder(Embedder):
     def __init__(self, params, wd=0.0, initializer=None, name="variable_embedder"):
         V, d = params.vocab_size, params.hidden_size
         with tf.variable_scope(name):
-            self.emb_mat = tf.nn.relu(tf.get_variable("emb_mat", dtype='float', shape=[V, d], initializer=initializer))
+            self.emb_mat = tf.get_variable("emb_mat", dtype='float', shape=[V, d], initializer=initializer)
             # TODO : not sure wd is appropriate for embedding matrix
             if wd:
                 weight_decay = tf.mul(tf.nn.l2_loss(self.emb_mat), wd, name='weight_loss')
@@ -136,7 +136,8 @@ class Tower(BaseTower):
             tensors['s'] = a
 
         with tf.variable_scope("class"):
-            W = tf.transpose(A.emb_mat, name='W')
+            # W = tf.transpose(A.emb_mat, name='W')
+            W = tf.get_variable('W', shape=[d, V])
             logits = tf.matmul(w, W, name='logits')
             yp = tf.cast(tf.argmax(logits, 1), 'int32')
             correct = tf.equal(yp, y)
