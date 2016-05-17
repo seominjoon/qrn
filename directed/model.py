@@ -137,8 +137,9 @@ class Tower(BaseTower):
 
         with tf.variable_scope("class"):
             # W = tf.transpose(A.emb_mat, name='W')
-            W = tf.get_variable('W', shape=[d, V])
-            logits = tf.matmul(w, W, name='logits')
+            # W = tf.get_variable('W', shape=[d, V])
+            # logits = tf.matmul(w, W, name='logits')
+            logits = linear([w, u], V, True, wd=wd)
             yp = tf.cast(tf.argmax(logits, 1), 'int32')
             correct = tf.equal(yp, y)
             tensors['yp'] = yp
