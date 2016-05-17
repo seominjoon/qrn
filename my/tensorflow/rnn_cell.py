@@ -278,6 +278,73 @@ class RSMCell(BiRNNCell):
             outputs = tf.concat(2, [a, x, h, v, g])
         return outputs
 
+class ConcatCell(BiRNNCell):
+    """
+    Recurrent State Machine
+    """
+    def __init__(self, num_units, forget_bias=1.0, var_on_cpu=True, wd=0.0, initializer=None):
+        self._num_units = num_units
+        self._input_size = num_units * 3 + 2
+        self._output_size = num_units * 4 + 2
+        self._state_size = num_units * 2 + 1
+        self._var_on_cpu = var_on_cpu
+        self._wd = wd
+        self._initializer = initializer
+        self._forget_bias = forget_bias
+        self._is_forward = True
+
+    @property
+    def input_size(self):
+        return self._input_size
+
+    @property
+    def output_size(self):
+        return self._output_size
+
+    @property
+    def state_size(self):
+        return self._state_size
+
+    def pre(self, inputs, scope=None):
+        """Preprocess inputs to be used by the cell. Assumes [N, J, *]
+        [x, u]"""
+        with tf.variable_scope(scope or "pre"):
+            x, u, _, _ = tf.split(2, 4, tf.slice(inputs, [0, 0, 1], [-1, -1, -1]))  # [N, J, d]
+
+            a_raw, r_raw = tf.split(2, 2, linear([x * u], 2, True, scope='a_raw', var_on_cpu=self._var_on_cpu,
+                           wd=self._wd, initializer=self._initializer))
+            a = tf.sigmoid(a_raw - self._forget_bias, name='a')
+            r = tf.sigmoid(r_raw, name='r')
+            v_t = tf.tanh(linear([x, u], self._num_units, True,
+                                 var_on_cpu=self._var_on_cpu, wd=self._wd, scope='v_raw'), name='v')
+            fw_inputs = tf.concat(2, [a, r, x, u, v_t])  # [N, J, 3*d + 1]
+            bw_inputs = tf.concat(2, [a, 1.0-r, x, u, v_t])
+        return fw_inputs, bw_inputs
+
+    def __call__(self, inputs, state, scope=None):
+        with tf.variable_scope(scope or type(self).__name__):  # "RSMCell"
+            with tf.name_scope("Split"):  # Reset gate and update gate.
+                a, r = tf.split(1, 2, tf.slice(inputs, [0, 0], [-1, 2]))
+                x, u, v_t = tf.split(1, 3, tf.slice(inputs, [0, 2], [-1, -1]))
+                o = tf.slice(state, [0, 0], [-1, 1])
+                h, v = tf.split(1, 2, tf.slice(state, [0, 1], [-1, -1]))
+
+            with tf.name_scope("Main"):
+                new_o = a * r + (1 - a) * o
+                new_v = a * v_t + (1 - a) * v
+                g = r * v_t
+                new_h = a * g + (1 - a) * h
+
+            with tf.name_scope("Concat"):
+                new_state = tf.concat(1, [new_o, new_h, new_v])
+                outputs = tf.concat(1, [a, new_o, x, new_h, new_v, g])
+
+        return outputs, new_state
+
+    def post(self, fw_outputs, bw_outputs, scope=None):
+        a, o = tf.split(2, 2, tf.slice(fw_outputs, [0, 0, 0], [-1, -1, 2]))
+        return tf.concat(2, [a, tf.slice(fw_outputs, [0, 0, 2], [-1, -1, -1])])
+
 
 class PropCell(BiRNNCell):
     """

@@ -96,10 +96,8 @@ def list_results(args):
         correct = eval_d['correct']
         a_raw = np.transpose(eval_d['a'])  # [M, L]
         a = [["%.2f" % val for val in l] for l in a_raw]
-        of_raw = np.transpose(eval_d['of'])  # [M, L]
-        of = [["%.2f" % val for val in l] for l in of_raw]
-        ob_raw = np.transpose(eval_d['ob'])  # [M, L]
-        ob = [["%.2f" % val for val in l] for l in ob_raw]
+        o_raw = np.transpose(eval_d['o'])  # [M, L]
+        o = [["%.2f" % val for val in l] for l in o_raw]
         s = ["%.2f" % val for val in eval_d['s']]
         para = X[id_]
         if len(para) > len(a_raw):
@@ -109,8 +107,7 @@ def list_results(args):
                'facts': facts,
                'question': question,
                'a': a,
-               'of': of,
-               'ob': ob,
+               'o': o,
                's': s,
                'num_layers': len(a[0]),
                'correct': correct,
