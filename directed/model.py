@@ -104,7 +104,7 @@ class Tower(BaseTower):
             Ax = A(x, name='Ax')  # [N, S, J, d]
 
         with tf.name_scope("encoding"):
-            encoder = PositionEncoder(J, d)
+            encoder = VariablePositionEncoder(J, d)
             u = encoder(Aq, q_mask)  # [N, d]
             m = encoder(Ax, x_mask)  # [N, M, d]
 
