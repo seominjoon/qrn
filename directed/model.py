@@ -56,6 +56,22 @@ class PositionEncoder(object):
             return f
 
 
+class VariablePositionEncoder(object):
+    def __init__(self, max_sent_size, hidden_size, scope=None):
+        self.max_sent_size, self.hidden_size = max_sent_size, hidden_size
+        J, d = max_sent_size, hidden_size
+        with tf.variable_scope(scope or self.__class__.__name__):
+            self.w = tf.get_variable('w', shape=[J, d], dtype='float')
+
+    def __call__(self, Ax, mask, scope=None):
+        with tf.name_scope(scope or self.__class__.__name__):
+            shape = Ax.get_shape().as_list()
+            length_dim_index = len(shape) - 2
+            mask_aug = tf.expand_dims(mask, -1)
+            f = tf.reduce_sum(Ax * self.w * tf.cast(mask_aug, 'float'), length_dim_index, name='f')  # [N, S, d]
+        return f
+
+
 class Tower(BaseTower):
     def initialize(self):
         params = self.params
