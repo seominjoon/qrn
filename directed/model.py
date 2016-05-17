@@ -20,7 +20,7 @@ class VariableEmbedder(Embedder):
     def __init__(self, params, wd=0.0, initializer=None, name="variable_embedder"):
         V, d = params.vocab_size, params.hidden_size
         with tf.variable_scope(name):
-            self.emb_mat = tf.get_variable("emb_mat", dtype='float', shape=[V, d], initializer=initializer)
+            self.emb_mat = tf.nn.relu(tf.get_variable("emb_mat", dtype='float', shape=[V, d], initializer=initializer))
             # TODO : not sure wd is appropriate for embedding matrix
             if wd:
                 weight_decay = tf.mul(tf.nn.l2_loss(self.emb_mat), wd, name='weight_loss')
@@ -105,8 +105,8 @@ class Tower(BaseTower):
 
         with tf.name_scope("encoding"):
             encoder = PositionEncoder(J, d)
-            u = tf.nn.relu(encoder(Aq, q_mask))  # [N, d]
-            m = tf.nn.relu(encoder(Ax, x_mask))  # [N, M, d]
+            u = encoder(Aq, q_mask)  # [N, d]
+            m = encoder(Ax, x_mask)  # [N, M, d]
 
         with tf.variable_scope("networks"):
             m_mask = tf.reduce_max(tf.cast(x_mask, 'int64'), 2, name='m_mask')  # [N, M]
@@ -131,7 +131,8 @@ class Tower(BaseTower):
 
 
         with tf.variable_scope("selection"):
-            w = tf.tanh(linear([fw_v + 1e-9*(fw_h+bw_h)], d, True, wd=wd))
+            # w = tf.nn.relu(linear([fw_v + 1e-9*(fw_h+bw_h)], d, True, wd=wd))
+            w = fw_v
             tensors['s'] = a
 
         with tf.variable_scope("class"):
