@@ -61,7 +61,8 @@ def read_data(params, mode):
 
 def read_one_data(params, mode, task):
     logging.info("loading {} data for task {}... ".format(mode, task))
-    task_dir = os.path.join(params.data_dir, task.zfill(2))
+    mid = params.lang + ("-10k" if params.large else "")
+    task_dir = os.path.join(params.data_dir, mid, task.zfill(2))
     batch_size = params.batch_size
 
 

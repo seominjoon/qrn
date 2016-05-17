@@ -47,7 +47,7 @@ def prepro(args):
 
     all_tasks = list(map(str, range(1, 21)))
     tasks = all_tasks if task == 'all' else task.split(",")
-    target_parent_dir = os.path.join(target_dir, lang + "-10k" if is_large else "", task.zfill(2))
+    target_parent_dir = os.path.join(target_dir, lang + ("-10k" if is_large else ""), task.zfill(2))
     train_raw_data_list = []
     test_raw_data_list = []
     train_size, test_size = 0, 0

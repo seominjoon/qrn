@@ -52,6 +52,8 @@ flags.DEFINE_boolean("draft", False, "Draft? (quick initialize) [False]")
 # App-specific options
 # TODO : Any other options
 flags.DEFINE_string("task", "all", "Task number. [all]")
+flags.DEFINE_bool("large", False, "Size: 1k | 10k [1k]")
+flags.DEFINE_string("lang", "en", "en | something")
 flags.DEFINE_integer("hidden_size", 20, "Hidden size. [20]")
 flags.DEFINE_integer("rnn_num_layers", 1, "RNN number of layers [1]")
 flags.DEFINE_float("keep_prob", 1.0, "Keep probability of RNN inputs [1.0]")
@@ -77,20 +79,23 @@ def mkdirs(config):
     config_id = str(config.config).zfill(2)
     run_id = str(config.run_id).zfill(2)
     task = config.task.zfill(2)
+    mid = config.lang
+    if config.large:
+        mid += "-10k"
     subdir_name = "-".join([config_id, task, run_id])
 
-    eval_dir = os.path.join(evals_dir, model_name)
+    eval_dir = os.path.join(evals_dir, model_name, mid)
     eval_subdir = os.path.join(eval_dir, subdir_name)
-    log_dir = os.path.join(logs_dir, model_name)
+    log_dir = os.path.join(logs_dir, model_name, mid)
     log_subdir = os.path.join(log_dir, subdir_name)
-    save_dir = os.path.join(saves_dir, model_name)
+    save_dir = os.path.join(saves_dir, model_name, mid)
     save_subdir = os.path.join(save_dir, subdir_name)
     config.eval_dir = eval_subdir
     config.log_dir = log_subdir
     config.save_dir = save_subdir
 
     if not os.path.exists(eval_dir):
-        os.mkdir(eval_dir)
+        os.makedirs(eval_dir)
     if os.path.exists(eval_subdir):
         if config.train and not config.load:
             shutil.rmtree(eval_subdir)
@@ -98,16 +103,16 @@ def mkdirs(config):
     else:
         os.mkdir(eval_subdir)
     if not os.path.exists(log_dir):
-        os.mkdir(log_dir)
+        os.makedirs(log_dir)
     if os.path.exists(log_subdir):
         if config.train and not config.load:
             shutil.rmtree(log_subdir)
             os.mkdir(log_subdir)
     else:
-        os.mkdir(log_subdir)
+        os.makedirs(log_subdir)
     if config.train:
         if not os.path.exists(save_dir):
-            os.mkdir(save_dir)
+            os.makedirs(save_dir)
         if os.path.exists(save_subdir):
             if not config.load:
                 shutil.rmtree(save_subdir)
@@ -117,7 +122,8 @@ def mkdirs(config):
 
 
 def load_meta_data(config):
-    metadata_path = os.path.join(config.data_dir, config.task.zfill(2), "metadata.json")
+    data_dir = os.path.join(config.data_dir, config.lang + ("-10k" if config.large else ""))
+    metadata_path = os.path.join(data_dir, config.task.zfill(2), "metadata.json")
     metadata = json.load(open(metadata_path, "r"))
 
     # TODO: set other parameters, e.g.
