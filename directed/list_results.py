@@ -12,6 +12,14 @@ from jinja2 import Environment, FileSystemLoader
 from my.utils import get_pbar
 
 
+def bool_(string):
+    if string == 'True':
+        return True
+    elif string == 'False':
+        return False
+    else:
+        raise Exception()
+
 def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model_name", type=str, default='directed')
@@ -27,6 +35,8 @@ def get_args():
     parser.add_argument("--open", type=str, default='False')
     parser.add_argument("--mem_size", type=int, default=50)
     parser.add_argument("--run_id", type=str, default="0")
+    parser.add_argument("--lang", type=str, default="en")
+    parser.add_argument("--large", type=bool_, default=False)
 
     args = parser.parse_args()
     return args
@@ -44,13 +54,14 @@ def list_results(args):
     data_dir = args.data_dir
     task = args.task.zfill(2)
     mem_size = args.mem_size
+    lang_name = args.lang + ("-10k" if args.large else "")
     run_id = args.run_id.zfill(2)
 
-    target_dir = os.path.join(data_dir, task.zfill(2))
+    target_dir = os.path.join(data_dir, lang_name, task.zfill(2))
 
     epoch = args.epoch
     subdir_name = "-".join([config_name, task, run_id])
-    evals_dir = os.path.join("evals", model_name, subdir_name)
+    evals_dir = os.path.join("evals", model_name, lang_name, subdir_name)
     evals_name = "%s_%s.json" % (data_type, str(epoch).zfill(4))
     evals_path = os.path.join(evals_dir, evals_name)
     evals = json.load(open(evals_path, 'r'))
@@ -100,7 +111,7 @@ def list_results(args):
         of = [["%.2f" % val for val in l] for l in of_raw]
         ob_raw = np.transpose(eval_d['ob'])  # [M, L]
         ob = [["%.2f" % val for val in l] for l in ob_raw]
-        s = ["%.2f" % val for val in eval_d['s']]
+        # s = ["%.2f" % val for val in eval_d['s']]
         para = X[id_]
         if len(para) > len(a_raw):
             para = para[-len(a_raw):]
@@ -111,7 +122,6 @@ def list_results(args):
                'a': a,
                'of': of,
                'ob': ob,
-               's': s,
                'num_layers': len(a[0]),
                'correct': correct,
                'task': T[i],
