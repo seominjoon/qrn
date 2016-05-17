@@ -104,9 +104,9 @@ class Tower(BaseTower):
             Ax = A(x, name='Ax')  # [N, S, J, d]
 
         with tf.name_scope("encoding"):
-            encoder = VariablePositionEncoder(J, d)
-            u = encoder(Aq, q_mask)  # [N, d]
-            m = encoder(Ax, x_mask)  # [N, M, d]
+            encoder = PositionEncoder(J, d)
+            u = tf.nn.relu(encoder(Aq, q_mask))  # [N, d]
+            m = tf.nn.relu(encoder(Ax, x_mask))  # [N, M, d]
 
         with tf.variable_scope("networks"):
             m_mask = tf.reduce_max(tf.cast(x_mask, 'int64'), 2, name='m_mask')  # [N, M]

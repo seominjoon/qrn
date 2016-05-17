@@ -235,12 +235,11 @@ class RSMCell(BiRNNCell):
         [x, u]"""
         with tf.variable_scope(scope or "pre"):
             x, u, _, _ = tf.split(2, 4, tf.slice(inputs, [0, 0, 1], [-1, -1, -1]))  # [N, J, d]
-
             a_raw = linear([x * u], 1, True, scope='a_raw', var_on_cpu=self._var_on_cpu,
                            wd=self._wd, initializer=self._initializer)
             a = tf.sigmoid(a_raw - self._forget_bias, name='a')
-            v_t = tf.tanh(linear([x, u], self._num_units, True,
-                                 var_on_cpu=self._var_on_cpu, wd=self._wd, scope='v_raw'), name='v')
+            v_t = tf.nn.relu(linear([x, u], self._num_units, True,
+                             var_on_cpu=self._var_on_cpu, wd=self._wd, scope='v_raw'), name='v')
             new_inputs = tf.concat(2, [a, x, u, v_t])  # [N, J, 3*d + 1]
         return new_inputs
 
