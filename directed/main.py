@@ -83,7 +83,7 @@ def mkdirs(config, num_trials):
     mid = config.lang
     if config.large:
         mid += "-10k"
-    subdir_name = "-".join([config_id, task, run_id, num_trials])
+    subdir_name = "-".join([task, config_id, run_id, num_trials])
 
     eval_dir = os.path.join(evals_dir, model_name, mid)
     eval_subdir = os.path.join(eval_dir, subdir_name)

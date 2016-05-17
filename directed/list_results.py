@@ -62,7 +62,7 @@ def list_results(args):
     target_dir = os.path.join(data_dir, lang_name, task.zfill(2))
 
     epoch = args.epoch
-    subdir_name = "-".join([config_name, task, run_id, num_trials])
+    subdir_name = "-".join([task, config_name, run_id, num_trials])
     evals_dir = os.path.join("evals", model_name, lang_name, subdir_name)
     evals_name = "%s_%s.json" % (data_type, str(epoch).zfill(4))
     evals_path = os.path.join(evals_dir, evals_name)
