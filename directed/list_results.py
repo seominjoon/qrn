@@ -124,7 +124,7 @@ def list_results(args):
                'ob': ob,
                'num_layers': len(a[0]),
                'correct': correct,
-               'task': T[i],
+               'task': T[i]+1,
                'y': idx2word_dict[Y[id_]],
                'yp': idx2word_dict[eval_d['yp']]}
         rows.append(row)
