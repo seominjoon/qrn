@@ -640,39 +640,3 @@ def dynamic_bidirectional_rnn(cell, pre_inputs, sequence_length=None, initial_st
     return outputs_list[-1], state_fw_list[-1], state_bw_list[-1], tensors
 
 
-def dynamic_bf_rnn(cell, pre_inputs, sequence_length=None, initial_state=None,
-                   dtype=None, parallel_iterations=None, swap_memory=False,
-                   time_major=False, scope=None, feed_prev_out=False,
-                   num_layers=1, reuse_layers=True):
-    isinstance(cell, BiRNNCell)
-    with vs.variable_scope(scope or "Bi-RNN") as root_scope:
-        fw_inputs_list = []
-        bw_inputs_list = []
-        outputs_list = []
-        state_list = []
-        for layer_idx in range(num_layers):
-            scope_name = "layer_{}".format(layer_idx)
-            with name_scope(scope_name) if reuse_layers else vs.variable_scope(scope_name):
-                fw_inputs, bw_inputs = cell.pre(pre_inputs)
-                inputs_rev = reverse_sequence(bw_inputs, sequence_length, 1)
-                outputs_bw_rev, state_bw = dynamic_rnn(cell, inputs_rev, sequence_length=sequence_length, initial_state=initial_state,
-                                                       dtype=dtype, parallel_iterations=parallel_iterations, swap_memory=swap_memory,
-                                                       time_major=time_major, feed_prev_out=feed_prev_out, scope='BW')
-                outputs_bw = reverse_sequence(outputs_bw_rev, sequence_length, 1)
-                outputs_fw, state_fw = dynamic_rnn(cell, fw_inputs, sequence_length=sequence_length, initial_state=state_bw,
-                                                   dtype=dtype, parallel_iterations=parallel_iterations, swap_memory=swap_memory,
-                                                   time_major=time_major, feed_prev_out=feed_prev_out, scope='FW')
-                outputs = cell.post(outputs_fw, outputs_bw)
-                pre_inputs = outputs
-                fw_inputs_list.append(fw_inputs)
-                bw_inputs_list.append(bw_inputs)
-                outputs_list.append(outputs)
-                state_list.append(state_fw)
-                if reuse_layers:
-                    root_scope.reuse_variables()
-        tensors = dict()
-        tensors['fw_in'] = transpose(pack(fw_inputs_list), [1, 0, 2, 3])
-        tensors['bw_in'] = transpose(pack(bw_inputs_list), [1, 0, 2, 3])
-        tensors['out'] = transpose(pack(outputs_list), [1, 0, 2, 3])
-    return outputs_list[-1], state_list[-1], tensors
-

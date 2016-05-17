@@ -5,11 +5,10 @@ from tensorflow.python.ops.rnn_cell import MultiRNNCell
 from directed.base_model import BaseTower, BaseRunner
 from my.tensorflow import flatten, exp_mask, translate
 from my.tensorflow.nn import linear, relu1, dists
-from my.tensorflow.rnn import dynamic_rnn, dynamic_bidirectional_rnn, dynamic_bf_rnn
+from my.tensorflow.rnn import dynamic_rnn, dynamic_bidirectional_rnn
 import numpy as np
 
-from my.tensorflow.rnn_cell import RSMCell, GRUCell, TempCell, BiDropoutWrapper, DropoutWrapper, PassingCell, XGRUCell, \
-    ConcatCell
+from my.tensorflow.rnn_cell import RSMCell, GRUCell, TempCell, BiDropoutWrapper, DropoutWrapper, PassingCell, XGRUCell
 
 
 class Embedder(object):
@@ -20,8 +19,6 @@ class Embedder(object):
 class VariableEmbedder(Embedder):
     def __init__(self, params, wd=0.0, initializer=None, name="variable_embedder"):
         V, d = params.vocab_size, params.hidden_size
-        if initializer is None:
-            initializer = tf.truncated_normal_initializer(params.init_mean, params.init_std/np.sqrt(d))
         with tf.variable_scope(name):
             self.emb_mat = tf.get_variable("emb_mat", dtype='float', shape=[V, d], initializer=initializer)
             # TODO : not sure wd is appropriate for embedding matrix
@@ -86,7 +83,7 @@ class Tower(BaseTower):
             placeholders['is_train'] = is_train
 
         with tf.variable_scope("embedding"):
-            A = VariableEmbedder(params, wd=wd, name='A')
+            A = VariableEmbedder(params, wd=wd, initializer=initializer, name='A')
             Aq = A(q, name='Aq')  # [N, S, J, d]
             Ax = A(x, name='Ax')  # [N, S, J, d]
 
@@ -99,21 +96,27 @@ class Tower(BaseTower):
             m_mask = tf.reduce_max(tf.cast(x_mask, 'int64'), 2, name='m_mask')  # [N, M]
             m_length = tf.reduce_sum(m_mask, 1, name='m_length')  # [N]
             initializer = tf.random_uniform_initializer(-np.sqrt(3), np.sqrt(3))
-            cell = ConcatCell(d, forget_bias=forget_bias, wd=wd, initializer=initializer)
+            cell = RSMCell(d, forget_bias=forget_bias, wd=wd, initializer=initializer)
             us = tf.tile(tf.expand_dims(u, 1, name='u_prev_aug'), [1, M, 1])  # [N, d] -> [N, M, d]
             in_ = tf.concat(2, [tf.ones([N, M, 1]), m, us, tf.zeros([N, M, 2*d])], name='x_h_in')  # [N, M, 4*d + 1]
-            out, state, bi_tensors = dynamic_bf_rnn(cell, in_,
+            out, fw_state, bw_state, bi_tensors = dynamic_bidirectional_rnn(cell, in_,
                 sequence_length=m_length, dtype='float', num_layers=L)
             a = tf.slice(out, [0, 0, 0], [-1, -1, 1])  # [N, M, 1]
             _, _, v, g = tf.split(2, 4, tf.slice(out, [0, 0, 1], [-1, -1, -1]))
-            h_last, v_last = tf.split(1, 2, tf.slice(state, [0, 1], [-1, -1]))
+            fw_h, fw_v = tf.split(1, 2, tf.slice(fw_state, [0, 1], [-1, -1]))
+            bw_h, bw_v = tf.split(1, 2, tf.slice(bw_state, [0, 1], [-1, -1]))
 
-            tensors['a'] = tf.squeeze(tf.slice(bi_tensors['fw_in'], [0, 0, 0, 0], [-1, -1, -1, 1]), [3])
-            tensors['o'] = tf.squeeze(tf.slice(bi_tensors['out'], [0, 0, 0, 0], [-1, -1, -1, 1]), [3])
+            _, fw_u_out, fw_v_out, _ = tf.split(2, 4, tf.squeeze(tf.slice(bi_tensors['fw_out'], [0, L-1, 0, 2], [-1, -1, -1, -1]), [1]))
+            _, bw_u_out, bw_v_out, _ = tf.split(2, 4, tf.squeeze(tf.slice(bi_tensors['bw_out'], [0, L-1, 0, 2], [-1, -1, -1, -1]), [1]))
+
+            tensors['a'] = tf.squeeze(tf.slice(bi_tensors['in'], [0, 0, 0, 0], [-1, -1, -1, 1]), [3])
+            tensors['of'] = tf.squeeze(tf.slice(bi_tensors['fw_out'], [0, 0, 0, 0], [-1, -1, -1, 1]), [3])
+            tensors['ob'] = tf.squeeze(tf.slice(bi_tensors['bw_out'], [0, 0, 0, 0], [-1, -1, -1, 1]), [3])
+
 
         with tf.variable_scope("selection"):
-            w = tf.tanh(linear([v_last + 1e-9*(h_last)], d, True, wd=wd))
-            tensors['s'] = tf.squeeze(a)
+            w = tf.tanh(linear([fw_v + 1e-9*(fw_h+bw_h)], d, True, wd=wd))
+            tensors['s'] = a
 
         with tf.variable_scope("class"):
             W = tf.transpose(A.emb_mat, name='W')
