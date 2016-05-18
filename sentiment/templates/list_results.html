@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ title }}</title>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.0/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chroma-js/1.1.1/chroma.min.js"></script>
+    <script>
+        $(document).ready(function(){
+            $(".att").each(function() {
+                var val = parseFloat($(this).text());
+                var scale = chroma.scale(['white', 'red']);
+                var color = scale(val).hex();
+                $(this).attr("bgcolor", color);
+            });
+        })
+    </script>
+</head>
+<style>
+    table, th, td {border: 1px solid black}
+</style>
+<body>
+    <h2>{{ title }}</h2>
+    <table>
+        <tr>
+            <th>ID</th>
+            <th>Question</th>
+            <th>Task</th>
+            <th>Facts</th>
+            <th>Attention</th>
+            <th>Answer</th>
+        </tr>
+        {% for row in rows %}
+            <tr>
+                <td>{{ row.id }}</td>
+                <td>{{ row.question }}</td>
+                <td>{{ row.task }}</td>
+                <td><ol>
+                    {% for fact in row.facts %}
+                    <li>{{ fact }}</li>
+                    {% endfor %}
+                </ol></td>
+                <td>
+                    <table>
+                        <tr>
+                            <th>facts</th>
+                            {% for layer_idx in range(row.num_layers) %}
+                            <th colspan="3">{{ layer_idx + 1 }}</th>
+                            {% endfor %}
+                            <th>s</th>
+                        </tr>
+                        <tr>
+                            <td></td>
+                            {% for layer_idx in range(row.num_layers) %}
+                            <td>a</td><td>of</td><td>ob</td>
+                            {% endfor %}
+                            <td></td>
+                        </tr>
+                        {% for fact, as_, ofs, obs in zip(row.facts, row.a, row.of, row.ob) %}
+                        <tr>
+                            <td>{{ fact }}</td>
+                            {% for l in zip(as_, ofs, obs) %}
+                            {% for val in l %}
+                            <td class="att">{{ val }}</td>
+                            {% endfor %}
+                            {% endfor %}
+                        </tr>
+                        {% endfor %}
+                    </table>
+                </td>
+                {% if row.correct %}
+                <td bgcolor="#7fff00">yp = {{ row.yp }}<br>y = {{ row.y }}
+                </td>
+                {% else %}
+                <td bgcolor="#8b0000">yp = {{ row.yp }}<br>y = {{ row.y }}
+                </td>
+                {% endif %}
+            </tr>
+        {% endfor %}
+    </table>
+</body>
+</html>
