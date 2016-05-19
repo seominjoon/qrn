@@ -60,6 +60,7 @@ flags.DEFINE_float("forget_bias", 2.5, "Forget bias [2.5]")
 flags.DEFINE_integer("mem_size", 50, "Memory size (from most recent) [50]")
 flags.DEFINE_bool("finetune", False, "Finetune? [False]")
 flags.DEFINE_bool("use_ques", False, "Use ques? [False]")
+flags.DEFINE_bool("scalar_gate", True, "Scalar gate? [True]")
 
 FLAGS = flags.FLAGS
 

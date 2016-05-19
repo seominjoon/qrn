@@ -24,6 +24,7 @@ class Tower(BaseTower):
         variables_dict = self.variables_dict
         N, M, V, K, C = params.batch_size, params.mem_size, params.vocab_size, params.word_size, params.num_classes
         d = params.hidden_size
+        G = 1 if params.scalar_gate else d
         L = params.mem_num_layers
         forget_bias = params.forget_bias
         wd = params.wd
@@ -56,37 +57,31 @@ class Tower(BaseTower):
 
         with tf.variable_scope("networks"):
             m_length = tf.reduce_sum(tf.cast(x_mask, 'int64'), 1, name='m_length')  # [N]
-            initializer = tf.random_uniform_initializer(-np.sqrt(3), np.sqrt(3))
-            cell = RSMCell(d, forget_bias=forget_bias, wd=wd, initializer=initializer, keep_prob=keep_prob, is_train=is_train)
+            cell = RSMCell(d, scalar_gate=params.scalar_gate, forget_bias=forget_bias,
+                           wd=wd, keep_prob=keep_prob, is_train=is_train)
             us = tf.tile(tf.expand_dims(u, 1, name='u_prev_aug'), [1, M, 1])  # [N, d] -> [N, M, d]
-            in_ = tf.concat(2, [tf.ones([N, M, 1]), m, us, tf.zeros([N, M, 2*d])], name='x_h_in')  # [N, M, 4*d + 1]
+            in_ = tf.concat(2, [tf.ones([N, M, G]), m, us, tf.zeros([N, M, 2*d])], name='x_h_in')  # [N, M, 4*d + 1]
             out, fw_state, bw_state, bi_tensors = dynamic_bidirectional_rnn(cell, in_,
                 sequence_length=m_length, dtype='float', num_layers=L)
-            a = tf.slice(out, [0, 0, 0], [-1, -1, 1])  # [N, M, 1]
-            _, _, v, g = tf.split(2, 4, tf.slice(out, [0, 0, 1], [-1, -1, -1]))
-            fw_h, fw_v = tf.split(1, 2, tf.slice(fw_state, [0, 1], [-1, -1]))
-            bw_h, bw_v = tf.split(1, 2, tf.slice(bw_state, [0, 1], [-1, -1]))
+            a = tf.slice(out, [0, 0, 0], [-1, -1, G])  # [N, M, 1]
+            _, _, v, g = tf.split(2, 4, tf.slice(out, [0, 0, G], [-1, -1, -1]))
+            fw_h, fw_v = tf.split(1, 2, tf.slice(fw_state, [0, G], [-1, -1]))
+            bw_h, bw_v = tf.split(1, 2, tf.slice(bw_state, [0, G], [-1, -1]))
 
-            _, fw_u_out, fw_v_out, _ = tf.split(2, 4, tf.squeeze(tf.slice(bi_tensors['fw_out'], [0, L-1, 0, 2], [-1, -1, -1, -1]), [1]))
-            _, bw_u_out, bw_v_out, _ = tf.split(2, 4, tf.squeeze(tf.slice(bi_tensors['bw_out'], [0, L-1, 0, 2], [-1, -1, -1, -1]), [1]))
+            _, fw_u_out, fw_v_out, _ = tf.split(2, 4, tf.squeeze(tf.slice(bi_tensors['fw_out'], [0, L-1, 0, 2*G], [-1, -1, -1, -1]), [1]))
+            _, bw_u_out, bw_v_out, _ = tf.split(2, 4, tf.squeeze(tf.slice(bi_tensors['bw_out'], [0, L-1, 0, 2*G], [-1, -1, -1, -1]), [1]))
 
-            tensors['a'] = tf.squeeze(tf.slice(bi_tensors['in'], [0, 0, 0, 0], [-1, -1, -1, 1]), [3])
-            tensors['of'] = tf.squeeze(tf.slice(bi_tensors['fw_out'], [0, 0, 0, 0], [-1, -1, -1, 1]), [3])
-            tensors['ob'] = tf.squeeze(tf.slice(bi_tensors['bw_out'], [0, 0, 0, 0], [-1, -1, -1, 1]), [3])
-
-
-        with tf.variable_scope("selection"):
-            # w = tf.nn.relu(linear([fw_v + 1e-9*(fw_h+bw_h)], d, True, wd=wd))
-            w = fw_v
-            tensors['s'] = a
+            tensors['a'] = tf.slice(bi_tensors['in'], [0, 0, 0, 0], [-1, -1, -1, G])
+            tensors['of'] = tf.slice(bi_tensors['fw_out'], [0, 0, 0, 0], [-1, -1, -1, G])
+            tensors['ob'] = tf.slice(bi_tensors['bw_out'], [0, 0, 0, 0], [-1, -1, -1, G])
 
         with tf.variable_scope("class"):
             if params.use_ques:
-                logits = linear([w, u], V, True, wd=wd)
+                logits = linear([fw_v, u], V, True, wd=wd)
             else:
                 # W = tf.transpose(A.emb_mat, name='W')
                 W = tf.get_variable('W', shape=[d, C])
-                logits = tf.matmul(w, W, name='logits')
+                logits = tf.matmul(fw_v, W, name='logits')
             yp = tf.cast(tf.argmax(logits, 1), 'int32')
             correct = tf.equal(yp, y)
             tensors['yp'] = yp
