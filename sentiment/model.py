@@ -49,8 +49,8 @@ class Tower(BaseTower):
                 emb_mat = variable_on_cpu("emb_mat", shape=[V, K], initializer=emb_mat_initializer)
 
         with tf.variable_scope("encoding"):
-            u = tf.get_variable('u', shape=[d])
-            u = tf.tile(tf.expand_dims(u, 0), [N, 1])  # [N, d]
+            # u = tf.get_variable('u', shape=[d])
+            # u = tf.tile(tf.expand_dims(u, 0), [N, 1])  # [N, d]
             u = tf.ones([N, d])
             m = tf.tanh(linear([tf.nn.embedding_lookup(emb_mat, x)], d, True, wd=wd))  # [N, M, d]
 
