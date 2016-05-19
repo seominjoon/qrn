@@ -7,6 +7,8 @@ from collections import defaultdict, OrderedDict
 import itertools
 
 import h5py
+import re
+
 
 def bool(string):
     return string == 'True'
@@ -16,7 +18,7 @@ def get_args():
     parser = argparse.ArgumentParser()
     home = os.path.expanduser("~")
     glove_dir = os.path.join(home, "models", "glove")
-    glove_path = os.path.join(glove_dir, "glove.6B", "glove.6B.50d.txt")
+    glove_path = os.path.join(glove_dir, "glove.6B.50d.txt")
     source_dir = os.path.join(home, "data", "sst")  # Stanford Sentiment Treebank
     target_dir = os.path.join("data", "sst")
     parser.add_argument("--source_dir", type=str, default=source_dir)
@@ -26,6 +28,11 @@ def get_args():
 
     return parser.parse_args()
 
+def _tokenize(sentence):
+    new_sentence = []
+    for word in sentence:
+        new_sentence.extend(re.findall(r"[\w']+", word))
+    return new_sentence
 
 def prepro(args):
     source_dir = args.source_dir
@@ -68,6 +75,7 @@ def prepro(args):
 
     word_counter = defaultdict(int)
     for sentence in id2sentence_dict.values():
+        sentence = _tokenize(sentence)
         for word in sentence:
             word = normalize(word)
             word_counter[word] += 1
@@ -124,7 +132,7 @@ def prepro(args):
             return 0
 
     # sents
-    sents = tuple(tuple(word2idx(word) for word in sentence) for sentence in id2sentence_dict.values())
+    sents = tuple(tuple(word2idx(word) for word in _tokenize(sentence)) for sentence in id2sentence_dict.values())
     max_sent_size = max(len(sent) for sent in sents)
     metadata['max_sent_size'] = max_sent_size
     print("max sent size: %d" % max_sent_size)

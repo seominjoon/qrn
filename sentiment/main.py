@@ -18,7 +18,7 @@ flags.DEFINE_string("data_dir", "data/sst", "Data directory [data/sst]")
 
 # Training parameters
 # These affect result performance
-flags.DEFINE_integer("batch_size", 32, "Batch size for each tower. [32]")
+flags.DEFINE_integer("batch_size", 100, "Batch size for each tower. [100]")
 flags.DEFINE_float("init_mean", 0, "Initial weight mean [0]")
 flags.DEFINE_float("init_std", 1.0, "Initial weight std [1.0]")
 flags.DEFINE_float("init_lr", 0.5, "Initial learning rate [0.5]")
@@ -26,7 +26,7 @@ flags.DEFINE_integer("lr_anneal_period", 100, "Anneal period [100]")
 flags.DEFINE_float("lr_anneal_ratio", 0.5, "Anneal ratio [0.5")
 flags.DEFINE_integer("num_epochs", 100, "Total number of epochs for training [100]")
 flags.DEFINE_string("opt", 'adagrad', 'Optimizer: basic | adagrad | adam [basic]')
-flags.DEFINE_float("wd", 0.001, "Weight decay [0.001]")
+flags.DEFINE_float("wd", 0.01, "Weight decay [0.001]")
 flags.DEFINE_integer("max_grad_norm", 0, "Max grad norm. 0 for no clipping [0]")
 flags.DEFINE_float("max_val_loss", 0.0, "Max val loss [0.0]")
 flags.DEFINE_integer("max_num_trials", 50, "Max num trials [50]")
@@ -193,6 +193,8 @@ def main(_):
             test_loss, test_acc = runner.eval(test_ds, eval_tensor_names=eval_tensor_names,
                                    num_batches=config.test_num_batches, eval_ph_names=eval_ph_names)
             test_accs.append(test_acc)
+            if not config.train:
+                break
 
         if config.train:
             print("-" * 80)
