@@ -50,6 +50,7 @@ class Tower(BaseTower):
         with tf.variable_scope("encoding"):
             u = tf.get_variable('u', shape=[d])
             u = tf.tile(tf.expand_dims(u, 0), [N, 1])  # [N, d]
+            u = tf.zeros([N, d])
             m = tf.tanh(linear([tf.nn.embedding_lookup(emb_mat, x)], d, True, wd=wd))  # [N, M, d]
 
         with tf.variable_scope("networks"):
