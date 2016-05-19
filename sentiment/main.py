@@ -52,14 +52,14 @@ flags.DEFINE_boolean("draft", False, "Draft? (quick initialize) [False]")
 
 # App-specific options
 # TODO : Any other options
-flags.DEFINE_string("lang", "en", "en | something")
-flags.DEFINE_integer("hidden_size", 20, "Hidden size. [20]")
-flags.DEFINE_integer("rnn_num_layers", 1, "RNN number of layers [1]")
+flags.DEFINE_integer("num_classes", 2, "Number of classes [2]")
+flags.DEFINE_integer("hidden_size", 100, "Hidden size. [100]")
 flags.DEFINE_float("keep_prob", 1.0, "Keep probability of RNN inputs [1.0]")
 flags.DEFINE_integer("mem_num_layers", 2, "Number of memory layers [2]")
 flags.DEFINE_float("forget_bias", 2.5, "Forget bias [2.5]")
 flags.DEFINE_integer("mem_size", 50, "Memory size (from most recent) [50]")
-flags.DEFINE_boolean("use_ques", True, "Use question at the classification? [True]")
+flags.DEFINE_bool("finetune", False, "Finetune? [False]")
+flags.DEFINE_bool("use_ques", False, "Use ques? [False]")
 
 FLAGS = flags.FLAGS
 

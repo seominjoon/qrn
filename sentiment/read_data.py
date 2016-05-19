@@ -66,6 +66,7 @@ def read_data(params, modes):
 
     mode2ids_dict = json.load(open(mode2ids_path, 'r'))
     idx2id_dict = json.load(open(idx2id_path, 'r'))
+    idx2id_dict = OrderedDict((int(idx), id_) for idx, id_ in idx2id_dict.items())
     id2idx_dict = OrderedDict((id_, idx) for idx, id_ in idx2id_dict.items())
     data = json.load(open(data_path, 'r'))
     data_sets = []
