@@ -29,6 +29,7 @@ class Tower(BaseTower):
         wd = params.wd
         init_emb_mat = params.emb_mat
         finetune = params.finetune
+        keep_prob = params.keep_prob
         with tf.name_scope("placeholders"):
             x = tf.placeholder('int32', shape=[N, M], name='x')
             x_mask = tf.placeholder('bool', shape=[N, M], name='x_mask')
@@ -50,13 +51,12 @@ class Tower(BaseTower):
         with tf.variable_scope("encoding"):
             u = tf.get_variable('u', shape=[d])
             u = tf.tile(tf.expand_dims(u, 0), [N, 1])  # [N, d]
-            u = tf.zeros([N, d])
             m = tf.tanh(linear([tf.nn.embedding_lookup(emb_mat, x)], d, True, wd=wd))  # [N, M, d]
 
         with tf.variable_scope("networks"):
             m_length = tf.reduce_sum(tf.cast(x_mask, 'int64'), 1, name='m_length')  # [N]
             initializer = tf.random_uniform_initializer(-np.sqrt(3), np.sqrt(3))
-            cell = RSMCell(d, forget_bias=forget_bias, wd=wd, initializer=initializer)
+            cell = RSMCell(d, forget_bias=forget_bias, wd=wd, initializer=initializer, keep_prob=keep_prob, is_train=is_train)
             us = tf.tile(tf.expand_dims(u, 1, name='u_prev_aug'), [1, M, 1])  # [N, d] -> [N, M, d]
             in_ = tf.concat(2, [tf.ones([N, M, 1]), m, us, tf.zeros([N, M, 2*d])], name='x_h_in')  # [N, M, 4*d + 1]
             out, fw_state, bw_state, bi_tensors = dynamic_bidirectional_rnn(cell, in_,

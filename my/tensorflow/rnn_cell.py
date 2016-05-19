@@ -207,7 +207,7 @@ class RSMCell(BiRNNCell):
     """
     Recurrent State Machine
     """
-    def __init__(self, num_units, forget_bias=1.0, var_on_cpu=True, wd=0.0, initializer=None):
+    def __init__(self, num_units, forget_bias=1.0, var_on_cpu=True, wd=0.0, initializer=None, keep_prob=1.0, is_train=False):
         self._num_units = num_units
         self._input_size = num_units * 3 + 1
         self._output_size = num_units * 4 + 2
@@ -217,6 +217,8 @@ class RSMCell(BiRNNCell):
         self._initializer = initializer
         self._forget_bias = forget_bias
         self._is_forward = True
+        self._is_train = is_train
+        self._keep_prob = keep_prob
 
     @property
     def input_size(self):
@@ -233,11 +235,16 @@ class RSMCell(BiRNNCell):
     def pre(self, inputs, scope=None):
         """Preprocess inputs to be used by the cell. Assumes [N, J, *]
         [x, u]"""
+        is_train = self._is_train
+        keep_prob = self._keep_prob
         with tf.variable_scope(scope or "pre"):
             x, u, _, _ = tf.split(2, 4, tf.slice(inputs, [0, 0, 1], [-1, -1, -1]))  # [N, J, d]
             a_raw = linear([x * u], 1, True, scope='a_raw', var_on_cpu=self._var_on_cpu,
                            wd=self._wd, initializer=self._initializer)
             a = tf.sigmoid(a_raw - self._forget_bias, name='a')
+            if keep_prob < 1.0:
+                x = tf.cond(is_train, lambda: tf.nn.dropout(x, keep_prob), lambda: x)
+                u = tf.cond(is_train, lambda: tf.nn.dropout(u, keep_prob), lambda: u)
             v_t = tf.nn.tanh(linear([x, u], self._num_units, True,
                              var_on_cpu=self._var_on_cpu, wd=self._wd, scope='v_raw'), name='v')
             new_inputs = tf.concat(2, [a, x, u, v_t])  # [N, J, 3*d + 1]
