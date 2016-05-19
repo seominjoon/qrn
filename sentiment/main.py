@@ -25,14 +25,14 @@ flags.DEFINE_float("init_lr", 0.5, "Initial learning rate [0.5]")
 flags.DEFINE_integer("lr_anneal_period", 100, "Anneal period [100]")
 flags.DEFINE_float("lr_anneal_ratio", 0.5, "Anneal ratio [0.5")
 flags.DEFINE_integer("num_epochs", 100, "Total number of epochs for training [100]")
-flags.DEFINE_string("opt", 'adagrad', 'Optimizer: basic | adagrad | adam [basic]')
-flags.DEFINE_float("wd", 0.01, "Weight decay [0.001]")
+flags.DEFINE_string("opt", 'adagrad', 'Optimizer: basic | adagrad | adam [adagrad]')
+flags.DEFINE_float("wd", 0.001, "Weight decay [0.001]")
 flags.DEFINE_integer("max_grad_norm", 0, "Max grad norm. 0 for no clipping [0]")
 flags.DEFINE_float("max_val_loss", 0.0, "Max val loss [0.0]")
 flags.DEFINE_integer("max_num_trials", 50, "Max num trials [50]")
 
 # Training and testing options
-# These do not affect result performance (they affect duration though)
+# These do not affect result performance (they might affect duration though)
 flags.DEFINE_boolean("train", True, "Train (will override without load)? Test if False [True]")
 flags.DEFINE_integer("val_num_batches", 0, "Val num batches. 0 for max possible. [0]")
 flags.DEFINE_integer("train_num_batches", 0, "Train num batches. 0 for max possible [0]")
@@ -54,13 +54,14 @@ flags.DEFINE_boolean("draft", False, "Draft? (quick initialize) [False]")
 # TODO : Any other options
 flags.DEFINE_integer("num_classes", 2, "Number of classes [2]")
 flags.DEFINE_integer("hidden_size", 100, "Hidden size. [100]")
-flags.DEFINE_float("keep_prob", 1.0, "Keep probability of RNN inputs [1.0]")
+flags.DEFINE_float("keep_prob", 0.5, "Keep probability of RNN inputs [0.5]")
 flags.DEFINE_integer("mem_num_layers", 2, "Number of memory layers [2]")
 flags.DEFINE_float("forget_bias", 2.5, "Forget bias [2.5]")
 flags.DEFINE_integer("mem_size", 50, "Memory size (from most recent) [50]")
 flags.DEFINE_bool("finetune", False, "Finetune? [False]")
 flags.DEFINE_bool("use_ques", False, "Use ques? [False]")
 flags.DEFINE_bool("scalar_gate", True, "Scalar gate? [True]")
+flags.DEFINE_bool("reuse_layers", True, "Reuse vars across layers? [True]")
 
 FLAGS = flags.FLAGS
 
