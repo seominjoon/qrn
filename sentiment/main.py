@@ -4,16 +4,17 @@ import shutil
 from pprint import pprint
 
 import tensorflow as tf
+import numpy as np
 
 from sentiment.model import Tower, Runner
 from configs.get_config import get_config_from_file, get_config
-from sentiment.read_data import read_data, read_one_data
+from sentiment.read_data import read_data
 
 flags = tf.app.flags
 
 # File directories
 flags.DEFINE_string("model_name", "sentiment", "Model name. This will be used for save, log, and eval names. [sentiment]")
-flags.DEFINE_string("data_dir", "data/babi", "Data directory [data/babi]")
+flags.DEFINE_string("data_dir", "data/sst", "Data directory [data/sst]")
 
 # Training parameters
 # These affect result performance
@@ -51,8 +52,6 @@ flags.DEFINE_boolean("draft", False, "Draft? (quick initialize) [False]")
 
 # App-specific options
 # TODO : Any other options
-flags.DEFINE_string("task", "all", "Task number. [all]")
-flags.DEFINE_bool("large", False, "Size: 1k | 10k [1k]")
 flags.DEFINE_string("lang", "en", "en | something")
 flags.DEFINE_integer("hidden_size", 20, "Hidden size. [20]")
 flags.DEFINE_integer("rnn_num_layers", 1, "RNN number of layers [1]")
@@ -80,17 +79,13 @@ def mkdirs(config, num_trials):
     config_id = str(config.config).zfill(2)
     run_id = str(config.run_id).zfill(2)
     num_trials = str(num_trials).zfill(2)
-    task = config.task.zfill(2)
-    mid = config.lang
-    if config.large:
-        mid += "-10k"
-    subdir_name = "-".join([task, config_id, run_id, num_trials])
+    subdir_name = "-".join([config_id, run_id, num_trials])
 
-    eval_dir = os.path.join(evals_dir, model_name, mid)
+    eval_dir = os.path.join(evals_dir, model_name)
     eval_subdir = os.path.join(eval_dir, subdir_name)
-    log_dir = os.path.join(logs_dir, model_name, mid)
+    log_dir = os.path.join(logs_dir, model_name)
     log_subdir = os.path.join(log_dir, subdir_name)
-    save_dir = os.path.join(saves_dir, model_name, mid)
+    save_dir = os.path.join(saves_dir, model_name)
     save_subdir = os.path.join(save_dir, subdir_name)
     config.eval_dir = eval_subdir
     config.log_dir = log_subdir
@@ -124,19 +119,18 @@ def mkdirs(config, num_trials):
 
 
 def load_meta_data(config):
-    data_dir = os.path.join(config.data_dir, config.lang + ("-10k" if config.large else ""))
-    metadata_path = os.path.join(data_dir, config.task.zfill(2), "metadata.json")
+    data_dir = config.data_dir
+    metadata_path = os.path.join(data_dir, "metadata.json")
     metadata = json.load(open(metadata_path, "r"))
+    emb_mat_path = os.path.join(data_dir, "emb_mat.json")
+    emb_mat = np.array(json.load(open(emb_mat_path, 'r')))
 
     # TODO: set other parameters, e.g.
     # config.max_sent_size = meta_data['max_sent_size']
-    config.max_fact_size = metadata['max_fact_size']
-    config.max_ques_size = metadata['max_ques_size']
     config.max_sent_size = metadata['max_sent_size']
     config.vocab_size = metadata['vocab_size']
-    config.max_num_sents = metadata['max_num_sents']
-    config.max_num_sups = metadata['max_num_sups']
-    config.eos_idx = metadata['eos_idx']
+    config.word_size = metadata['word_size']
+    config.emb_mat = emb_mat
 
 
 def main(_):
@@ -148,14 +142,11 @@ def main(_):
         config = get_config_from_file(FLAGS.__flags, config_path, FLAGS.config)
 
     load_meta_data(config)
-    if config.max_num_sents < config.mem_size:
-        config.mem_size = config.max_num_sents
+    if config.max_sent_size < config.mem_size:
+        config.mem_size = config.max_sent_size
 
     # load other files
-    if config.train:
-        comb_train_ds = read_one_data(config, 'train', config.task)
-        comb_dev_ds = read_one_data(config, 'dev', config.task)
-    comb_test_ds = read_one_data(config, 'test', config.task)
+    train_ds, dev_ds, test_ds = read_data(config, ['train', 'dev', 'test'])
 
     # For quick draft initialize (deubgging).
     if config.draft:
@@ -170,8 +161,8 @@ def main(_):
     pprint(config.__dict__)
 
     # TODO : specify eval tensor names to save in evals folder
-    eval_tensor_names = ['a', 's', 'of', 'ob', 'correct', 'yp']
-    eval_ph_names = ['q', 'q_mask', 'x', 'x_mask', 'y']
+    eval_tensor_names = []
+    eval_ph_names = []
 
     val_loss = 9999
     val_losses = []
@@ -182,7 +173,6 @@ def main(_):
             print("-" * 80)
             print("Trial {}".format(num_trials))
         mkdirs(config, num_trials)
-        trial_suffix = "-" + str(num_trials).zfill(2)
         graph = tf.Graph()
         # TODO : initialize BaseTower-subclassed objects
         towers = [Tower(config) for _ in range(config.num_devices)]
@@ -194,13 +184,13 @@ def main(_):
             if config.train:
                 if config.load:
                     runner.load()
-                val_loss, val_acc = runner.train(comb_train_ds, config.num_epochs, val_data_set=comb_dev_ds,
+                val_loss, val_acc = runner.train(train_ds, config.num_epochs, val_data_set=dev_ds,
                                                  eval_tensor_names=eval_tensor_names, num_batches=config.train_num_batches,
                                                  val_num_batches=config.val_num_batches, eval_ph_names=eval_ph_names)
                 val_losses.append(val_loss)
             else:
                 runner.load()
-            test_loss, test_acc = runner.eval(comb_test_ds, eval_tensor_names=eval_tensor_names,
+            test_loss, test_acc = runner.eval(test_ds, eval_tensor_names=eval_tensor_names,
                                    num_batches=config.test_num_batches, eval_ph_names=eval_ph_names)
             test_accs.append(test_acc)
 

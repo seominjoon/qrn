@@ -47,7 +47,7 @@ def prepro(args):
     data_path = os.path.join(target_dir, "data.json")
     mode2ids_path = os.path.join(target_dir, "mode2ids.json")
     idx2id_path = os.path.join(target_dir, "idx2id.json")
-    emb_mat_path = os.path.join(target_dir, "emb_mat.h5")
+    emb_mat_path = os.path.join(target_dir, "emb_mat.json")
 
     metadata = OrderedDict()
     metadata['source_dir'] = source_dir
@@ -104,10 +104,13 @@ def prepro(args):
     metadata['vocab_size'] = vocab_size
     print("vocab size (including unk): %d" % vocab_size)
 
+    """
     f = h5py.File(emb_mat_path, 'w')
     emb_mat = f.create_dataset('data', [vocab_size, word_size], dtype='float')
     for idx, word in idx2word_dict.items():
         emb_mat[idx, :] = features[word]
+    """
+    emb_mat = [[0] * word_size] + [features[idx2word_dict[idx]] for idx in idx2word_dict.keys()]
 
     UNK = "UNK"
     assert UNK not in word2idx_dict
@@ -147,7 +150,7 @@ def prepro(args):
     scores = [pid2score_dict[phrase2pid_dict[sentence]] for sentence in id2sentence_dict.values()]
 
     # data
-    data = {'sents': sents, 'scores': scores}
+    data = [sents, scores]
 
     # mode2ids
     if args.skip_neutral:
@@ -182,6 +185,7 @@ def prepro(args):
     json.dump(data, open(data_path, 'w'))
     json.dump(mode2ids_dict, open(mode2ids_path, 'w'))
     json.dump(idx2id_dict, open(idx2id_path, 'w'))
+    json.dump(emb_mat, open(emb_mat_path, 'w'))
     print("dumping done")
 
 

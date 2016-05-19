@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+from collections import OrderedDict
 
 import numpy as np
 
@@ -54,26 +55,25 @@ class DataSet(object):
         np.random.shuffle(self.idxs)
 
 
-def read_data(params, mode):
-    tasks = map(str, range(1, 21))
-    data_sets = [read_one_data(params, mode, task) for task in tasks]
-    return data_sets
-
-def read_one_data(params, mode, task):
-    logging.info("loading {} data for task {}... ".format(mode, task))
-    mid = params.lang + ("-10k" if params.large else "")
-    task_dir = os.path.join(params.data_dir, mid, task.zfill(2))
+def read_data(params, modes):
+    logging.info("loading data ...")
     batch_size = params.batch_size
+    data_dir = params.data_dir
 
+    mode2ids_path = os.path.join(data_dir, "mode2ids.json")
+    idx2id_path = os.path.join(data_dir, "idx2id.json")
+    data_path = os.path.join(data_dir, "data.json")
 
-    mode2idxs_path = os.path.join(task_dir, "mode2idxs.json")
-    data_path = os.path.join(task_dir, "data.json")
-    mode2idxs_dict = json.load(open(mode2idxs_path, 'r'))
+    mode2ids_dict = json.load(open(mode2ids_path, 'r'))
+    idx2id_dict = json.load(open(idx2id_path, 'r'))
+    id2idx_dict = OrderedDict((id_, idx) for idx, id_ in idx2id_dict.items())
     data = json.load(open(data_path, 'r'))
-    idxs = mode2idxs_dict[mode]
-    data_set = DataSet(mode, batch_size, data, idxs)
-    return data_set
-
+    data_sets = []
+    for mode in modes:
+        idxs = [id2idx_dict[id_] for id_ in mode2ids_dict[mode]]
+        data_set = DataSet(mode, batch_size, data, idxs, idx2id=idx2id_dict)
+        data_sets.append(data_set)
+    return data_sets
 
 
 def main():
