@@ -147,6 +147,7 @@ def main(_):
 
     # load other files
     train_ds, dev_ds, test_ds = read_data(config, ['train', 'dev', 'test'])
+    dev_ds = test_ds  # for fast testing
 
     # For quick draft initialize (deubgging).
     if config.draft:
