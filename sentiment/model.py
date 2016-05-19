@@ -72,8 +72,8 @@ class Tower(BaseTower):
             _, bw_u_out, bw_v_out, _ = tf.split(2, 4, tf.squeeze(tf.slice(bi_tensors['bw_out'], [0, L-1, 0, 2*G], [-1, -1, -1, -1]), [1]))
 
             tensors['a'] = tf.slice(bi_tensors['in'], [0, 0, 0, 0], [-1, -1, -1, G])
-            tensors['of'] = tf.slice(bi_tensors['fw_out'], [0, 0, 0, 0], [-1, -1, -1, G])
-            tensors['ob'] = tf.slice(bi_tensors['bw_out'], [0, 0, 0, 0], [-1, -1, -1, G])
+            tensors['of'] = tf.slice(bi_tensors['fw_out'], [0, 0, 0, G], [-1, -1, -1, G])
+            tensors['ob'] = tf.slice(bi_tensors['bw_out'], [0, 0, 0, G], [-1, -1, -1, G])
 
         with tf.variable_scope("class"):
             fw_v = fw_v + 1e-9*(fw_h + bw_h)  # to avoid None grad
