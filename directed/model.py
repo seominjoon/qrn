@@ -131,7 +131,7 @@ class Tower(BaseTower):
 
         with tf.variable_scope("selection"):
             # w = tf.nn.relu(linear([fw_v + 1e-9*(fw_h+bw_h)], d, True, wd=wd))
-            w = fw_v
+            w = fw_v + 1e-9*(fw_h + bw_h)
             tensors['s'] = a
 
         with tf.variable_scope("class"):
