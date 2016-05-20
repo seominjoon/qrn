@@ -3,6 +3,7 @@ import csv
 import json
 import os
 from collections import defaultdict, OrderedDict
+import numpy as np
 
 import itertools
 
@@ -134,7 +135,12 @@ def prepro(args):
     # sents
     sents = tuple(tuple(word2idx(word) for word in _tokenize(sentence)) for sentence in id2sentence_dict.values())
     max_sent_size = max(len(sent) for sent in sents)
+    avg_sent_size = sum(len(sent) for sent in sents)/len(sents)
+    med_sent_size = np.median([len(sent) for sent in sents])
     metadata['max_sent_size'] = max_sent_size
+    metadata['avg_sent_size'] = avg_sent_size
+    metadata['med_sent_size'] = med_sent_size
+
     print("max sent size: %d" % max_sent_size)
 
     pid2score_dict = OrderedDict()

@@ -272,7 +272,7 @@ class RSMCell(BiRNNCell):
 
             with tf.name_scope("Concat"):
                 new_state = tf.concat(1, [new_o, new_h, new_v])
-                outputs = tf.concat(1, [a, new_o, x, new_h, new_v, g])
+                outputs = tf.concat(1, [a, r, x, new_h, new_v, g])
 
         return outputs, new_state
 
