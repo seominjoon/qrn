@@ -7,7 +7,7 @@ import tensorflow as tf
 
 from directed.model import Tower, Runner
 from config.get_config import get_config_from_file, get_config
-from directed.read_data import read_data, read_one_data
+from directed.read_data import read_data
 
 flags = tf.app.flags
 
@@ -59,7 +59,7 @@ flags.DEFINE_integer("rnn_num_layers", 1, "RNN number of layers [1]")
 flags.DEFINE_float("keep_prob", 1.0, "Keep probability of RNN inputs [1.0]")
 flags.DEFINE_integer("mem_num_layers", 2, "Number of memory layers [2]")
 flags.DEFINE_float("forget_bias", 2.5, "Forget bias [2.5]")
-flags.DEFINE_integer("mem_size", 50, "Memory size (from most recent) [50]")
+flags.DEFINE_integer("max_mem_size", 50, "Maximum memory size (from most recent) [50]")
 flags.DEFINE_boolean("use_ques", True, "Use question at the classification? [True]")
 
 FLAGS = flags.FLAGS
@@ -77,7 +77,7 @@ def mkdirs(config, trial_idx):
         os.mkdir(saves_dir)
 
     model_name = config.model_name
-    config_id = str(config.config).zfill(2)
+    config_id = str(config.config_id).zfill(2)
     run_id = str(config.run_id).zfill(2)
     trial_idx = str(trial_idx).zfill(2)
     task = config.task.zfill(2)
@@ -137,32 +137,33 @@ def load_meta_data(config):
     config.max_num_sents = metadata['max_num_sents']
     config.max_num_sups = metadata['max_num_sups']
     config.eos_idx = metadata['eos_idx']
+    config.mem_size = min(config.max_num_sents, config.max_mem_size)
 
 
 def main(_):
-    seqs = json.load(open("seqs.jon", 'r'))
+    seqs = json.load(open("seqs.json", 'r'))
     seq = seqs[FLAGS.seq_id]
+    print(seq)
     for config_id, num_trials in seq:
-        _main(config_id, num_trials)
+        if FLAGS.config_id == "None":
+            config = get_config(FLAGS.__flags, {})
+        else:
+            # TODO : create config file (.json)
+            config_path = os.path.join("config", "%s%s" % (FLAGS.model_name, FLAGS.config_ext))
+            config = get_config_from_file(FLAGS.__flags, config_path, config_id)
+        print("=" * 80)
+        print("Config id {}, {} trials".format(config.config_id, num_trials))
+        _main(config, num_trials)
 
 
-def _main(config_id, num_trials):
-    if FLAGS.config == "None":
-        config = get_config(FLAGS.__flags, {})
-    else:
-        # TODO : create config file (.json)
-        config_path = os.path.join("config", "%s%s" % (FLAGS.model_name, FLAGS.config_ext))
-        config = get_config_from_file(FLAGS.__flags, config_path, config_id)
-
+def _main(config, num_trials):
     load_meta_data(config)
-    if config.max_num_sents < config.mem_size:
-        config.mem_size = config.max_num_sents
 
-    # load other files
+    # Load data
     if config.train:
-        comb_train_ds = read_one_data(config, 'train', config.task)
-        comb_dev_ds = read_one_data(config, 'dev', config.task)
-    comb_test_ds = read_one_data(config, 'test', config.task)
+        comb_train_ds = read_data(config, 'train', config.task)
+        comb_dev_ds = read_data(config, 'dev', config.task)
+    comb_test_ds = read_data(config, 'test', config.task)
 
     # For quick draft initialize (deubgging).
     if config.draft:
@@ -185,9 +186,8 @@ def _main(config_id, num_trials):
     for trial_idx in range(num_trials):
         if config.train:
             print("-" * 80)
-            print("Trial {}".format(trial_idx))
+            print("Trial {}".format(trial_idx + 1))
         mkdirs(config, trial_idx)
-        trial_suffix = "-" + str(trial_idx).zfill(2)
         graph = tf.Graph()
         # TODO : initialize BaseTower-subclassed objects
         towers = [Tower(config) for _ in range(config.num_devices)]
@@ -211,7 +211,7 @@ def _main(config_id, num_trials):
 
         if config.train:
             print("-" * 80)
-            print("Num trials: {}".format(trial_idx))
+            print("Num trials: {}".format(trial_idx + 1))
             print("Min val loss: {:.4f}".format(min(val_losses)))
             print("Test acc at min val acc: {:.4f}".format(min(zip(val_losses, test_accs), key=lambda x: x[0])[1]))
 

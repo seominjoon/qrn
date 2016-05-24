@@ -54,17 +54,11 @@ class DataSet(object):
         np.random.shuffle(self.idxs)
 
 
-def read_data(params, mode):
-    tasks = map(str, range(1, 21))
-    data_sets = [read_one_data(params, mode, task) for task in tasks]
-    return data_sets
-
-def read_one_data(params, mode, task):
+def read_data(params, mode, task):
     logging.info("loading {} data for task {}... ".format(mode, task))
     mid = params.lang + ("-10k" if params.large else "")
     task_dir = os.path.join(params.data_dir, mid, task.zfill(2))
     batch_size = params.batch_size
-
 
     mode2idxs_path = os.path.join(task_dir, "mode2idxs.json")
     data_path = os.path.join(task_dir, "data.json")
@@ -73,16 +67,3 @@ def read_one_data(params, mode, task):
     idxs = mode2idxs_dict[mode]
     data_set = DataSet(mode, batch_size, data, idxs)
     return data_set
-
-
-
-def main():
-    config = Config()
-    config.data_dir = "data/babi-tasks"
-    config.task = "1"
-    config.batch_size = 100
-    data_set = read_data(config, 'dev')
-    print(data_set.get_num_batches(True))
-
-if __name__ == "__main__":
-    main()
