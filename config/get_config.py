@@ -3,7 +3,7 @@ import os
 from collections import OrderedDict
 from copy import deepcopy
 
-from configs.tsv2json import tsv2dict
+from config.tsv2json import tsv2dict
 
 
 class Config(object):

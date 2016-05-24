@@ -7,7 +7,7 @@ import tensorflow as tf
 
 from base_model import BaseRunner
 from baseline.model import Tower
-from configs.get_config import get_config_from_file, get_config
+from config.get_config import get_config_from_file, get_config
 from read_data import read_data
 
 flags = tf.app.flags
@@ -37,7 +37,7 @@ flags.DEFINE_string("device_type", 'cpu', "cpu | gpu [cpu]")
 flags.DEFINE_integer("num_devices", 1, "Number of devices to use. Only for multi-GPU. [1]")
 flags.DEFINE_integer("val_period", 5, "Validation period (for display purpose only) [5]")
 flags.DEFINE_integer("save_period", 10, "Save period [10]")
-flags.DEFINE_string("config", 'None', "Config name (e.g. local) to load. 'None' to use configs here. [None]")
+flags.DEFINE_string("config", 'None', "Config name (e.g. local) to load. 'None' to use config here. [None]")
 flags.DEFINE_string("config_ext", ".json", "Config file extension: .json | .tsv [.json]")
 
 # Debugging
@@ -121,8 +121,8 @@ def main(_):
     if FLAGS.config == "None":
         config = get_config(FLAGS.__flags, {})
     else:
-        # TODO : create configs file (.json)
-        config_path = os.path.join("configs", "%s%s" % (FLAGS.model_name, FLAGS.config_ext))
+        # TODO : create config file (.json)
+        config_path = os.path.join("config", "%s%s" % (FLAGS.model_name, FLAGS.config_ext))
         config = get_config_from_file(FLAGS.__flags, config_path, FLAGS.config)
 
     load_meta_data(config)

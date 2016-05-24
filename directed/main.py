@@ -6,7 +6,7 @@ from pprint import pprint
 import tensorflow as tf
 
 from directed.model import Tower, Runner
-from configs.get_config import get_config_from_file, get_config
+from config.get_config import get_config_from_file, get_config
 from directed.read_data import read_data, read_one_data
 
 flags = tf.app.flags
@@ -28,10 +28,9 @@ flags.DEFINE_string("opt", 'adagrad', 'Optimizer: basic | adagrad | adam [basic]
 flags.DEFINE_float("wd", 0.001, "Weight decay [0.001]")
 flags.DEFINE_integer("max_grad_norm", 0, "Max grad norm. 0 for no clipping [0]")
 flags.DEFINE_float("max_val_loss", 0.0, "Max val loss [0.0]")
-flags.DEFINE_integer("max_num_trials", 50, "Max num trials [50]")
 
 # Training and testing options
-# These do not affect result performance (they affect duration though)
+# These do not directly affect result performance (they affect duration though)
 flags.DEFINE_boolean("train", True, "Train (will override without load)? Test if False [True]")
 flags.DEFINE_integer("val_num_batches", 0, "Val num batches. 0 for max possible. [0]")
 flags.DEFINE_integer("train_num_batches", 0, "Train num batches. 0 for max possible [0]")
@@ -42,9 +41,10 @@ flags.DEFINE_string("device_type", 'gpu', "cpu | gpu [gpu]")
 flags.DEFINE_integer("num_devices", 1, "Number of devices to use. Only for multi-GPU. [1]")
 flags.DEFINE_integer("val_period", 10, "Validation period (for display purpose only) [10]")
 flags.DEFINE_integer("save_period", 10, "Save period [10]")
-flags.DEFINE_string("config", 'None', "Config name (e.g. local) to load. 'None' to use configs here. [None]")
+flags.DEFINE_string("config_id", 'None', "Config name (e.g. local) to load. 'None' to use config here. [None]")
 flags.DEFINE_string("config_ext", ".json", "Config file extension: .json | .tsv [.json]")
-flags.DEFINE_integer("run_id", 0, "Run id [0]")
+flags.DEFINE_string("seq_id", "default", "Sequence id [default]")
+flags.DEFINE_string("run_id", "0", "Run id [0]")
 
 # Debugging
 flags.DEFINE_boolean("draft", False, "Draft? (quick initialize) [False]")
@@ -65,7 +65,7 @@ flags.DEFINE_boolean("use_ques", True, "Use question at the classification? [Tru
 FLAGS = flags.FLAGS
 
 
-def mkdirs(config, num_trials):
+def mkdirs(config, trial_idx):
     evals_dir = "evals"
     logs_dir = "logs"
     saves_dir = "saves"
@@ -79,12 +79,12 @@ def mkdirs(config, num_trials):
     model_name = config.model_name
     config_id = str(config.config).zfill(2)
     run_id = str(config.run_id).zfill(2)
-    num_trials = str(num_trials).zfill(2)
+    trial_idx = str(trial_idx).zfill(2)
     task = config.task.zfill(2)
     mid = config.lang
     if config.large:
         mid += "-10k"
-    subdir_name = "-".join([task, config_id, run_id, num_trials])
+    subdir_name = "-".join([task, config_id, run_id, trial_idx])
 
     eval_dir = os.path.join(evals_dir, model_name, mid)
     eval_subdir = os.path.join(eval_dir, subdir_name)
@@ -140,12 +140,19 @@ def load_meta_data(config):
 
 
 def main(_):
+    seqs = json.load(open("seqs.jon", 'r'))
+    seq = seqs[FLAGS.seq_id]
+    for config_id, num_trials in seq:
+        _main(config_id, num_trials)
+
+
+def _main(config_id, num_trials):
     if FLAGS.config == "None":
         config = get_config(FLAGS.__flags, {})
     else:
-        # TODO : create configs file (.json)
-        config_path = os.path.join("configs", "%s%s" % (FLAGS.model_name, FLAGS.config_ext))
-        config = get_config_from_file(FLAGS.__flags, config_path, FLAGS.config)
+        # TODO : create config file (.json)
+        config_path = os.path.join("config", "%s%s" % (FLAGS.model_name, FLAGS.config_ext))
+        config = get_config_from_file(FLAGS.__flags, config_path, config_id)
 
     load_meta_data(config)
     if config.max_num_sents < config.mem_size:
@@ -173,16 +180,14 @@ def main(_):
     eval_tensor_names = ['a', 's', 'of', 'ob', 'correct', 'yp']
     eval_ph_names = ['q', 'q_mask', 'x', 'x_mask', 'y']
 
-    val_loss = 9999
     val_losses = []
     test_accs = []
-    num_trials = 1
-    while val_loss > config.max_val_loss and num_trials <= config.max_num_trials:
+    for trial_idx in range(num_trials):
         if config.train:
             print("-" * 80)
-            print("Trial {}".format(num_trials))
-        mkdirs(config, num_trials)
-        trial_suffix = "-" + str(num_trials).zfill(2)
+            print("Trial {}".format(trial_idx))
+        mkdirs(config, trial_idx)
+        trial_suffix = "-" + str(trial_idx).zfill(2)
         graph = tf.Graph()
         # TODO : initialize BaseTower-subclassed objects
         towers = [Tower(config) for _ in range(config.num_devices)]
@@ -206,11 +211,9 @@ def main(_):
 
         if config.train:
             print("-" * 80)
-            print("Num trials: {}".format(num_trials))
+            print("Num trials: {}".format(trial_idx))
             print("Min val loss: {:.4f}".format(min(val_losses)))
             print("Test acc at min val acc: {:.4f}".format(min(zip(val_losses, test_accs), key=lambda x: x[0])[1]))
-
-        num_trials += 1
 
 
 if __name__ == "__main__":

@@ -4,7 +4,7 @@ import os
 
 import numpy as np
 
-from configs.get_config import Config
+from config.get_config import Config
 
 
 class DataSet(object):
