@@ -83,6 +83,7 @@ def _apply_word2idx(word2idx_dict, raw_data):
     Q = [[_word2idx(word2idx_dict, word) for word in ques] for ques in questions]
     Y = [_word2idx(word2idx_dict, word) for word in answers]
     H = [[_word2idx(word2idx_dict, word) for word in hypo] for hypo in hypos]
+    tasks = [each.zfill(2) for each in tasks]
     data = [X, Q, S, Y, H, tasks]
     return data
 
@@ -176,7 +177,7 @@ def _get_data(file_path, cur_task):
         else:
             logging.error("Line %d is invalid at %s." % (line_num + 1, file_path))
     print("Loaded %d examples from %s" % (len(paragraphs), os.path.basename(file_path)))
-    tasks = [int(cur_task)-1] * len(paragraphs)
+    tasks = [cur_task] * len(paragraphs)
 
     data = [paragraphs, questions, supports, answers, hypos, tasks]
     return data

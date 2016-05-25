@@ -183,10 +183,10 @@ def _main(config, num_trials):
 
     val_losses = []
     test_accs = []
-    for trial_idx in range(num_trials):
+    for trial_idx in range(1, num_trials+1):
         if config.train:
             print("-" * 80)
-            print("Trial {}".format(trial_idx + 1))
+            print("Trial {}".format(trial_idx))
         mkdirs(config, trial_idx)
         graph = tf.Graph()
         # TODO : initialize BaseTower-subclassed objects
@@ -211,7 +211,7 @@ def _main(config, num_trials):
 
         if config.train:
             print("-" * 80)
-            print("Num trials: {}".format(trial_idx + 1))
+            print("Num trials: {}".format(trial_idx))
             print("Min val loss: {:.4f}".format(min(val_losses)))
             print("Test acc at min val acc: {:.4f}".format(min(zip(val_losses, test_accs), key=lambda x: x[0])[1]))
 

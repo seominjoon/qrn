@@ -27,7 +27,7 @@ def get_args():
     parser.add_argument("--task", type=str, default='1')
     parser.add_argument("--data_type", type=str, default='test')
     parser.add_argument("--epoch", type=int, default=50)
-    parser.add_argument("--template_name", type=str, default="list_results.html")
+    parser.add_argument("--template_name", type=str, default="summarize_result.html")
     parser.add_argument("--num_per_page", type=int, default=1000)
     parser.add_argument("--data_dir", type=str, default="data/babi")
     parser.add_argument("--port", type=int, default=8000)
