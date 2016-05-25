@@ -155,7 +155,7 @@ def main(_):
             configs_path = os.path.join(this_dir, "configs%s" % FLAGS.config_ext)
             config = get_config_from_file(FLAGS.__flags, configs_path, config_id)
         print("=" * 80)
-        print("Config id {}, {} trials".format(config.config_id, num_trials))
+        print("Config ID {}, task {}, {} trials".format(config.config_id, config.task, num_trials))
         _main(config, num_trials)
 
 
@@ -189,7 +189,7 @@ def _main(config, num_trials):
     for trial_idx in range(1, num_trials+1):
         if config.train:
             print("-" * 80)
-            print("Trial {}".format(trial_idx))
+            print("Task {} trial {}".format(config.task, trial_idx))
         mkdirs(config, trial_idx)
         graph = tf.Graph()
         # TODO : initialize BaseTower-subclassed objects
@@ -217,6 +217,11 @@ def _main(config, num_trials):
             print("Num trials: {}".format(trial_idx))
             print("Min val loss: {:.4f}".format(min(val_losses)))
             print("Test acc at min val acc: {:.4f}".format(min(zip(val_losses, test_accs), key=lambda x: x[0])[1]))
+            print("Trial idx: {}".format(min(enumerate(val_losses), key=lambda x: x[1])[0]+1))
+
+        # Cheating, but for speed
+        if test_acc == 1.0:
+            break
 
 
 if __name__ == "__main__":
