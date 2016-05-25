@@ -147,6 +147,7 @@ def main(_):
         seqs = json.load(open(os.path.join(this_dir, "seqs.json"), 'r'))
         seq = seqs[FLAGS.seq_id]
     print(seq)
+    summaries = []
     for config_id, num_trials in seq:
         if config_id == "None":
             config = get_config(FLAGS.__flags, {})
@@ -156,7 +157,13 @@ def main(_):
             config = get_config_from_file(FLAGS.__flags, configs_path, config_id)
         print("=" * 80)
         print("Config ID {}, task {}, {} trials".format(config.config_id, config.task, num_trials))
-        _main(config, num_trials)
+        summary = _main(config, num_trials)
+        summaries.append(summary)
+
+    print("=" * 80)
+    print("SUMMARY")
+    for summary in summaries:
+        print(summary)
 
 
 def _main(config, num_trials):
@@ -183,6 +190,9 @@ def _main(config, num_trials):
     # TODO : specify eval tensor names to save in evals folder
     eval_tensor_names = ['a', 's', 'of', 'ob', 'correct', 'yp']
     eval_ph_names = ['q', 'q_mask', 'x', 'x_mask', 'y']
+
+    def get_best_trial_idx(_val_losses):
+        return min(enumerate(_val_losses), key=lambda x: x[1])[0]
 
     val_losses = []
     test_accs = []
@@ -213,15 +223,20 @@ def _main(config, num_trials):
             test_accs.append(test_acc)
 
         if config.train:
+            best_trial_idx = get_best_trial_idx(val_losses)
             print("-" * 80)
             print("Num trials: {}".format(trial_idx))
             print("Min val loss: {:.4f}".format(min(val_losses)))
-            print("Test acc at min val acc: {:.4f}".format(min(zip(val_losses, test_accs), key=lambda x: x[0])[1]))
-            print("Trial idx: {}".format(min(enumerate(val_losses), key=lambda x: x[1])[0]+1))
+            print("Test acc at min val acc: {:.2f}%".format(100 * test_accs[best_trial_idx]))
+            print("Trial idx: {}".format(best_trial_idx+1))
 
         # Cheating, but for speed
         if test_acc == 1.0:
             break
+
+    best_trial_idx = get_best_trial_idx(val_losses)
+    summary = "Task {}: {:.2f}% at trial {}".format(config.task, test_accs[best_trial_idx] * 100, best_trial_idx)
+    return summary
 
 
 if __name__ == "__main__":
