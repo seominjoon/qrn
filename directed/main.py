@@ -43,7 +43,7 @@ flags.DEFINE_integer("val_period", 10, "Validation period (for display purpose o
 flags.DEFINE_integer("save_period", 10, "Save period [10]")
 flags.DEFINE_string("config_id", 'None', "Config name (e.g. local) to load. 'None' to use config here. [None]")
 flags.DEFINE_string("config_ext", ".json", "Config file extension: .json | .tsv [.json]")
-flags.DEFINE_string("seq_id", "default", "Sequence id [default]")
+flags.DEFINE_string("seq_id", "None", "Sequence id [None]")
 flags.DEFINE_string("run_id", "0", "Run id [0]")
 
 # Debugging
@@ -54,8 +54,7 @@ flags.DEFINE_boolean("draft", False, "Draft? (quick initialize) [False]")
 flags.DEFINE_string("task", "all", "Task number. [all]")
 flags.DEFINE_bool("large", False, "Size: 1k | 10k [1k]")
 flags.DEFINE_string("lang", "en", "en | something")
-flags.DEFINE_integer("hidden_size", 20, "Hidden size. [20]")
-flags.DEFINE_integer("rnn_num_layers", 1, "RNN number of layers [1]")
+flags.DEFINE_integer("hidden_size", 30, "Hidden size. [20]")
 flags.DEFINE_float("keep_prob", 1.0, "Keep probability of RNN inputs [1.0]")
 flags.DEFINE_integer("mem_num_layers", 2, "Number of memory layers [2]")
 flags.DEFINE_float("forget_bias", 2.5, "Forget bias [2.5]")
@@ -123,7 +122,7 @@ def mkdirs(config, trial_idx):
             os.mkdir(save_subdir)
 
 
-def load_meta_data(config):
+def load_metadata(config):
     data_dir = os.path.join(config.data_dir, config.lang + ("-10k" if config.large else ""))
     metadata_path = os.path.join(data_dir, config.task.zfill(2), "metadata.json")
     metadata = json.load(open(metadata_path, "r"))
@@ -141,23 +140,27 @@ def load_meta_data(config):
 
 
 def main(_):
-    seqs = json.load(open("seqs.json", 'r'))
-    seq = seqs[FLAGS.seq_id]
+    this_dir = os.path.dirname(os.path.realpath(__file__))
+    if FLAGS.seq_id == 'None':
+        seq = [[FLAGS.config_id, 1]]
+    else:
+        seqs = json.load(open(os.path.join(this_dir, "seqs.json"), 'r'))
+        seq = seqs[FLAGS.seq_id]
     print(seq)
     for config_id, num_trials in seq:
-        if FLAGS.config_id == "None":
+        if config_id == "None":
             config = get_config(FLAGS.__flags, {})
         else:
             # TODO : create config file (.json)
-            config_path = os.path.join("config", "%s%s" % (FLAGS.model_name, FLAGS.config_ext))
-            config = get_config_from_file(FLAGS.__flags, config_path, config_id)
+            configs_path = os.path.join(this_dir, "configs%s" % FLAGS.config_ext)
+            config = get_config_from_file(FLAGS.__flags, configs_path, config_id)
         print("=" * 80)
         print("Config id {}, {} trials".format(config.config_id, num_trials))
         _main(config, num_trials)
 
 
 def _main(config, num_trials):
-    load_meta_data(config)
+    load_metadata(config)
 
     # Load data
     if config.train:
