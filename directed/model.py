@@ -1,14 +1,11 @@
 import tensorflow as tf
-# from tensorflow.python.ops.rnn import dynamic_rnn
-from tensorflow.python.ops.rnn_cell import MultiRNNCell
 
 from directed.base_model import BaseTower, BaseRunner
-from my.tensorflow import flatten, exp_mask, translate
-from my.tensorflow.nn import linear, relu1, dists
+from my.tensorflow.nn import linear
 from my.tensorflow.rnn import dynamic_rnn, dynamic_bidirectional_rnn
 import numpy as np
 
-from my.tensorflow.rnn_cell import RSMCell, GRUCell, TempCell, BiDropoutWrapper, DropoutWrapper, PassingCell, XGRUCell
+from my.tensorflow.rnn_cell import RSMCell
 
 
 class Embedder(object):
