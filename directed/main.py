@@ -59,7 +59,7 @@ flags.DEFINE_float("keep_prob", 1.0, "Keep probability of RNN inputs [1.0]")
 flags.DEFINE_integer("mem_num_layers", 2, "Number of memory layers [2]")
 flags.DEFINE_float("forget_bias", 2.5, "Forget bias [2.5]")
 flags.DEFINE_integer("max_mem_size", 50, "Maximum memory size (from most recent) [50]")
-flags.DEFINE_boolean("use_ques", True, "Use question at the classification? [True]")
+flags.DEFINE_boolean("use_ques", False, "Use question at the classification? [False]")
 
 FLAGS = flags.FLAGS
 
