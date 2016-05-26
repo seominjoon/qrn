@@ -2,10 +2,7 @@ import tensorflow as tf
 
 from parallel.base_model import BaseTower, BaseRunner
 from my.tensorflow.nn import linear
-from my.tensorflow.rnn import dynamic_rnn, dynamic_bidirectional_rnn
 import numpy as np
-
-from my.tensorflow.rnn_cell import RSMCell
 
 
 class Embedder(object):
@@ -147,9 +144,9 @@ class Tower(BaseTower):
             as_, rfs, rbs = [], [], []
             for layer_idx in range(L):
                 with tf.name_scope("layer_{}".format(layer_idx)):
-                    u_t = tf.tanh(linear([prev_u, m], d, True, scope='u_t'))
+                    u_t = tf.tanh(linear([prev_u, m], d, True, wd=wd, scope='u_t'))
                     a, rf, rb = tf.split(2, 3, tf.cast(gate_mask, 'float') *
-                        tf.sigmoid(linear([prev_u * m], 3, True, initializer=initializer, scope='gate')))
+                        tf.sigmoid(linear([prev_u * m], 3, True, initializer=initializer, wd=wd, scope='gate')))
                     tf.get_variable_scope().reuse_variables()
                     u_t_rev = tf.reverse_sequence(u_t, m_length, 1)
                     a_rev, rb_rev = tf.reverse_sequence(a, m_length, 1), tf.reverse_sequence(rb, m_length, 1)
