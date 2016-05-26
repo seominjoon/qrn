@@ -75,10 +75,10 @@ class RegressionLayer(object):
         self.mem_size = mem_size
         self.batch_size = batch_size
         N, M, d = batch_size, mem_size, hidden_size
-        self.L = np.tril(np.ones([M, M]))
-        self.sL = np.tril(np.ones([M, M]), k=-1)
+        self.L = np.tril(np.ones([M, M], dtype='float32'))
+        self.sL = np.tril(np.ones([M, M], dtype='float32'), k=-1)
 
-    def __call__(self, u_t, a, b, mask, scope=None):
+    def __call__(self, u_t, a, b, scope=None):
         """
 
         :param u_t: [N, M, d]
@@ -90,17 +90,14 @@ class RegressionLayer(object):
         N, M, d = self.batch_size, self.mem_size, self.hidden_size
         L, sL = self.L, self.sL
         with tf.name_scope(scope or self.__class__.__name__):
-            L = tf.tile(tf.expand_dims(L, 0), [N, 1])
-            sL = tf.tile(tf.expand_dims(sL, 0), [N, 1])
-            A = tf.tile(a, [1, 1, d])  # [N, M, d]
-            B = tf.tile(b, [1, 1, M])  # [N, M, M]
+            L = tf.tile(tf.expand_dims(L, 0), [N, 1, 1])
+            sL = tf.tile(tf.expand_dims(sL, 0), [N, 1, 1])
+            logb = tf.log(b + 1e-9)
+            B = tf.tile(logb, [1, 1, M])  # [N, M, M]
             B = tf.concat(2, [tf.zeros([N, M, 1]), tf.slice(B, [0, 0, 1], [-1, -1, -1])])
-            B = tf.log(B + 1e-9)
             left = L * tf.exp(tf.batch_matmul(L, B * sL))  # [N, M, M]
-            right = A * u_t  # [N, M, d]
+            right = a * u_t  # [N, M, d]
             u = tf.batch_matmul(left, right)  # [N, M, d]
-            mask_aug = tf.tile(tf.expand_dims(mask, -1), d)
-            u = tf.boolean_mask(u, mask_aug)
         return u
 
 
@@ -142,45 +139,44 @@ class Tower(BaseTower):
 
         with tf.variable_scope("networks"):
             m_mask = tf.reduce_max(tf.cast(x_mask, 'int64'), 2, name='m_mask')  # [N, M]
+            gate_mask = tf.expand_dims(m_mask, -1)
             m_length = tf.reduce_sum(m_mask, 1, name='m_length')  # [N]
-            initializer = tf.random_uniform_initializer(-np.sqrt(3), np.sqrt(3))
             prev_u = tf.tile(tf.expand_dims(u, 1), [1, M, 1])  # [N, M, d]
             reg_layer = RegressionLayer(N, M, d)
             h = None  # [N, M, d]
             as_, rfs, rbs = [], [], []
             for layer_idx in range(L):
-                with tf.name_scope("Layer {}".format(layer_idx)):
-                    u_t = tf.tanh(linear([prev_u, m], d, True))
-                    a, rf, rb = tf.split(2, 3, tf.sigmoid(linear([prev_u * m], 3, True)))
+                with tf.name_scope("layer_{}".format(layer_idx)):
+                    u_t = tf.tanh(linear([prev_u, m], d, True, scope='u_t'))
+                    a, rf, rb = tf.split(2, 3, tf.cast(gate_mask, 'float') *
+                        tf.sigmoid(linear([prev_u * m], 3, True, initializer=initializer, scope='gate')))
                     tf.get_variable_scope().reuse_variables()
                     u_t_rev = tf.reverse_sequence(u_t, m_length, 1)
                     a_rev, rb_rev = tf.reverse_sequence(a, m_length, 1), tf.reverse_sequence(rb, m_length, 1)
-                    uf = reg_layer(u_t, a*rf, 1.0-a, m_mask)
-                    h = reg_layer(u_t, a, 1.0-a, m_mask)
-                    ub_rev = reg_layer(u_t_rev, a_rev*rb_rev, 1.0-a_rev, m_mask)
+                    uf = reg_layer(u_t, a*rf, 1.0-a, scope='uf')
+                    h = reg_layer(u_t, a, 1.0-a, scope='h')
+                    ub_rev = reg_layer(u_t_rev, a_rev*rb_rev, 1.0-a_rev, scope='ub_rev')
                     ub = tf.reverse_sequence(ub_rev, m_length, 1)
                     prev_u = uf + ub
+                    as_.append(a)
+                    rfs.append(rf)
+                    rbs.append(rb)
 
-            # TODO : obtain last h?
-            a = tf.pack(as_, name='a')
-            rf = tf.pack(rfs, name='rf')
-            rb = tf.pack(rbs, name='rb')
+            h_last = tf.squeeze(tf.slice(h, [0, M-1, 0], [-1, -1, -1]), [1])  # [N, d]
+            a = tf.transpose(tf.pack(as_, name='a'), [1, 0, 2, 3])
+            rf = tf.transpose(tf.pack(rfs, name='rf'), [1, 0, 2, 3])
+            rb = tf.transpose(tf.pack(rbs, name='rb'), [1, 0, 2, 3])
             tensors['a'] = a
             tensors['rf'] = rf
             tensors['rb'] = rb
 
-        with tf.variable_scope("selection"):
-            # w = tf.nn.relu(linear([fw_v + 1e-9*(fw_h+bw_h)], d, True, wd=wd))
-            w = fw_v + 1e-9*(fw_h + bw_h)
-            tensors['s'] = a
-
         with tf.variable_scope("class"):
             if params.use_ques:
-                logits = linear([w, u], V, True, wd=wd)
+                logits = linear([h_last, u], V, True, wd=wd)
             else:
                 # W = tf.transpose(A.emb_mat, name='W')
                 W = tf.get_variable('W', shape=[d, V])
-                logits = tf.matmul(w, W, name='logits')
+                logits = tf.matmul(h_last, W, name='logits')
             yp = tf.cast(tf.argmax(logits, 1), 'int32')
             correct = tf.equal(yp, y)
             tensors['yp'] = yp
