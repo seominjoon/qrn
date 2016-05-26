@@ -106,7 +106,7 @@ class Tower(BaseTower):
         N, J, V, Q, M = params.batch_size, params.max_sent_size, params.vocab_size, params.max_ques_size, params.mem_size
         d = params.hidden_size
         L = params.mem_num_layers
-        forget_bias = params.forget_bias
+        att_forget_bias = params.att_forget_bias
         wd = params.wd
         initializer = tf.random_uniform_initializer(-np.sqrt(3), np.sqrt(3))
         with tf.name_scope("placeholders"):
@@ -144,7 +144,7 @@ class Tower(BaseTower):
             for layer_idx in range(L):
                 with tf.name_scope("layer_{}".format(layer_idx)):
                     u_t = tf.tanh(linear([prev_u, m], d, True, wd=wd, scope='u_t'))
-                    a = tf.cast(gate_mask, 'float') * tf.sigmoid(linear([prev_u * m], 1, True, initializer=initializer, wd=wd, scope='a') - forget_bias)
+                    a = tf.cast(gate_mask, 'float') * tf.sigmoid(linear([prev_u * m], 1, True, initializer=initializer, wd=wd, scope='a') - att_forget_bias)
                     rf, rb = tf.split(2, 2, tf.cast(gate_mask, 'float') *
                                       tf.sigmoid(linear([prev_u * m], 2, True, initializer=initializer, wd=wd, scope='r')))
                     tf.get_variable_scope().reuse_variables()
@@ -168,12 +168,15 @@ class Tower(BaseTower):
             tensors['rb'] = rb
 
         with tf.variable_scope("class"):
-            if params.use_ques:
-                logits = linear([h_last, u], V, True, wd=wd)
-            else:
+            class_mode = params.class_mode
+            has_class_bias = params.has_class_bias
+            if class_mode == 'h':
                 # W = tf.transpose(A.emb_mat, name='W')
-                W = tf.get_variable('W', shape=[d, V])
-                logits = tf.matmul(h_last, W, name='logits')
+                logits = linear([h_last], V, has_class_bias, wd=wd)
+            elif class_mode == 'uh':
+                logits = linear([h_last, u], V, has_class_bias, wd=wd)
+            else:
+                raise Exception("Invalid class mode: {}".format(class_mode))
             yp = tf.cast(tf.argmax(logits, 1), 'int32')
             correct = tf.equal(yp, y)
             tensors['yp'] = yp

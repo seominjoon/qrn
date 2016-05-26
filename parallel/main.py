@@ -57,9 +57,10 @@ flags.DEFINE_string("lang", "en", "en | something")
 flags.DEFINE_integer("hidden_size", 30, "Hidden size. [20]")
 flags.DEFINE_float("keep_prob", 1.0, "Keep probability of RNN inputs [1.0]")
 flags.DEFINE_integer("mem_num_layers", 2, "Number of memory layers [2]")
-flags.DEFINE_float("forget_bias", 2.5, "Forget bias [2.5]")
+flags.DEFINE_float("att_forget_bias", 2.5, "Attention gate forget bias [2.5]")
 flags.DEFINE_integer("max_mem_size", 50, "Maximum memory size (from most recent) [50]")
-flags.DEFINE_boolean("use_ques", False, "Use question at the classification? [False]")
+flags.DEFINE_string("class_mode", "h", "classification mode: h | uh [h]")
+flags.DEFINE_boolean("has_class_bias", True, "Has bias at final classification linear trans? [True]")
 
 FLAGS = flags.FLAGS
 
@@ -155,10 +156,17 @@ def main(_):
             # TODO : create config file (.json)
             configs_path = os.path.join(this_dir, "configs%s" % FLAGS.config_ext)
             config = get_config_from_file(FLAGS.__flags, configs_path, config_id)
-        print("=" * 80)
-        print("Config ID {}, task {}, {} trials".format(config.config_id, config.task, num_trials))
-        summary = _main(config, num_trials)
-        summaries.append(summary)
+        if config.task == "all":
+            tasks = list(map(str, range(1, 21)))
+        else:
+            tasks = [config.task]
+        for task in tasks:
+            # FIXME : this is bad way of setting task each time
+            config.task = task
+            print("=" * 80)
+            print("Config ID {}, task {}, {} trials".format(config.config_id, config.task, num_trials))
+            summary = _main(config, num_trials)
+            summaries.append(summary)
 
     print("=" * 80)
     print("SUMMARY")
