@@ -1,0 +1,63 @@
+{
+  "gpu": {
+    "device_type": "gpu",
+    "num_devices": 4
+  },
+  "local": {
+    "anneal_period": 10,
+    "anneal_ratio": 0.7,
+    "batch_size": 10,
+    "data_dir": "data/mydata",
+    "device_type": null,
+    "fold_path": "data/mydata/folds/fold00.json",
+    "init_lr": 0.01,
+    "init_mean": 0,
+    "init_std": 0.1,
+    "num_devices": null,
+    "num_epochs": 2,
+    "opt": "basic",
+    "save_period": 1,
+    "val_num_batches": null,
+    "val_period": 1
+  },
+  "0": {
+    "batch_size": 64,
+    "hidden_size": 60,
+    "num_epochs": 50
+  },
+  "1": {
+    "batch_size": 128,
+    "hidden_size": 60,
+    "num_epochs": 50
+  },
+  "2": {
+    "batch_size": 64,
+    "hidden_size": 100,
+    "num_epochs": 50
+  },
+  "3": {
+    "batch_size": 128,
+    "hidden_size": 100,
+    "num_epochs": 50
+  },
+  "T01": {"task": "1"},
+  "T02": {"task": "2"},
+  "T03": {"task": "3"},
+  "T04": {"task": "4"},
+  "T05": {"task": "5"},
+  "T06": {"task": "6"},
+  "T07": {"task": "7"},
+  "T08": {"task": "8"},
+  "T09": {"task": "9"},
+  "T10": {"task": "10"},
+  "T11": {"task": "11"},
+  "T12": {"task": "12"},
+  "T13": {"task": "13"},
+  "T14": {"task": "14"},
+  "T15": {"task": "15"},
+  "T16": {"task": "16"},
+  "T17": {"task": "17"},
+  "T18": {"task": "18"},
+  "T19": {"task": "19"},
+  "T20": {"task": "20"}
+}
