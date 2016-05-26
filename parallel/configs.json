@@ -21,43 +21,19 @@
     "val_period": 1
   },
   "0": {
-    "class_mode": "h",
-    "has_class_bias": true,
-    "att_forget_bias": 2.5
+    "hidden_size": 20,
+    "num_epochs": 150
   },
   "1": {
-    "class_mode": "h",
-    "has_class_bias": true,
-    "att_forget_bias": 0.0
+    "hidden_size": 30,
+    "num_epochs": 150
   },
   "2": {
-    "class_mode": "h",
-    "has_class_bias": false,
-    "att_forget_bias": 2.5
+    "hidden_size": 20,
+    "num_epochs": 100
   },
   "3": {
-    "class_mode": "h",
-    "has_class_bias": false,
-    "att_forget_bias": 0.0
-  },
-  "4": {
-    "class_mode": "uh",
-    "has_class_bias": true,
-    "att_forget_bias": 2.5
-  },
-  "5": {
-    "class_mode": "uh",
-    "has_class_bias": true,
-    "att_forget_bias": 0.0
-  },
-  "6": {
-    "class_mode": "uh",
-    "has_class_bias": false,
-    "att_forget_bias": 2.5
-  },
-  "7": {
-    "class_mode": "uh",
-    "has_class_bias": false,
-    "att_forget_bias": 0.0
+    "hidden_size": 30,
+    "num_epochs": 100
   }
 }
