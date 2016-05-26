@@ -90,9 +90,8 @@ class RegressionLayer(object):
             L = tf.tile(tf.expand_dims(L, 0), [N, 1, 1])
             sL = tf.tile(tf.expand_dims(sL, 0), [N, 1, 1])
             logb = tf.log(b + 1e-9)
-            B = tf.tile(logb, [1, 1, M])  # [N, M, M]
-            B = tf.concat(2, [tf.zeros([N, M, 1]), tf.slice(B, [0, 0, 1], [-1, -1, -1])])
-            left = L * tf.exp(tf.batch_matmul(L, B * sL))  # [N, M, M]
+            logb = tf.concat(1, [tf.zeros([N, 1, 1]), tf.slice(logb, [0, 1, 0], [-1, -1, -1])])
+            left = L * tf.exp(tf.batch_matmul(L, logb * sL))  # [N, M, M]
             right = a * u_t  # [N, M, d]
             u = tf.batch_matmul(left, right)  # [N, M, d]
         return u
