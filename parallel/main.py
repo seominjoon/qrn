@@ -12,7 +12,7 @@ from parallel.read_data import read_data
 flags = tf.app.flags
 
 # File directories
-flags.DEFINE_string("model_name", "directed", "Model name. This will be used for save, log, and eval names. [directed]")
+flags.DEFINE_string("model_name", "parallel", "Model name. This will be used for save, log, and eval names. [parallel]")
 flags.DEFINE_string("data_dir", "data/babi", "Data directory [data/babi]")
 
 # Training parameters
