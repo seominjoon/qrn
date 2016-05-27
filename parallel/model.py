@@ -146,20 +146,24 @@ class Tower(BaseTower):
                 with tf.name_scope("layer_{}".format(layer_idx)):
                     u_t = tf.tanh(linear([prev_u, m], d, True, wd=wd, scope='u_t'))
                     a = tf.cast(gate_mask, 'float') * tf.sigmoid(linear([prev_u * m], 1, True, initializer=initializer, wd=wd, scope='a') - att_forget_bias)
-                    rf, rb = tf.split(2, 2, tf.cast(gate_mask, 'float') *
-                                      tf.sigmoid(linear([prev_u * m], 2, True, initializer=initializer, wd=wd, scope='r')))
-                    tf.get_variable_scope().reuse_variables()
-                    u_t_rev = tf.reverse_sequence(u_t, m_length, 1)
-                    a_rev, rb_rev = tf.reverse_sequence(a, m_length, 1), tf.reverse_sequence(rb, m_length, 1)
-                    uf = reg_layer(u_t, a*rf, 1.0-a, scope='uf')
                     h = reg_layer(u_t, a, 1.0-a, scope='h')
-                    ub_rev = reg_layer(u_t_rev, a_rev*rb_rev, 1.0-a_rev, scope='ub_rev')
-                    ub = tf.reverse_sequence(ub_rev, m_length, 1)
-                    prev_u = uf + ub
-                    as_.append(a)
+                    if layer_idx + 1 < L:
+                        rf, rb = tf.split(2, 2, tf.cast(gate_mask, 'float') *
+                            tf.sigmoid(linear([prev_u * m], 2, True, initializer=initializer, wd=wd, scope='r')))
+                        u_t_rev = tf.reverse_sequence(u_t, m_length, 1)
+                        a_rev, rb_rev = tf.reverse_sequence(a, m_length, 1), tf.reverse_sequence(rb, m_length, 1)
+                        uf = reg_layer(u_t, a*rf, 1.0-a, scope='uf')
+                        ub_rev = reg_layer(u_t_rev, a_rev*rb_rev, 1.0-a_rev, scope='ub_rev')
+                        ub = tf.reverse_sequence(ub_rev, m_length, 1)
+                        prev_u = uf + ub
+                    else:
+                        rf = tf.zeros(a.get_shape().as_list())
+                        rb = tf.zeros(a.get_shape().as_list())
                     rfs.append(rf)
                     rbs.append(rb)
+                    as_.append(a)
                     hs.append(h)
+                    tf.get_variable_scope().reuse_variables()
 
             h_last = tf.squeeze(tf.slice(h, [0, M-1, 0], [-1, -1, -1]), [1])  # [N, d]
             hs_last = [tf.squeeze(tf.slice(each, [0, M-1, 0], [-1, -1, -1]), [1]) for each in hs]
