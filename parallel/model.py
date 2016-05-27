@@ -141,6 +141,7 @@ class Tower(BaseTower):
             reg_layer = RegressionLayer(N, M, d)
             h = None  # [N, M, d]
             as_, rfs, rbs = [], [], []
+            hs = []
             for layer_idx in range(L):
                 with tf.name_scope("layer_{}".format(layer_idx)):
                     u_t = tf.tanh(linear([prev_u, m], d, True, wd=wd, scope='u_t'))
@@ -158,8 +159,10 @@ class Tower(BaseTower):
                     as_.append(a)
                     rfs.append(rf)
                     rbs.append(rb)
+                    hs.append(h)
 
             h_last = tf.squeeze(tf.slice(h, [0, M-1, 0], [-1, -1, -1]), [1])  # [N, d]
+            hs_last = [tf.squeeze(tf.slice(each, [0, M-1, 0], [-1, -1, -1]), [1]) for each in hs]
             a = tf.transpose(tf.pack(as_, name='a'), [1, 0, 2, 3])
             rf = tf.transpose(tf.pack(rfs, name='rf'), [1, 0, 2, 3])
             rb = tf.transpose(tf.pack(rbs, name='rb'), [1, 0, 2, 3])
@@ -175,6 +178,10 @@ class Tower(BaseTower):
                 logits = linear([h_last], V, has_class_bias, wd=wd)
             elif class_mode == 'uh':
                 logits = linear([h_last, u], V, has_class_bias, wd=wd)
+            elif class_mode == 'hs':
+                logits = linear(hs_last, V, has_class_bias, wd=wd)
+            elif class_mode == 'hss':
+                logits = linear(sum(hs_last), V, has_class_bias, wd=wd)
             else:
                 raise Exception("Invalid class mode: {}".format(class_mode))
             yp = tf.cast(tf.argmax(logits, 1), 'int32')
