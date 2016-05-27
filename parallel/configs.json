@@ -21,31 +21,15 @@
     "val_period": 1
   },
   "0": {
-    "task": "17"
+    "mem_num_layers": 1
   },
   "1": {
-    "hidden_size": 40
+    "use_reset": false
   },
   "2": {
-    "hidden_size": 50
+    "mem_num_layers": 3
   },
   "3": {
-    "hidden_size": 60
-  },
-  "4": {
-    "hidden_size": 30,
-    "wd": 0.005
-  },
-  "5": {
-    "hidden_size": 40,
-    "wd": 0.005
-  },
-  "6": {
-    "hidden_size": 50,
-    "wd": 0.005
-  },
-  "7": {
-    "hidden_size": 60,
-    "wd": 0.005
+    "mem_num_layers": 6
   }
 }
