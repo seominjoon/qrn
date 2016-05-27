@@ -21,7 +21,7 @@
     "val_period": 1
   },
   "0": {
-    "hidden_size": 30
+    "task": "17"
   },
   "1": {
     "hidden_size": 40
