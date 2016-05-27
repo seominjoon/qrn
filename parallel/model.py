@@ -148,8 +148,11 @@ class Tower(BaseTower):
                     a = tf.cast(gate_mask, 'float') * tf.sigmoid(linear([prev_u * m], 1, True, initializer=initializer, wd=wd, scope='a') - att_forget_bias)
                     h = reg_layer(u_t, a, 1.0-a, scope='h')
                     if layer_idx + 1 < L:
-                        rf, rb = tf.split(2, 2, tf.cast(gate_mask, 'float') *
-                            tf.sigmoid(linear([prev_u * m], 2, True, initializer=initializer, wd=wd, scope='r')))
+                        if params.use_reset:
+                            rf, rb = tf.split(2, 2, tf.cast(gate_mask, 'float') *
+                                tf.sigmoid(linear([prev_u * m], 2, True, initializer=initializer, wd=wd, scope='r')))
+                        else:
+                            rf = rb = tf.ones(a.get_shape().as_list())
                         u_t_rev = tf.reverse_sequence(u_t, m_length, 1)
                         a_rev, rb_rev = tf.reverse_sequence(a, m_length, 1), tf.reverse_sequence(rb, m_length, 1)
                         uf = reg_layer(u_t, a*rf, 1.0-a, scope='uf')
@@ -157,8 +160,7 @@ class Tower(BaseTower):
                         ub = tf.reverse_sequence(ub_rev, m_length, 1)
                         prev_u = uf + ub
                     else:
-                        rf = tf.zeros(a.get_shape().as_list())
-                        rb = tf.zeros(a.get_shape().as_list())
+                        rf = rb = tf.zeros(a.get_shape().as_list())
                     rfs.append(rf)
                     rbs.append(rb)
                     as_.append(a)
@@ -176,16 +178,16 @@ class Tower(BaseTower):
 
         with tf.variable_scope("class"):
             class_mode = params.class_mode
-            has_class_bias = params.has_class_bias
+            use_class_bias = params.use_class_bias
             if class_mode == 'h':
                 # W = tf.transpose(A.emb_mat, name='W')
-                logits = linear([h_last], V, has_class_bias, wd=wd)
+                logits = linear([h_last], V, use_class_bias, wd=wd)
             elif class_mode == 'uh':
-                logits = linear([h_last, u], V, has_class_bias, wd=wd)
+                logits = linear([h_last, u], V, use_class_bias, wd=wd)
             elif class_mode == 'hs':
-                logits = linear(hs_last, V, has_class_bias, wd=wd)
+                logits = linear(hs_last, V, use_class_bias, wd=wd)
             elif class_mode == 'hss':
-                logits = linear(sum(hs_last), V, has_class_bias, wd=wd)
+                logits = linear(sum(hs_last), V, use_class_bias, wd=wd)
             else:
                 raise Exception("Invalid class mode: {}".format(class_mode))
             yp = tf.cast(tf.argmax(logits, 1), 'int32')
