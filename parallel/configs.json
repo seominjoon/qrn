@@ -21,19 +21,31 @@
     "val_period": 1
   },
   "0": {
-    "hidden_size": 20,
-    "num_epochs": 150
+    "hidden_size": 30
   },
   "1": {
-    "hidden_size": 30,
-    "num_epochs": 150
+    "hidden_size": 40
   },
   "2": {
-    "hidden_size": 20,
-    "num_epochs": 100
+    "hidden_size": 50
   },
   "3": {
+    "hidden_size": 60
+  },
+  "4": {
     "hidden_size": 30,
-    "num_epochs": 100
+    "batch_size": 60
+  },
+  "5": {
+    "hidden_size": 40,
+    "batch_size": 60
+  },
+  "6": {
+    "hidden_size": 50,
+    "batch_size": 60
+  },
+  "7": {
+    "hidden_size": 60,
+    "batch_size": 60
   }
 }
