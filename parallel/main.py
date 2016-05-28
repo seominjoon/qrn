@@ -52,7 +52,7 @@ flags.DEFINE_boolean("draft", False, "Draft? (quick initialize) [False]")
 # App-specific options
 # TODO : Any other options
 flags.DEFINE_string("task", "all", "Task number. [all]")
-flags.DEFINE_bool("large", False, "Size: 1k | 10k [1k]")
+flags.DEFINE_bool("large", False, "1k (False) | 10k (True) [False]")
 flags.DEFINE_string("lang", "en", "en | something")
 flags.DEFINE_integer("hidden_size", 50, "Hidden size. [20]")
 flags.DEFINE_float("keep_prob", 1.0, "Keep probability of RNN inputs [1.0]")
