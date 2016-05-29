@@ -42,8 +42,8 @@ class PositionEncoder(object):
             length = tf.reduce_sum(tf.cast(mask, 'float'), length_dim_index)
             length = tf.maximum(length, 1.0)  # masked sentences will have length 0
             length_aug = tf.expand_dims(tf.expand_dims(length, -1), -1)
-            l = self.b + self.w/length_aug
-            # l = self.b + self.w/self.max_sent_size
+            # l = self.b + self.w/length_aug
+            l = self.b + self.w/self.max_sent_size
             mask_aug = tf.expand_dims(mask, -1)
             f = tf.reduce_sum(Ax * l * tf.cast(mask_aug, 'float'), length_dim_index, name='f')  # [N, S, d]
 
