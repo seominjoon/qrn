@@ -23,35 +23,35 @@
   "0": {
     "large": true,
     "hidden_size": 50,
-    "batch_size": 64
+    "batch_size": 128
   },
   "1": {
     "large": true,
     "hidden_size": 100,
-    "batch_size": 64
+    "batch_size": 128
   },
   "2": {
     "large": true,
     "hidden_size": 50,
-    "batch_size": 64,
+    "batch_size": 128,
     "mem_num_layers": 3
   },
   "3": {
     "large": true,
     "hidden_size": 100,
-    "batch_size": 64,
+    "batch_size": 128,
     "mem_num_layers": 3
   },
   "4": {
     "large": true,
     "hidden_size": 50,
-    "batch_size": 64,
+    "batch_size": 128,
     "mem_num_layers": 6
   },
   "5": {
     "large": true,
     "hidden_size": 100,
-    "batch_size": 64,
+    "batch_size": 128,
     "mem_num_layers": 6
   }
 }
