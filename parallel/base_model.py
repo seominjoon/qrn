@@ -26,6 +26,7 @@ class BaseRunner(object):
         self.writer = None
         self.initialized = False
         self.train_ops = {}
+        self.write_log = params.write_log
 
     def initialize(self):
         params = self.params
@@ -108,7 +109,8 @@ class BaseRunner(object):
 
         init_op = tf.initialize_all_variables()
         sess.run(init_op)
-        self.writer = tf.train.SummaryWriter(params.log_dir, sess.graph)
+        if self.write_log:
+            self.writer = tf.train.SummaryWriter(params.log_dir, sess.graph)
         self.initialized = True
 
     def _get_feed_dict(self, batches, mode, **kwargs):
@@ -174,7 +176,8 @@ class BaseRunner(object):
             for iter_idx in range(num_iters_per_epoch):
                 batches = [train_data_set.get_next_labeled_batch() for _ in range(self.num_towers)]
                 _, summary, global_step = self._train_batches(batches, **train_args)
-                writer.add_summary(summary, global_step)
+                if self.write_log:
+                    writer.add_summary(summary, global_step)
                 if progress:
                     pbar.update(iter_idx)
             if progress:

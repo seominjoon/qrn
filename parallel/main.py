@@ -45,6 +45,8 @@ flags.DEFINE_string("config_id", 'None', "Config name (e.g. local) to load. 'Non
 flags.DEFINE_string("config_ext", ".json", "Config file extension: .json | .tsv [.json]")
 flags.DEFINE_string("seq_id", "None", "Sequence id [None]")
 flags.DEFINE_string("run_id", "0", "Run id [0]")
+flags.DEFINE_boolean("write_log", False, "Write log? [False]")
+# TODO : don't erase log folder if not write log
 
 # Debugging
 flags.DEFINE_boolean("draft", False, "Draft? (quick initialize) [False]")
