@@ -222,7 +222,7 @@ def _main(config, num_trials):
                 if config.load:
                     runner.load()
                 val_loss, val_acc = runner.train(comb_train_ds, config.num_epochs, val_data_set=comb_dev_ds,
-                                                 eval_tensor_names=eval_tensor_names, num_batches=config.train_num_batches,
+                                                 num_batches=config.train_num_batches,
                                                  val_num_batches=config.val_num_batches, eval_ph_names=eval_ph_names)
                 val_losses.append(val_loss)
             else:

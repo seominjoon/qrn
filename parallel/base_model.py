@@ -241,12 +241,13 @@ class BaseRunner(object):
               (data_set.name, epoch, 100 * acc, num_corrects, total, loss))
 
         # For outputting eval json files
-        ids = [data_set.idx2id[idx] for idx in idxs]
-        zipped_eval_values = [list(itertools.chain(*each)) for each in zip(*eval_values)]
-        values = {name: values for name, values in zip(eval_tensor_names, zipped_eval_values)}
-        out = {'ids': ids, 'values': values}
-        eval_path = os.path.join(params.eval_dir, "%s_%s.json" % (data_set.name, str(epoch).zfill(4)))
-        json.dump(out, open(eval_path, 'w'))
+        if len(eval_tensor_names) > 0:
+            ids = [data_set.idx2id[idx] for idx in idxs]
+            zipped_eval_values = [list(itertools.chain(*each)) for each in zip(*eval_values)]
+            values = {name: values for name, values in zip(eval_tensor_names, zipped_eval_values)}
+            out = {'ids': ids, 'values': values}
+            eval_path = os.path.join(params.eval_dir, "%s_%s.json" % (data_set.name, str(epoch).zfill(4)))
+            json.dump(out, open(eval_path, 'w'))
         return loss, acc
 
     def _get_train_op(self, **kwargs):
