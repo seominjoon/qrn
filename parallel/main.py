@@ -43,6 +43,7 @@ flags.DEFINE_integer("val_period", 10, "Validation period (for display purpose o
 flags.DEFINE_integer("save_period", 10, "Save period [10]")
 flags.DEFINE_string("config_id", 'None', "Config name (e.g. local) to load. 'None' to use config here. [None]")
 flags.DEFINE_string("config_ext", ".json", "Config file extension: .json | .tsv [.json]")
+flags.DEFINE_integer("num_trials", 1, "Number of trials [1]")
 flags.DEFINE_string("seq_id", "None", "Sequence id [None]")
 flags.DEFINE_string("run_id", "0", "Run id [0]")
 flags.DEFINE_boolean("write_log", False, "Write log? [False]")
@@ -146,7 +147,7 @@ def load_metadata(config):
 def main(_):
     this_dir = os.path.dirname(os.path.realpath(__file__))
     if FLAGS.seq_id == 'None':
-        seq = [[FLAGS.config_id, 1]]
+        seq = [[FLAGS.config_id, FLAGS.num_trials]]
     else:
         seqs = json.load(open(os.path.join(this_dir, "seqs.json"), 'r'))
         seq = seqs[FLAGS.seq_id]
