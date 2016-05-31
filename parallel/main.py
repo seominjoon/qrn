@@ -65,6 +65,7 @@ flags.DEFINE_integer("max_mem_size", 50, "Maximum memory size (from most recent)
 flags.DEFINE_string("class_mode", "h", "classification mode: h | uh [h]")
 flags.DEFINE_boolean("use_class_bias", False, "Use bias at final classification linear trans? [False]")
 flags.DEFINE_boolean("use_reset", True, "Use reset gate? [True]")
+flags.DEFINE_boolean("use_vector_gate", False, "Use vector gate? [False]")
 
 FLAGS = flags.FLAGS
 

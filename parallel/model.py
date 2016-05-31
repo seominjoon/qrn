@@ -66,7 +66,7 @@ class VariablePositionEncoder(object):
         return f
 
 
-class RegressionLayer(object):
+class ReductionLayer(object):
     def __init__(self, batch_size, mem_size, hidden_size):
         self.hidden_size = hidden_size
         self.mem_size = mem_size
@@ -97,6 +97,40 @@ class RegressionLayer(object):
         return u
 
 
+class VectorReductionLayer(object):
+    def __init__(self, batch_size, mem_size, hidden_size):
+        self.hidden_size = hidden_size
+        self.mem_size = mem_size
+        self.batch_size = batch_size
+        N, M, d = batch_size, mem_size, hidden_size
+        self.L = np.tril(np.ones([M, M], dtype='float32'))
+        self.sL = np.tril(np.ones([M, M], dtype='float32'), k=-1)
+
+    def __call__(self, u_t, a, b, scope=None):
+        """
+
+        :param u_t: [N, M, d]
+        :param a: [N, M. d]
+        :param b: [N, M. d]
+        :param mask:  [N, M]
+        :return:
+        """
+        N, M, d = self.batch_size, self.mem_size, self.hidden_size
+        L, sL = self.L, self.sL
+        with tf.name_scope(scope or self.__class__.__name__):
+            L = tf.tile(tf.expand_dims(tf.expand_dims(L, 0), 0), [N, d, 1, 1])
+            sL = tf.tile(tf.expand_dims(tf.expand_dims(sL, 0), 0), [N, d, 1, 1])
+            logb = tf.log(b + 1e-9)  # [N, M, d]
+            logb = tf.concat(1, [tf.zeros([N, 1, d]), tf.slice(logb, [0, 1, 0], [-1, -1, -1])])  # [N, M, d]
+            logb = tf.expand_dims(tf.transpose(logb, [0, 2, 1]), -1)  # [N, d, M, 1]
+            left = L * tf.exp(tf.batch_matmul(L, logb * sL))  # [N, d, M, M]
+            right = a * u_t  # [N, M, d]
+            right = tf.expand_dims(tf.transpose(right, [0, 2, 1]), -1)  # [N, d, M, 1]
+            u = tf.batch_matmul(left, right)  # [N, d, M, 1]
+            u = tf.transpose(tf.squeeze(u, [3]), [0, 2, 1])  # [N, M, d]
+        return u
+
+
 class Tower(BaseTower):
     def initialize(self):
         params = self.params
@@ -107,6 +141,7 @@ class Tower(BaseTower):
         d = params.hidden_size
         L = params.mem_num_layers
         att_forget_bias = params.att_forget_bias
+        use_vector_gate = params.use_vector_gate
         wd = params.wd
         initializer = tf.random_uniform_initializer(-np.sqrt(3), np.sqrt(3))
         with tf.name_scope("placeholders"):
@@ -138,19 +173,20 @@ class Tower(BaseTower):
             gate_mask = tf.expand_dims(m_mask, -1)
             m_length = tf.reduce_sum(m_mask, 1, name='m_length')  # [N]
             prev_u = tf.tile(tf.expand_dims(u, 1), [1, M, 1])  # [N, M, d]
-            reg_layer = RegressionLayer(N, M, d)
+            reg_layer = VectorReductionLayer(N, M, d) if use_vector_gate else ReductionLayer(N, M, d)
+            gate_size = d if use_vector_gate else 1
             h = None  # [N, M, d]
             as_, rfs, rbs = [], [], []
             hs = []
             for layer_idx in range(L):
                 with tf.name_scope("layer_{}".format(layer_idx)):
                     u_t = tf.tanh(linear([prev_u, m], d, True, wd=wd, scope='u_t'))
-                    a = tf.cast(gate_mask, 'float') * tf.sigmoid(linear([prev_u * m], 1, True, initializer=initializer, wd=wd, scope='a') - att_forget_bias)
+                    a = tf.cast(gate_mask, 'float') * tf.sigmoid(linear([prev_u * m], gate_size, True, initializer=initializer, wd=wd, scope='a') - att_forget_bias)
                     h = reg_layer(u_t, a, 1.0-a, scope='h')
                     if layer_idx + 1 < L:
                         if params.use_reset:
                             rf, rb = tf.split(2, 2, tf.cast(gate_mask, 'float') *
-                                tf.sigmoid(linear([prev_u * m], 2, True, initializer=initializer, wd=wd, scope='r')))
+                                tf.sigmoid(linear([prev_u * m], 2 * gate_size, True, initializer=initializer, wd=wd, scope='r')))
                         else:
                             rf = rb = tf.ones(a.get_shape().as_list())
                         u_t_rev = tf.reverse_sequence(u_t, m_length, 1)
