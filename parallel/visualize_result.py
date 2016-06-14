@@ -22,12 +22,12 @@ def bool_(string):
 
 def get_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model_name", type=str, default='directed')
+    parser.add_argument("--model_name", type=str, default='parallel')
     parser.add_argument("--config_name", type=str, default='None')
     parser.add_argument("--task", type=str, default='1')
     parser.add_argument("--data_type", type=str, default='test')
     parser.add_argument("--epoch", type=int, default=50)
-    parser.add_argument("--template_name", type=str, default="summarize_result.html")
+    parser.add_argument("--template_name", type=str, default="visualize_result.html")
     parser.add_argument("--num_per_page", type=int, default=1000)
     parser.add_argument("--data_dir", type=str, default="data/babi")
     parser.add_argument("--port", type=int, default=8000)
@@ -107,11 +107,11 @@ def list_results(args):
     for i, (id_, eval_d) in enumerate(eval_dd.items()):
         question = _decode(idx2word_dict, Q[id_])
         correct = eval_d['correct']
-        a_raw = np.transpose(eval_d['a'])  # [M, L]
+        a_raw = np.transpose(np.mean(eval_d['a'], 2))  # [M, L]
         a = [["%.2f" % val for val in l] for l in a_raw]
-        of_raw = np.transpose(eval_d['of'])  # [M, L]
+        of_raw = np.transpose(np.mean(eval_d['rf'], 2))  # [M, L]
         of = [["%.2f" % val for val in l] for l in of_raw]
-        ob_raw = np.transpose(eval_d['ob'])  # [M, L]
+        ob_raw = np.transpose(np.mean(eval_d['rb'], 2))  # [M, L]
         ob = [["%.2f" % val for val in l] for l in ob_raw]
         # s = ["%.2f" % val for val in eval_d['s']]
         para = X[id_]
@@ -126,7 +126,7 @@ def list_results(args):
                'ob': ob,
                'num_layers': len(a[0]),
                'correct': correct,
-               'task': T[i]+1,
+               'task': T[i],
                'y': idx2word_dict[Y[id_]],
                'yp': idx2word_dict[eval_d['yp']]}
         rows.append(row)
