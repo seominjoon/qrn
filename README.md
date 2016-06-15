@@ -12,7 +12,7 @@ Here are some notable results (error rates in %) on bAbI QA 1k dataset:
 | 5    | 30.0         | 12.9             | 1.1        |
 | avg  | 51.3         | 15.2             | 9.9        |
 
-See model details more results in [this paper][qrn].
+See model details and more results in [this paper][qrn].
 
 ## 1. Quick Start
 We are assuming you are working in a Linux environment. 
