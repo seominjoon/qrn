@@ -24,25 +24,25 @@ First, download bAbI QA dataset (note that this downloads the dataset to `$HOME/
 chmod +x download.sh; ./download.sh 
 ```
 
-Then preprocess the data for a particular task (e.g. Task 3), storing preprocessed data in `data/babi/en/03/`:
+Then preprocess the data for a particular task (e.g. Task 2), storing preprocessed data in `data/babi/en/02/`:
 ```bash
-python -m prepro --task 3
+python -m prepro --task 2
 ```
 
 Finally, you train the model (test is automatically performed at the end):
 ```bash
-python -m babi.main --noload --task 3
+python -m babi.main --noload --task 2
 ```
 It took ~3 minutes on my laptop using CPU.
 
 You can run it several times with new weight initialization (e.g. 10) and report the test result with the lowest dev loss:
 ```bash
-python -m babi.main --noload --task 3 --num_trials 10
+python -m babi.main --noload --task 2 --num_trials 10
 ```
 This is critical to stably get the reported results; some weight initialization leads to a bad optima.
 
 ## 2. Visualizing Results
-After training and testing, the result is stored in `evals/babi/en/03-None-00-01/test_0150.json`.
+After training and testing, the result is stored in `evals/babi/en/02-None-00-01/test_0150.json`.
 We can visualize the magnitudes of the update and reset gates using the result file.
 Note that you need `jinja2` (Python package).
 Run the following command to host a web server for visualization and open it via browser:
@@ -63,18 +63,18 @@ If you want to retrieve a particular trial number, specify the trial number if `
 ## 3. 10k and Other Options
 To train the model on 10k dataset, first preprocess the data with `large` flag:
 ```bash
-python -m prepro --task 3 --large True
+python -m prepro --task 2 --large True
 ```
 
 Then train the model with `large` flag as well:
 ```bash
-python -m babi.main --noload --task 3 --large True --batch_size 128
+python -m babi.main --noload --task 2 --large True --batch_size 128
 ```
 Note that the batch size is increased to 128.
 
 Finally, visualization requires the `large`  flag:
 ```bash
-python -m babi.visualize_result --task 3 --open True --large True
+python -m babi.visualize_result --task 2 --open True --large True
 ```
 
 To control other parameters and see other options, type:
