@@ -37,7 +37,7 @@ def get_args():
     parser.add_argument("--run_id", type=str, default="0")
     parser.add_argument("--lang", type=str, default="en")
     parser.add_argument("--large", type=bool_, default=False)
-    parser.add_argument("--num_trials", type=str, default="1")
+    parser.add_argument("--trial_num", type=str, default="1")
 
     args = parser.parse_args()
     return args
@@ -57,12 +57,12 @@ def list_results(args):
     mem_size = args.mem_size
     lang_name = args.lang + ("-10k" if args.large else "")
     run_id = args.run_id.zfill(2)
-    num_trials = args.num_trials.zfill(2)
+    trial_num = args.trial_num.zfill(2)
 
     target_dir = os.path.join(data_dir, lang_name, task.zfill(2))
 
     epoch = args.epoch
-    subdir_name = "-".join([task, config_name, run_id, num_trials])
+    subdir_name = "-".join([task, config_name, run_id, trial_num])
     evals_dir = os.path.join("evals", model_name, lang_name, subdir_name)
     evals_name = "%s_%s.json" % (data_type, str(epoch).zfill(4))
     evals_path = os.path.join(evals_dir, evals_name)
