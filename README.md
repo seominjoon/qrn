@@ -26,7 +26,7 @@ chmod +x download.sh; ./download.sh
 
 Then preprocess the data for a particular task (e.g. Task 3), storing preprocessed data in `data/babi/en/03/`:
 ```bash
-python prepro.py --task 3
+python -m prepro --task 3
 ```
 
 Finally, you train the model (test is automatically performed at the end):
@@ -37,7 +37,7 @@ It took ~3 minutes on my laptop using CPU.
 
 You can run it several times with new weight initialization (e.g. 10) and report the test result with the lowest dev loss:
 ```bash
-python -m bab.main --noload --task 3 --num_trials 10
+python -m babi.main --noload --task 3 --num_trials 10
 ```
 This is critical to stably get the reported results; some weight initialization leads to a bad optima.
 
@@ -52,6 +52,31 @@ python -m babi.visualize_result --task 2 --open True
 ```
 
 then click the file(s). It takes a a few seconds to load the heatmap coloring of the gate values.
+By default `visualize_result` retrieves the first trial (1).
+If you want to retrieve a particular trial number, specify the trial number if `--num_trials` option.
+
+
+## 3. 10k and Other Options
+To train the model on 10k dataset, first preprocess the data with `large` flag:
+```bash
+python -m prepro --task 3 --large True
+```
+
+Then train the model with `large` flag as well:
+```bash
+python -m babi.main --noload --task 3 --large True --batch_size 128
+```
+Note that the batch size is increased to 128.
+
+Finally, visualization requires the `large`  flag:
+```bash
+python -m babi.visualize_result --task 3 --open True --large True
+```
+
+To control other parameters and see other options, type:
+```bash
+python -m babi.main -h
+```
 
 [babi]: http://arxiv.org/abs/1502.05698
 [lstm]: http://arxiv.org/abs/1502.05698 
