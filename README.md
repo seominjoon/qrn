@@ -24,7 +24,7 @@ First, download bAbI QA dataset (note that this downloads the dataset to `$HOME/
 chmod +x download.sh; ./download.sh 
 ```
 
-Then preprocess the data for a particular task (e.g. Task 2), storing preprocessed data in `data/babi/en/02/`:
+Then preprocess the data for a particular task, say Task 2 (this stores the preprocessed data in `data/babi/en/02/`):
 ```bash
 python -m prepro --task 2
 ```
