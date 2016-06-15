@@ -9,7 +9,7 @@ import tensorflow as tf
 
 from my.tensorflow import average_gradients
 from my.utils import get_pbar
-from parallel.read_data import DataSet
+from babi.read_data import DataSet
 
 
 class BaseRunner(object):
@@ -26,6 +26,7 @@ class BaseRunner(object):
         self.writer = None
         self.initialized = False
         self.train_ops = {}
+        self.write_log = params.write_log
 
     def initialize(self):
         params = self.params
@@ -108,7 +109,8 @@ class BaseRunner(object):
 
         init_op = tf.initialize_all_variables()
         sess.run(init_op)
-        self.writer = tf.train.SummaryWriter(params.log_dir, sess.graph)
+        if self.write_log:
+            self.writer = tf.train.SummaryWriter(params.log_dir, sess.graph)
         self.initialized = True
 
     def _get_feed_dict(self, batches, mode, **kwargs):
@@ -174,7 +176,8 @@ class BaseRunner(object):
             for iter_idx in range(num_iters_per_epoch):
                 batches = [train_data_set.get_next_labeled_batch() for _ in range(self.num_towers)]
                 _, summary, global_step = self._train_batches(batches, **train_args)
-                writer.add_summary(summary, global_step)
+                if self.write_log:
+                    writer.add_summary(summary, global_step)
                 if progress:
                     pbar.update(iter_idx)
             if progress:
@@ -241,12 +244,13 @@ class BaseRunner(object):
               (data_set.name, epoch, 100 * acc, num_corrects, total, loss))
 
         # For outputting eval json files
-        ids = [data_set.idx2id[idx] for idx in idxs]
-        zipped_eval_values = [list(itertools.chain(*each)) for each in zip(*eval_values)]
-        values = {name: values for name, values in zip(eval_tensor_names, zipped_eval_values)}
-        out = {'ids': ids, 'values': values}
-        eval_path = os.path.join(params.eval_dir, "%s_%s.json" % (data_set.name, str(epoch).zfill(4)))
-        json.dump(out, open(eval_path, 'w'))
+        if len(eval_tensor_names) > 0:
+            ids = [data_set.idx2id[idx] for idx in idxs]
+            zipped_eval_values = [list(itertools.chain(*each)) for each in zip(*eval_values)]
+            values = {name: values for name, values in zip(eval_tensor_names, zipped_eval_values)}
+            out = {'ids': ids, 'values': values}
+            eval_path = os.path.join(params.eval_dir, "%s_%s.json" % (data_set.name, str(epoch).zfill(4)))
+            json.dump(out, open(eval_path, 'w'))
         return loss, acc
 
     def _get_train_op(self, **kwargs):

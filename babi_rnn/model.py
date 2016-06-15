@@ -1,6 +1,6 @@
 import tensorflow as tf
 
-from directed.base_model import BaseTower, BaseRunner
+from babi_rnn.base_model import BaseTower, BaseRunner
 from my.tensorflow.nn import linear
 from my.tensorflow.rnn import dynamic_rnn, dynamic_bidirectional_rnn
 import numpy as np
