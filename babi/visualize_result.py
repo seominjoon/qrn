@@ -22,11 +22,11 @@ def bool_(string):
 
 def get_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model_name", type=str, default='parallel')
+    parser.add_argument("--model_name", type=str, default='babi')
     parser.add_argument("--config_name", type=str, default='None')
     parser.add_argument("--task", type=str, default='1')
     parser.add_argument("--data_type", type=str, default='test')
-    parser.add_argument("--epoch", type=int, default=50)
+    parser.add_argument("--epoch", type=int, default=150)
     parser.add_argument("--template_name", type=str, default="visualize_result.html")
     parser.add_argument("--num_per_page", type=int, default=1000)
     parser.add_argument("--data_dir", type=str, default="data/babi")
