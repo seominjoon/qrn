@@ -52,6 +52,10 @@ python -m babi.visualize_result --task 2 --open True
 ```
 
 then click the file(s). It takes a a few seconds to load the heatmap coloring of the gate values.
+You will see something like this:
+
+![visualization](assets/vis.png)
+
 By default `visualize_result` retrieves the first trial (1).
 If you want to retrieve a particular trial number, specify the trial number if `--num_trials` option.
 
