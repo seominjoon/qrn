@@ -57,7 +57,7 @@ You will see something like this:
 ![visualization](assets/vis.png)
 
 By default `visualize_result` retrieves the first trial (1).
-If you want to retrieve a particular trial number, specify the trial number if `--num_trials` option.
+If you want to retrieve a particular trial number, specify the trial number if `--trial_num` option.
 
 
 ## 3. 10k and Other Options
