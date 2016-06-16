@@ -82,7 +82,7 @@ To control other parameters and see other options, type:
 python -m babi.main -h
 ```
 
-[qrn]: http://none
+[qrn]: http://arxiv.org/abs/1606.04582
 [babi]: http://arxiv.org/abs/1502.05698
 [lstm]: http://arxiv.org/abs/1502.05698 
 [memn2n]: http://arxiv.org/abs/1503.08895
