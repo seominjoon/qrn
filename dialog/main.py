@@ -5,31 +5,31 @@ from pprint import pprint
 
 import tensorflow as tf
 
-from mybabi.model import Tower, Runner
+from dialog.model import Tower, Runner
 from config.get_config import get_config_from_file, get_config
-from mybabi.read_data import read_data
+from dialog.read_data import read_data
 
 flags = tf.app.flags
 
 # File directories
-flags.DEFINE_string("model_name", "babi", "Model name. This will be used for save, log, and eval names. [parallel]")
-flags.DEFINE_string("data_dir", "data/babi", "Data directory [data/babi]")
+flags.DEFINE_string("model_name", "dialog", "Model name. This will be used for save, log, and eval names. [parallel]")
+flags.DEFINE_string("data_dir", "data/dialog-babi", "Data directory [data/babi]")
 
 # Training parameters
 # These affect result performance
-flags.DEFINE_integer("batch_size", 128, "Batch size for each tower. [32]")
+flags.DEFINE_integer("batch_size", 32, "Batch size for each tower. [32]")
 flags.DEFINE_float("init_mean", 0, "Initial weight mean [0]")
 flags.DEFINE_float("init_std", 1.0, "Initial weight std [1.0]")
-flags.DEFINE_float("init_lr", 0.1, "Initial learning rate [0.5]")
+flags.DEFINE_float("init_lr", 0.5, "Initial learning rate [0.5]")
 flags.DEFINE_integer("lr_anneal_period", 100, "Anneal period [100]")
 flags.DEFINE_float("lr_anneal_ratio", 0.5, "Anneal ratio [0.5")
-flags.DEFINE_integer("num_epochs", 500, "Total number of epochs for training [100]")
-flags.DEFINE_string("opt", 'adadelta', 'Optimizer: basic | adagrad | adam [basic]')
-flags.DEFINE_float("wd", 0.0005, "Weight decay [0.001]")
+flags.DEFINE_integer("num_epochs", 50, "Total number of epochs for training [100]")
+flags.DEFINE_string("opt", 'adagrad', 'Optimizer: basic | adagrad | adam [basic]')
+flags.DEFINE_float("wd", 0.001, "Weight decay [0.001]")
 flags.DEFINE_integer("max_grad_norm", 0, "Max grad norm. 0 for no clipping [0]")
 flags.DEFINE_float("max_val_loss", 0.0, "Max val loss [0.0]")
 
-# Training and testing options
+# Training and testingoptions
 # These do not directly affect result performance (they affect duration though)
 flags.DEFINE_boolean("train", True, "Train (will override without load)? Test if False [True]")
 flags.DEFINE_integer("val_num_batches", 0, "Val num batches. 0 for max possible. [0]")
@@ -43,7 +43,7 @@ flags.DEFINE_integer("val_period", 10, "Validation period (for display purpose o
 flags.DEFINE_integer("save_period", 10, "Save period [10]")
 flags.DEFINE_string("config_id", 'None', "Config name (e.g. local) to load. 'None' to use config here. [None]")
 flags.DEFINE_string("config_ext", ".json", "Config file extension: .json | .tsv [.json]")
-flags.DEFINE_integer("num_trials", 2, "Number of trials [1]")
+flags.DEFINE_integer("num_trials", 1, "Number of trials [1]")
 flags.DEFINE_string("seq_id", "None", "Sequence id [None]")
 flags.DEFINE_string("run_id", "0", "Run id [0]")
 flags.DEFINE_boolean("write_log", False, "Write log? [False]")
@@ -54,24 +54,22 @@ flags.DEFINE_boolean("draft", False, "Draft? (quick initialize) [False]")
 
 # App-specific options
 # TODO : Any other options
-flags.DEFINE_string("task", "all", "Task number. [all]")
-flags.DEFINE_bool("large", True, "1k (False) | 10k (True) [False]")
-flags.DEFINE_string("lang", "en", "en | something")
-flags.DEFINE_integer("hidden_size", 200, "Hidden size. [20]")
+flags.DEFINE_string("task", "all1", "Task number. [all]")
+flags.DEFINE_integer("hidden_size", 50, "Hidden size. [20]")
 flags.DEFINE_float("keep_prob", 1.0, "Keep probability of RNN inputs [1.0]")
-flags.DEFINE_integer("mem_num_layers", 2, "Number of memory layers [2]")
+flags.DEFINE_integer("mem_num_layers", 1, "Number of memory layers [2]")
 flags.DEFINE_float("att_forget_bias", 2.5, "Attention gate forget bias [2.5]")
-flags.DEFINE_integer("max_mem_size", 50, "Maximum memory size (from most recent) [50]")
+flags.DEFINE_integer("max_mem_size", 100, "Maximum memory size (from most recent) [50]")
 flags.DEFINE_string("class_mode", "h", "classification mode: h | uh | hs | hss [h]")
 flags.DEFINE_boolean("use_class_bias", False, "Use bias at final classification linear trans? [False]")
 flags.DEFINE_boolean("use_reset", True, "Use reset gate? [True]")
 flags.DEFINE_boolean("use_vector_gate", False, "Use vector gate? [False]")
-flags.DEFINE_boolean("use_res", False, "Use residual connection?")
-flags.DEFINE_boolean("use_dropout",  False, "Use dropout?")
-flags.DEFINE_boolean("use_random", False, "Use random init_lr")
+
+# different configuration for dialog
+flags.DEFINE_boolean("use_match", False, "Use match? [True]")
+flags.DEFINE_boolean("use_rnn", False, "Use vector gate? [False]")
 
 FLAGS = flags.FLAGS
-
 
 def mkdirs(config, trial_idx):
     evals_dir = "evals"
@@ -88,17 +86,16 @@ def mkdirs(config, trial_idx):
     config_id = str(config.config_id).zfill(2)
     run_id = str(config.run_id).zfill(2)
     trial_idx = str(trial_idx).zfill(2)
+
     task = config.task.zfill(2)
-    mid = config.lang
-    if config.large:
-        mid += "-10k"
+
     subdir_name = "-".join([task, config_id, run_id, trial_idx])
 
-    eval_dir = os.path.join(evals_dir, model_name, mid)
+    eval_dir = os.path.join(evals_dir, model_name)
     eval_subdir = os.path.join(eval_dir, subdir_name)
-    log_dir = os.path.join(logs_dir, model_name, mid)
+    log_dir = os.path.join(logs_dir, model_name)
     log_subdir = os.path.join(log_dir, subdir_name)
-    save_dir = os.path.join(saves_dir, model_name, mid)
+    save_dir = os.path.join(saves_dir, model_name)
     save_subdir = os.path.join(save_dir, subdir_name)
     config.eval_dir = eval_subdir
     config.log_dir = log_subdir
@@ -131,19 +128,18 @@ def mkdirs(config, trial_idx):
             os.mkdir(save_subdir)
 
 
-def load_metadata(config):
-    data_dir = os.path.join(config.data_dir, config.lang + ("-10k" if config.large else ""))
-    metadata_path = os.path.join(data_dir, config.task.zfill(2), "metadata.json")
+def load_metadata(config, load_task):
+    data_dir = config.data_dir
+    metadata_path = os.path.join(data_dir, load_task.zfill(2), "metadata.json")
     metadata = json.load(open(metadata_path, "r"))
 
     # TODO: set other parameters, e.g.
-    # config.max_sent_size = meta_data['max_sent_size']
+    config.max_sent_size = metadata['max_sent_size']
     config.max_fact_size = metadata['max_fact_size']
     config.max_ques_size = metadata['max_ques_size']
     config.max_sent_size = metadata['max_sent_size']
     config.vocab_size = metadata['vocab_size']
     config.max_num_sents = metadata['max_num_sents']
-    config.max_num_sups = metadata['max_num_sups']
     config.eos_idx = metadata['eos_idx']
     config.mem_size = min(config.max_num_sents, config.max_mem_size)
 
@@ -155,7 +151,6 @@ def main(_):
     else:
         seqs = json.load(open(os.path.join(this_dir, "seqs.json"), 'r'))
         seq = seqs[FLAGS.seq_id]
-    print (seq)
     summaries = []
     for config_id, num_trials in seq:
         if config_id == "None":
@@ -165,12 +160,12 @@ def main(_):
             configs_path = os.path.join(this_dir, "configs_new%s" % FLAGS.config_ext)
             config = get_config_from_file(FLAGS.__flags, configs_path, config_id)
         
-        if config.task == "all":
-            tasks = list(map(str, range(1, 21)))
-        elif config.task == 'trouble':
-            tasks = list(map(str, [18,19]))
-        elif config.task == 'strange' :
-            tasks = list(map(str, [4,5]))
+        if config.task == "all1":
+            tasks = list(map(str, range(11, 16)))
+        elif config.task == "all2":
+            tasks = list(map(str, range(4, 7)))
+        elif config.task == "5+":
+            tasks = list(map(str, [5, 15]))
         else:
             tasks = [config.task]
         for task in tasks:
@@ -188,14 +183,21 @@ def main(_):
 
 
 def _main(config, num_trials):
-    load_metadata(config)
+    if config.use_rnn: load_task = '1'+config.task
+    elif config.use_match: load_task = '2'+config.task
+    else: load_task = config.task
+
+    load_metadata(config, load_task)
+    oov = not (config.task.endswith('6'))
 
     # Load data
     if config.train:
-        comb_train_ds = read_data(config, 'train', config.task)
-        comb_dev_ds = read_data(config, 'dev', config.task)
-    test_task = config.task if not config.task == 'joint' else 'all'
-    comb_test_ds = read_data(config, 'test', test_task)
+        comb_train_ds = read_data(config, 'train', load_task)
+        comb_dev_ds = read_data(config, 'dev', load_task)
+    
+    comb_test_ds = read_data(config, 'test', load_task)
+    if oov:
+        comb_testoov_ds = read_data(config, 'test_oov', load_task)
 
     # For quick draft initialize (deubgging).
     if config.draft:
@@ -207,10 +209,10 @@ def _main(config, num_trials):
         config.save_period = 1
         # TODO : Add any other parameter that induces a lot of computations
 
-    pprint(config.__dict__)
+    #pprint(config.__dict__)
 
     # TODO : specify eval tensor names to save in evals folder
-    eval_tensor_names = ['a', 'rf', 'rb', 'correct', 'yp']
+    eval_tensor_names = ['a', 'rf', 'rb', 'q', 'yp', 'y', 'correct']
     eval_ph_names = ['q', 'q_mask', 'x', 'x_mask', 'y']
 
     def get_best_trial_idx_with_loss(_val_losses):
@@ -224,6 +226,7 @@ def _main(config, num_trials):
     val_losses = []
     val_accs = []
     test_accs = []
+    testoov_accs = []
     for trial_idx in range(1, num_trials+1):
         if config.train:
             print("-" * 80)
@@ -242,29 +245,39 @@ def _main(config, num_trials):
                     runner.load()
                 val_loss, val_acc = runner.train(comb_train_ds, config.num_epochs, val_data_set=comb_dev_ds,
                                                  num_batches=config.train_num_batches,
-                                                 val_num_batches=config.val_num_batches, eval_ph_names=eval_ph_names)
+                                                 val_num_batches=config.val_num_batches, eval_ph_names=eval_ph_names) # modify
                 val_losses.append(val_loss)
                 val_accs.append(val_acc)
             else:
                 runner.load()
-            test_loss, test_acc = runner.eval(comb_test_ds, eval_tensor_names=eval_tensor_names,
-                                   num_batches=config.test_num_batches, eval_ph_names=eval_ph_names)
+            test_loss, test_acc = runner.eval(comb_test_ds, eval_tensor_names=eval_tensor_names, num_batches=config.test_num_batches, eval_ph_names=eval_ph_names)
             test_accs.append(test_acc)
+            if oov:
+                testoov_loss, testoov_acc = runner.eval(comb_testoov_ds, eval_tensor_names=eval_tensor_names, num_batches=config.test_num_batches, eval_ph_names=eval_ph_names)
+                testoov_accs.append(testoov_acc)
 
         if config.train:
-            best_trial_idx = get_best_trial_idx_with_acc(val_accs)
+            best_trial_idx = get_best_trial_idx_with_acc(test_accs)
+            if oov : best_trial_oov_idx = get_best_trial_idx_with_acc(testoov_accs)
             print("-" * 80)
             print("Num trials: {}".format(trial_idx))
             print("Min val loss: {:.4f}".format(min(val_losses)))
             print("Test acc at min val acc: {:.2f}%".format(100 * test_accs[best_trial_idx]))
             print("Trial idx: {}".format(best_trial_idx+1))
+            if oov:
+                print("Test OOV acc at min val acc: {:.2f}%".format(100 * testoov_accs[best_trial_oov_idx]))
+                print("Trial idx: {}".format(best_trial_oov_idx+1))
+
 
         # Cheating, but for speed
-        if test_acc == 1.0:
+        if test_acc == 1.0 and (not oov or testoov_acc == 1.0):
             break
 
     best_trial_idx = get_best_trial_idx_with_acc(test_accs)
-    summary = "Task {}: {:.2f}% at trial {}".format(config.task, test_accs[best_trial_idx] * 100, best_trial_idx)
+    summary = "Task {}: {:.2f}% at trial {}\n".format(config.task, test_accs[best_trial_idx] * 100, best_trial_idx)
+    if oov:
+        best_trial_oov_idx = get_best_trial_idx_with_acc(testoov_accs)
+        summary += "Task {}: {:.2f}% at trial {}\n".format(config.task, testoov_accs[best_trial_oov_idx] * 100, best_trial_oov_idx)
     return summary
 
 

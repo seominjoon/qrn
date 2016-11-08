@@ -7,7 +7,7 @@ import tensorflow as tf
 from my.tensorflow import flatten
 
 
-def linear(args, output_size, bias, bias_start=0.0, scope=None, var_on_cpu=False, wd=0.0, squeeze=False, initializer=None):
+def linear(args, output_size, bias, bias_start=0.0, name='', scope=None, var_on_cpu=False, wd=0.0, squeeze=False, initializer=None, feat=None, state=None, drop_rate = 1.0):
     """Linear map: sum_i(args[i] * W[i]), where W[i] is a variable.
 
     Args:
@@ -46,32 +46,55 @@ def linear(args, output_size, bias, bias_start=0.0, scope=None, var_on_cpu=False
         else:
             total_arg_size += new_shape[1]
 
+    # This is for Dialog Match
+    if feat is not None : total_arg_size -= 2
+    if state is not None : total_arg_size += state.get_shape().as_list()[-1]
+
+
     # Now the computation.
     with vs.variable_scope(scope or "Linear"):
         if var_on_cpu:
             with tf.device("/cpu:0"):
-                matrix = vs.get_variable("Matrix", [total_arg_size, output_size], initializer=initializer)
+                matrix = vs.get_variable("Matrix"+name, [total_arg_size, output_size], initializer=initializer)
         else:
-            matrix = vs.get_variable("Matrix", [total_arg_size, output_size], initializer=initializer)
+            matrix = vs.get_variable("Matrix"+name, [total_arg_size, output_size], initializer=initializer)
 
         if wd:
-            weight_decay = tf.mul(tf.nn.l2_loss(matrix), wd, name='weight_loss')
+            weight_decay = tf.mul(tf.nn.l2_loss(matrix), wd, name='weight_loss'+name)
             tf.add_to_collection('losses', weight_decay)
-
-        if len(args) == 1:
-            res = math_ops.matmul(args[0], matrix)
+	
+	# Modify for Feature Matching
+        if feat is not None:
+            W = vs.get_variable("Embed"+name, [total_arg_size+2, total_arg_size+2], initializer=initializer)
+            args_ = tf.transpose(math_ops.matmul(args[0],W)) # [D * N]
+            h1 = tf.transpose(tf.slice(args_, [0, 0], [total_arg_size, -1]))
+            h2 = tf.slice(args_, [total_arg_size, 0], [2, -1])
+            f = tf.cast(tf.transpose(feat, [1,0,2]), 'float32') # [2 * N * A]
+	    
+            res = math_ops.matmul(h1, matrix) # [N * A]
+            for i in range(2):
+                h2_ = tf.gather(h2, i) # [1 * N]
+                f_ = tf.gather(f, i) # [1 * N * A]
+                res += tf.transpose(tf.mul(h2_, tf.transpose(f_)))
+        elif state is not None:
+            h = tf.concat(1, [args[0], tf.cast(state, 'float32')]) # [D+A]
+            res = math_ops.matmul(h, matrix) # [N * A]
         else:
-            res = math_ops.matmul(array_ops.concat(1, args), matrix)
+            if len(args) == 1:
+            	res = math_ops.matmul(args[0], matrix)
+            else:
+            	res = math_ops.matmul(array_ops.concat(1, args), matrix)
+
         if not bias:
-            res = tf.reshape(res, res_shape, name='out')
+            res = tf.reshape(res, res_shape, name='out'+name)
             if squeeze:
                 res = tf.squeeze(res, squeeze_dims=[len(res_shape)-1])
             return res
         bias_term = vs.get_variable(
-            "Bias", [output_size],
+            "Bias"+name, [output_size],
             initializer=init_ops.constant_initializer(bias_start))
         res = res + bias_term
-        res = tf.reshape(res, res_shape, name='out')
+        res = tf.reshape(res, res_shape, name='out'+name)
         if squeeze:
             res = tf.squeeze(res, squeeze_dims=[len(res_shape)-1])
     return res

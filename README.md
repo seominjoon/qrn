@@ -82,6 +82,27 @@ To control other parameters and see other options, type:
 python -m babi.main -h
 ```
 
+## 4. Run bAbI dialog
+To train the model on bAbI dialog, preprocess the data with bAbI dialog dataset:
+```bash
+python -m prepro-dialog --task 2
+```
+
+Then train the model:
+```bash
+python -m dialog.main --noload --task 2
+```
+
+To use match, `use_match` flag is required:
+```bash
+python -m dialog.main --noload --task 2 --use_match True
+```
+
+To use RNN decoder, `use_rnn` flag is required:
+```bash
+python -m dialog.main --noload --task 2 --use_rnn True
+```
+
 [qrn]: http://arxiv.org/abs/1606.04582
 [babi]: http://arxiv.org/abs/1502.05698
 [lstm]: http://arxiv.org/abs/1502.05698 

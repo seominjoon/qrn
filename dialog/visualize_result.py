@@ -6,11 +6,7 @@ import argparse
 import json
 import os
 import numpy as np
-
 from jinja2 import Environment, FileSystemLoader
-
-from my.utils import get_pbar
-
 
 def bool_(string):
     if string == 'True':
@@ -22,21 +18,19 @@ def bool_(string):
 
 def get_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model_name", type=str, default='babi')
+    parser.add_argument("--model_name", type=str, default='dialog')
     parser.add_argument("--config_name", type=str, default='None')
-    parser.add_argument("--task", type=str, default='1')
+    parser.add_argument("--task", type=str, default='02')
     parser.add_argument("--data_type", type=str, default='test')
-    parser.add_argument("--epoch", type=int, default=150)
+    parser.add_argument("--epoch", type=int, default=37)
     parser.add_argument("--template_name", type=str, default="visualize_result.html")
     parser.add_argument("--num_per_page", type=int, default=1000)
-    parser.add_argument("--data_dir", type=str, default="data/babi")
+    parser.add_argument("--data_dir", type=str, default="data/dialog-babi")
     parser.add_argument("--port", type=int, default=8000)
-    parser.add_argument("--host", type=str, default="0.0.0.0")
+    parser.add_argument("--host", type=str, default="128.95.196.18")
     parser.add_argument("--open", type=str, default='False')
     parser.add_argument("--mem_size", type=int, default=50)
     parser.add_argument("--run_id", type=str, default="0")
-    parser.add_argument("--lang", type=str, default="en")
-    parser.add_argument("--large", type=bool_, default=False)
     parser.add_argument("--trial_num", type=str, default="1")
 
     args = parser.parse_args()
@@ -55,26 +49,27 @@ def list_results(args):
     data_dir = args.data_dir
     task = args.task.zfill(2)
     mem_size = args.mem_size
-    lang_name = args.lang + ("-10k" if args.large else "")
     run_id = args.run_id.zfill(2)
     trial_num = args.trial_num.zfill(2)
 
-    target_dir = os.path.join(data_dir, lang_name, task.zfill(2))
+    target_dir = os.path.join(data_dir, task.zfill(2))
 
     epoch = args.epoch
     subdir_name = "-".join([task, config_name, run_id, trial_num])
-    evals_dir = os.path.join("evals", model_name, lang_name, subdir_name)
+    evals_dir = os.path.join("evals", model_name, subdir_name)
     evals_name = "%s_%s.json" % (data_type, str(epoch).zfill(4))
     evals_path = os.path.join(evals_dir, evals_name)
     evals = json.load(open(evals_path, 'r'))
 
 
     _id = 0
-    html_dir = "/tmp/list_results%d" % _id
+    html_dir = "visualize/%s-%s" %(task, trial_num)
+    
+    """
     while os.path.exists(html_dir):
         _id += 1
         html_dir = "/tmp/list_results%d" % _id
-
+    """
     if os.path.exists(html_dir):
         shutil.rmtree(html_dir)
     os.mkdir(html_dir)
@@ -90,10 +85,14 @@ def list_results(args):
     word2idx_path = os.path.join(target_dir, 'word2idx.json')
     metadata_path = os.path.join(target_dir, 'metadata.json')
     data = json.load(open(data_path, 'r'))
-    X, Q, S, Y, H, T = data
+    X, Q, Y, Y1, Y2, Y3, Y4, Y5, Y6, Y7 = data[:10]
     mode2idxs_dict = json.load(open(mode2idxs_path, 'r'))
-    word2idx_dict = json.load(open(word2idx_path, 'r'))
-    idx2word_dict = {idx: word for word, idx in word2idx_dict.items()}
+    word2idx_dicts = json.load(open(word2idx_path, 'r'))
+    idx2word_dicts = [{idx: word for word, idx in word2idx_dict.items()}
+		for word2idx_dict in word2idx_dicts]
+    print (len(idx2word_dicts))
+    idx2word_dict_fact, idx2word_dict_a, idx2word_dict_a1, idx2word_dict_a2, idx2word_dict_a3, idx2word_dict_a4, idx2word_dict_a5, idx2word_dict_a6 = tuple(idx2word_dicts[:8])
+
     metadata = json.load(open(metadata_path, 'r'))
 
     eval_dd = {}
@@ -105,7 +104,7 @@ def list_results(args):
 
     rows = []
     for i, (id_, eval_d) in enumerate(eval_dd.items()):
-        question = _decode(idx2word_dict, Q[id_])
+        question = _decode(idx2word_dict_fact, Q[id_])
         correct = eval_d['correct']
         a_raw = np.transpose(np.mean(eval_d['a'], 2))  # [M, L]
         a = [["%.2f" % val for val in l] for l in a_raw]
@@ -117,7 +116,19 @@ def list_results(args):
         para = X[id_]
         if len(para) > len(a_raw):
             para = para[-len(a_raw):]
-        facts = [_decode(idx2word_dict, x) for x in para]
+        facts = [_decode(idx2word_dict_fact, x) for x in para]
+
+        y = []
+        yp = []
+        Ylist = [Y, Y1, Y2, Y3, Y4, Y5, Y6, Y7]
+        YP = eval_d['yp']
+        Dlist = idx2word_dicts[1:6] + idx2word_dicts[5:]
+        for (Y_, yp_, dict_) in zip(Ylist, YP, Dlist):
+            y.append(dict_.get(Y_[id_], None))
+            yp.append(yp_)
+        if y[0].endswith('you are welcome'):
+            print ("you are welcome")
+            continue
         row = {'id': id_,
                'facts': facts,
                'question': question,
@@ -126,10 +137,11 @@ def list_results(args):
                'ob': ob,
                'num_layers': len(a[0]),
                'correct': correct,
-               'task': T[i],
-               'y': idx2word_dict[Y[id_]],
-               'yp': idx2word_dict[eval_d['yp']]}
-        rows.append(row)
+               'task': task[-1],
+               'y': y[0],
+            'yp': yp[0] 
+	}
+        if correct == 1 : rows.append(row)
 
         if i % num_per_page == 0:
             html_path = os.path.join(html_dir, "%s.html" % str(id_).zfill(8))
@@ -141,7 +153,7 @@ def list_results(args):
             with open(html_path, "wb") as f:
                 f.write(template.render(**var_dict).encode('UTF-8'))
             rows = []
-
+    """
     os.chdir(html_dir)
     port = args.port
     host = args.host
@@ -155,7 +167,7 @@ def list_results(args):
         os.system("open http://%s:%d" % (args.host, args.port))
     print("serving at %s:%d" % (host, port))
     httpd.serve_forever()
-
+    """
 
 if __name__ == "__main__":
     ARGS = get_args()

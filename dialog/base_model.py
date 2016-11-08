@@ -2,14 +2,14 @@ import itertools
 import json
 import os
 from collections import defaultdict
-import logging, math, random
-
+import logging
+from IPython import embed
 import numpy as np
 import tensorflow as tf
 
 from my.tensorflow import average_gradients
 from my.utils import get_pbar
-from mybabi.read_data import DataSet
+from dialog.read_data import DataSet
 
 
 class BaseRunner(object):
@@ -27,8 +27,6 @@ class BaseRunner(object):
         self.initialized = False
         self.train_ops = {}
         self.write_log = params.write_log
-        self.init_lr = random.uniform(0.06, 0.6) if params.use_random else params.init_lr
-        print("init_lr : %.3f" % self.init_lr)
 
     def initialize(self):
         params = self.params
@@ -54,14 +52,13 @@ class BaseRunner(object):
             opt = tf.train.AdagradOptimizer(learning_rate)
         elif params.opt == 'adam':
             opt = tf.train.AdamOptimizer()
-        elif params.opt == 'adadelta':
-            opt = tf.train.AdadeltaOptimizer(learning_rate)
         else:
             raise Exception()
 
         grads_pairs_dict = defaultdict(list)
         correct_tensors = []
         loss_tensors = []
+	
         with tf.variable_scope("towers"):
             for device_id, tower in enumerate(self.towers):
                 with tf.device("/%s:%d" % (device_type, device_id)), tf.name_scope("%s_%d" % (device_type, device_id)):
@@ -71,6 +68,9 @@ class BaseRunner(object):
                     loss_tensors.append(loss_tensor)
                     correct_tensor = tower.get_correct_tensor()
                     correct_tensors.append(correct_tensor)
+
+
+                    self.tensors['correct_'], self.tensors['mask_'], self.tensors['y_mask'], self.tensors['y'] = tower.get_debug_tensor()
 
                     for key, variables in tower.variables_dict.items():
                         grads_pair = opt.compute_gradients(loss_tensor, var_list=variables)
@@ -90,22 +90,22 @@ class BaseRunner(object):
         self.tensors['loss'] = loss_tensor
         self.tensors['correct'] = correct_tensor
         summaries.append(tf.scalar_summary(loss_tensor.op.name, loss_tensor))
-
+	
         for key, grads_pair in grads_pair_dict.items():
             for grad, var in grads_pair:
                 if grad is not None:
                     summaries.append(tf.histogram_summary(var.op.name+'/gradients/'+key, grad))
-
+	
         for var in tf.trainable_variables():
             summaries.append(tf.histogram_summary(var.op.name, var))
-
+	
         apply_grads_op_dict = {key: opt.apply_gradients(grads_pair, global_step=global_step)
                                for key, grads_pair in grads_pair_dict.items()}
 
         self.train_ops = {key: tf.group(apply_grads_op)
                           for key, apply_grads_op in apply_grads_op_dict.items()}
 
-        saver = tf.train.Saver(tf.all_variables(), max_to_keep=2)
+        saver = tf.train.Saver(tf.all_variables(), max_to_keep=5)
         self.saver = saver
 
         summary_op = tf.merge_summary(summaries)
@@ -134,6 +134,7 @@ class BaseRunner(object):
         feed_dict = self._get_feed_dict(batches, 'train', **kwargs)
         train_op = self._get_train_op(**kwargs)
         ops = [train_op, tensors['summary'], tensors['global_step']]
+	
         train, summary, global_step = sess.run(ops, feed_dict=feed_dict)
         return train, summary, global_step
 
@@ -142,15 +143,13 @@ class BaseRunner(object):
         tensors = self.tensors
         num_examples = sum(len(batch[0]) for batch in batches)
         feed_dict = self._get_feed_dict(batches, 'eval', **eval_kwargs)
-        ops = [tensors[name] for name in ['correct', 'loss', 'summary', 'global_step']]
-        correct, loss, summary, global_step = sess.run(ops, feed_dict=feed_dict)
+        ops = [tensors[name] for name in ['correct_', 'mask_', 'y_mask', 'y', 'correct', 'loss', 'summary', 'global_step']]
+        correct_, mask_, y_mask, y, correct, loss, summary, global_step = sess.run(ops, feed_dict=feed_dict)
         num_corrects = np.sum(correct[:num_examples])
         if len(eval_tensor_names) > 0:
-            valuess = [sess.run([tower.tensors[name] for name in eval_tensor_names], feed_dict=feed_dict)
-                       for tower in self.towers]
+            valuess = [sess.run([tower.tensors[name] for name in eval_tensor_names], feed_dict=feed_dict) for tower in self.towers]
         else:
             valuess = [[]]
-
         return (num_corrects, loss, summary, global_step), valuess
 
     def train(self, train_data_set, num_epochs, val_data_set=None, eval_ph_names=(),
@@ -206,13 +205,13 @@ class BaseRunner(object):
                     best_val_loss = val_loss
                     best_global_step = global_step
                     self.save()
-
                 elif val_loss < best_val_loss:
                     count = 0
                 else:
                     count += 1
                     if count >= 5:
                         break
+
         if not best_global_step == global_step:
             save_dir = self.params.save_dir
             name = self.params.model_name
@@ -231,7 +230,7 @@ class BaseRunner(object):
         epoch_op = self.tensors['epoch']
         epoch = sess.run(epoch_op)
         progress = params.progress
-        num_batches = num_batches or data_set.get_num_batches(partial=True)
+        num_batches = num_batches or data_set.get_num_batches(partial=False)
         num_iters = int(np.ceil(num_batches / self.num_towers))
         num_corrects, total, total_loss = 0, 0, 0.0
         eval_values = []
@@ -249,11 +248,11 @@ class BaseRunner(object):
                 if data_set.has_next_batch(partial=True):
                     idxs.extend(data_set.get_batch_idxs(partial=True))
                     batches.append(data_set.get_next_labeled_batch(partial=True))
-            (cur_num_corrects, cur_avg_loss, _, global_step), eval_value_batches = \
-                self._eval_batches(batches, eval_tensor_names=eval_tensor_names, **eval_args)
+            (cur_num_corrects, cur_avg_loss, _, global_step), eval_value_batches = self._eval_batches(batches, eval_tensor_names=eval_tensor_names, **eval_args)
             num_corrects += cur_num_corrects
             cur_num = sum(len(batch[0]) for batch in batches)
             total += cur_num
+
             for eval_value_batch in eval_value_batches:
                 eval_values.append([x.tolist() for x in eval_value_batch])  # numpy.array.toList
             total_loss += cur_avg_loss * cur_num
@@ -263,11 +262,9 @@ class BaseRunner(object):
             pbar.finish()
         loss = float(total_loss) / total
         data_set.reset()
-
         acc = float(num_corrects) / total
         print("%s at epoch %d: acc = %.2f%% = %d / %d, loss = %.4f" %
               (data_set.name, epoch, 100 * acc, num_corrects, total, loss))
-
         # For outputting eval json files
         if len(eval_tensor_names) > 0:
             ids = [data_set.idx2id[idx] for idx in idxs]
@@ -283,7 +280,7 @@ class BaseRunner(object):
 
     def _get_train_args(self, epoch_idx):
         params = self.params
-        learning_rate = self.init_lr
+        learning_rate = params.init_lr
 
         anneal_period = params.lr_anneal_period
         anneal_ratio = params.lr_anneal_ratio
@@ -348,6 +345,9 @@ class BaseTower(object):
 
     def get_loss_tensor(self):
         return self.tensors['loss']
+
+    def get_debug_tensor(self):
+        return self.tensors['correct_'], self.tensors['mask_'], self.tensors['y_mask'], self.tensors['y']
 
     def get_variables_dict(self):
         return self.variables_dict

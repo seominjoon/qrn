@@ -1,6 +1,6 @@
 import tensorflow as tf
-
-from mybabi.base_model import BaseTower, BaseRunner
+from IPython import embed
+from dialog.base_model import BaseTower, BaseRunner
 from my.tensorflow.nn import linear
 import numpy as np
 
@@ -12,7 +12,7 @@ class Embedder(object):
 
 class VariableEmbedder(Embedder):
     def __init__(self, params, wd=0.0, initializer=None, name="variable_embedder"):
-        V, d = params.vocab_size, params.hidden_size
+        V, d = params.vocab_size[0], params.hidden_size
         with tf.variable_scope(name):
             self.emb_mat = tf.get_variable("emb_mat", dtype='float', shape=[V, d], initializer=initializer)
             # TODO : not sure wd is appropriate for embedding matrix
@@ -96,8 +96,6 @@ class ReductionLayer(object):
             left = L * tf.exp(tf.batch_matmul(L, logb * sL))  # [N, M, M]
             right = a * u_t  # [N, M, d]
             u = tf.batch_matmul(left, right)  # [N, M, d]
-            print ("B : %s\nb : %s\nlogb*sL : %s" %(logb, b, logb*sL))
-            assert False
         return u
 
 
@@ -109,7 +107,6 @@ class VectorReductionLayer(object):
         N, M, d = batch_size, mem_size, hidden_size
         self.L = np.tril(np.ones([M, M], dtype='float32'))
         self.sL = np.tril(np.ones([M, M], dtype='float32'), k=-1)
-        print (N, M, d)
 
     def __call__(self, u_t, a, b, scope=None):
         """
@@ -133,8 +130,6 @@ class VectorReductionLayer(object):
             right = tf.expand_dims(tf.transpose(right, [0, 2, 1]), -1)  # [N, d, M, 1]
             u = tf.batch_matmul(left, right)  # [N, d, M, 1]
             u = tf.transpose(tf.squeeze(u, [3]), [0, 2, 1])  # [N, M, d]
-            print ("L : %s\nsL: %s,\nlogb : %s\na : %s, b : %s, u_t : %s, left : %s, right : %s" % (L,sL, logb, a, b, u_t, left, right))
-            assert False
         return u
 
 
@@ -144,26 +139,61 @@ class Tower(BaseTower):
         placeholders = self.placeholders
         tensors = self.tensors
         variables_dict = self.variables_dict
-        N, J, V, Q, M = params.batch_size, params.max_sent_size, params.vocab_size, params.max_ques_size, params.mem_size
+
+        self.task = int(params.task)
+        self.dstc = self.task%10 == 6
+        self.match = params.use_match
+        self.rnn = params.use_rnn
+	
+
+        N, J, Q, M = params.batch_size, params.max_sent_size, params.max_ques_size, params.mem_size
+        V, Alist = params.vocab_size
+
         d = params.hidden_size
         L = params.mem_num_layers
         att_forget_bias = params.att_forget_bias
         use_vector_gate = params.use_vector_gate
         wd = params.wd
         initializer = tf.random_uniform_initializer(-np.sqrt(3), np.sqrt(3))
+	
+        self.ans_dic = {
+		1 : range(5), 2 : range(5),
+		3 : [0, 5], 4 : [0,6,7], 5 : range(8), 6 : range(11)
+	}
+        self.num_candidate = Alist[0]+1
+        data_task = self.task%10 if not self.rnn else self.task
+        self.ans = self.ans_dic.get(data_task, [0])
+        self.num_ans = len(self.ans)
+        if self.rnn and self.task==3 : self.num_ans = 3
+        elif self.rnn and self.task==4: self.num_ans = 4
+        elif self.rnn: self.num_ans = 6
+
+
         with tf.name_scope("placeholders"):
             x = tf.placeholder('int32', shape=[N, M, J], name='x')
             x_mask = tf.placeholder('bool', shape=[N, M, J], name='x_mask')
             q = tf.placeholder('int32', shape=[N, J], name='q')
             q_mask = tf.placeholder('bool', shape=[N, J], name='q_mask')
-            y = tf.placeholder('int32', shape=[N], name='y')
+            y = tf.placeholder('int32', shape=[N, self.num_ans], name='y')
+            y_mask = tf.placeholder('bool', shape=[N, self.num_ans], name='y_mask')
+            y_feats = []
+            for i in self.ans[1:]:
+                A = Alist[0] if self.rnn else Alist[i]
+                y_feats.append(tf.placeholder('int32', shape=[N, 2, A], name='y_feat'+str(i)))
+            self.y_state_dim = self.num_ans-2 if self.rnn else self.num_ans-1
+            y_state =tf.placeholder('bool', shape=[N, self.y_state_dim], name='y_state')
             is_train = tf.placeholder('bool', shape=[], name='is_train')
+            
             placeholders['x'] = x
             placeholders['x_mask'] = x_mask
             placeholders['q'] = q
             placeholders['q_mask'] = q_mask
             placeholders['y'] = y
+            placeholders['y_mask'] = y_mask
+            placeholders['y_feats'] = y_feats
+            placeholders['y_state'] = y_state
             placeholders['is_train'] = is_train
+
 
         with tf.variable_scope("embedding"):
             A = VariableEmbedder(params, wd=wd, initializer=initializer, name='A')
@@ -185,17 +215,15 @@ class Tower(BaseTower):
             h = None  # [N, M, d]
             as_, rfs, rbs = [], [], []
             hs = []
-             
             for layer_idx in range(L):
                 with tf.name_scope("layer_{}".format(layer_idx)):
-                    dr_prev_u = tf.nn.dropout(prev_u, 0.7) if params.use_dropout else prev_u
-                    u_t = tf.tanh(linear([dr_prev_u, m], d, True, wd=wd, scope='u_t'))
-                    a = tf.cast(gate_mask, 'float') * tf.sigmoid(linear([dr_prev_u * m], gate_size, True, initializer=initializer, wd=wd, scope='a') - att_forget_bias)
+                    u_t = tf.tanh(linear([prev_u, m], d, True, wd=wd, scope='u_t'))
+                    a = tf.cast(gate_mask, 'float') * tf.sigmoid(linear([prev_u * m], gate_size, True, initializer=initializer, wd=wd, scope='a') - att_forget_bias)
                     h = reg_layer(u_t, a, 1.0-a, scope='h')
                     if layer_idx + 1 < L:
                         if params.use_reset:
                             rf, rb = tf.split(2, 2, tf.cast(gate_mask, 'float') *
-                                tf.sigmoid(linear([dr_prev_u * m], 2 * gate_size, True, initializer=initializer, wd=wd, scope='r')))
+                                tf.sigmoid(linear([prev_u * m], 2 * gate_size, True, initializer=initializer, wd=wd, scope='r')))
                         else:
                             rf = rb = tf.ones(a.get_shape().as_list())
                         u_t_rev = tf.reverse_sequence(u_t, m_length, 1)
@@ -224,27 +252,87 @@ class Tower(BaseTower):
         with tf.variable_scope("class"):
             class_mode = params.class_mode
             use_class_bias = params.use_class_bias
+            logits = []
+            drop_rate = tf.cond(is_train, lambda: tf.constant(0.5),
+				lambda: tf.constant(1.0))
+
             if class_mode == 'h':
-                # W = tf.transpose(A.emb_mat, name='W')
-                logits = linear([h_last], V, use_class_bias, wd=wd)
+
+                if self.rnn: # rnn decoder
+                    hiddens = [] # previous hidden vector
+                    A = self.num_candidate
+                    for i in range(self.num_ans):
+                        # Inverse Embedding Matrix of Answers [A, A]
+                        E_inv = tf.get_variable("E_inv", [A, A], initializer = tf.constant_initializer(0.0))
+                        prev_h = h_last
+                        if i==0:
+                            # If it is the first answer, use initial y
+                            prev_y = tf.reshape(tf.tile(tf.get_variable("Wx", A, initializer = tf.constant_initializer(0.0)), [N]), [N, A])
+                        else:
+                            # Otherwise, use Inverse Embedding Matrix
+                            _prev_y = tf.reshape(tf.gather(tf.transpose(y), i-1), [N])
+                            prev_y = tf.nn.embedding_lookup(E_inv, _prev_y)
+                            #prev_h = hiddens[-1]
+                        _logit = linear([prev_h], A, use_class_bias, wd=wd, name='0')
+                        logit = _logit * prev_y
+                        hiddens.append(S2)
+                        logits.append(S2)
+                        
+                        tf.get_variable_scope().reuse_variables()
+                else:
+                    if self.match:
+                        # Input of softmax when using match
+                        all_y_feats = [None] + y_feats
+                        all_y_states = [y_state] + [None]*(len(all_y_feats)-1)
+
+                    for i, j in enumerate(self.ans):
+                        if self.match:
+                            logits.append(linear([h_last], Alist[j], use_class_bias, wd=wd, name=str(i), feat = all_y_feats[i], state = all_y_states[i], drop_rate = drop_rate))
+
+                        else:
+                            logits.append(linear([h_last], Alist[j], use_class_bias, wd=wd, name=str(i) ))
             elif class_mode == 'uh':
-                logits = linear([h_last, u], V, use_class_bias, wd=wd)
+                logits = linear([h_last, u], A, use_class_bias, wd=wd)
             elif class_mode == 'hs':
-                logits = linear(hs_last, V, use_class_bias, wd=wd)
+                logits = linear(hs_last, A, use_class_bias, wd=wd)
             elif class_mode == 'hss':
-                logits = linear(sum(hs_last), V, use_class_bias, wd=wd)
+                logits = linear(sum(hs_last), A, use_class_bias, wd=wd)
             else:
                 raise Exception("Invalid class mode: {}".format(class_mode))
-            yp = tf.cast(tf.argmax(logits, 1), 'int32')
-            correct = tf.equal(yp, y)
+
+	    
+            for i in range(self.num_ans):
+                yp_each = tf.cast(tf.expand_dims(tf.argmax(logits[i], 1), 1), 'int32')
+                if i == 0: yp = yp_each
+                else: yp = tf.concat(1, [yp, yp_each])
+	    
+            correct_ = tf.cast(tf.equal(yp, y), 'float')
+            correct_sum = tf.reduce_sum(correct_ * tf.cast(y_mask, 'float'), 1)
+            mask_ = tf.reduce_sum(tf.cast(y_mask, 'float'), 1)
+            correct = tf.truediv(correct_sum, mask_)
             tensors['yp'] = yp
+            tensors['correct_'] = correct_
+            tensors['mask_'] = mask_
+            tensors['y_mask'] = y_mask
+            tensors['y'] = y
             tensors['correct'] = correct
+            tensors['q'] = q
+            if self.task>20:
+                tensors['y_state'] = y_state
+                for i, j in enumerate(self.ans[1:]):
+                    tensors['y_feat'+str(i)] = tf.reshape(y_feats[i], [N, 2*self.ans_num[j]])
 
         with tf.name_scope("loss"):
             with tf.name_scope("ans_loss"):
-                ce = tf.nn.sparse_softmax_cross_entropy_with_logits(logits, y, name='ce')
-                avg_ce = tf.reduce_mean(ce, name='avg_ce')
-                tf.add_to_collection('losses', avg_ce)
+                tot_ce = 0
+
+                for i in range(self.num_ans):
+                    _y = tf.gather(tf.transpose(y), i)
+                    ce = tf.nn.sparse_softmax_cross_entropy_with_logits(logits[i], _y)
+                    m = tf.cast(tf.gather(tf.transpose(y_mask), i), 'float32')
+                    tot_ce += tf.reduce_sum(ce*m, name='avg_ce')
+
+                tf.add_to_collection('losses', tot_ce)
 
             losses = tf.get_collection('losses')
             loss = tf.add_n(losses, name='loss')
@@ -255,27 +343,39 @@ class Tower(BaseTower):
     def get_feed_dict(self, batch, mode, **kwargs):
         params = self.params
         N, J, V, M = params.batch_size, params.max_sent_size, params.vocab_size, params.mem_size
+	
+        Alist = params.vocab_size[1]
+        if self.match:
+            X, Q, Y, TCA, TCL, Task = batch
+        else:
+            X, Q, Y, Task = batch
+
+
         x = np.zeros([N, M, J], dtype='int32')
         x_mask = np.zeros([N, M, J], dtype='bool')
         q = np.zeros([N, J], dtype='int32')
         q_mask = np.zeros([N, J], dtype='bool')
-        y = np.zeros([N], dtype='int32')
-
+        y = np.zeros([N, self.num_ans], dtype='int32')
+        y_mask = np.zeros([N, self.num_ans], dtype='bool')
+        y_feats = []
+        if self.match:
+            for i in self.ans[1:]:
+                y_feats.append(np.zeros([N, 2, Alist[i]], dtype='int'))
+            y_state = np.zeros([N, self.y_state_dim], dtype='bool')
+	
         ph = self.placeholders
         feed_dict = {ph['x']: x, ph['x_mask']: x_mask,
                      ph['q']: q, ph['q_mask']: q_mask,
-                     ph['y']: y,
+                     ph['y']: y, ph['y_mask']: y_mask,
                      ph['is_train']: mode == 'train'
                      }
         if batch is None:
             return feed_dict
 
-        X, Q, S, Y, H, T = batch
         for i, para in enumerate(X):
             if len(para) > M:
                 para = para[-M:]
             for jj, sent in enumerate(para):
-                # j = len(para) - jj - 1  # reverting story sequence, last to first
                 j = jj
                 for k, word in enumerate(sent):
                     x[i, j, k] = word
@@ -286,9 +386,30 @@ class Tower(BaseTower):
                 q[i, j] = word
                 q_mask[i, j] = True
 
-        for i, ans in enumerate(Y):
-            y[i] = ans
-
+        for i in range(N):
+            j = 0
+            for ans in Y[i]:
+                if ans is not None:
+                    y[i, j] = ans
+                    y_mask[i, j]= True
+                    j += 1
+            if self.rnn:
+                y[i, j] = self.num_candidate-1
+                y_mask[i, j] = True
+        if self.match:
+            for i, (CA, CL) in enumerate(zip(TCA, TCL)):
+                for j in self.ans[1:]:
+                    j_ind = self.ans.index(j)-1
+                    for ca in CA[j-1]:
+                        y_feats[j_ind][i][0][ca] = 1
+                    if CL[j-1] is not None:
+                        y_feats[j_ind][i][1][CL[j-1]] = 1
+                    if not CA[j-1] == []:
+                        y_state[i][j_ind] = 1
+            for j in range(len(self.ans)-1):
+                feed_dict[ph['y_feats'][j]] = y_feats[j]
+            feed_dict[ph['y_state']] = y_state
+        
         return feed_dict
 
 
