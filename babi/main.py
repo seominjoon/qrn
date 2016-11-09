@@ -5,9 +5,9 @@ from pprint import pprint
 
 import tensorflow as tf
 
-from mybabi.model import Tower, Runner
+from babi.model import Tower, Runner
 from config.get_config import get_config_from_file, get_config
-from mybabi.read_data import read_data
+from babi.read_data import read_data
 
 flags = tf.app.flags
 
@@ -43,7 +43,7 @@ flags.DEFINE_integer("val_period", 10, "Validation period (for display purpose o
 flags.DEFINE_integer("save_period", 10, "Save period [10]")
 flags.DEFINE_string("config_id", 'None', "Config name (e.g. local) to load. 'None' to use config here. [None]")
 flags.DEFINE_string("config_ext", ".json", "Config file extension: .json | .tsv [.json]")
-flags.DEFINE_integer("num_trials", 2, "Number of trials [1]")
+flags.DEFINE_integer("num_trials", 5, "Number of trials [1]")
 flags.DEFINE_string("seq_id", "None", "Sequence id [None]")
 flags.DEFINE_string("run_id", "0", "Run id [0]")
 flags.DEFINE_boolean("write_log", False, "Write log? [False]")

@@ -1,6 +1,6 @@
 import tensorflow as tf
 
-from mybabi.base_model import BaseTower, BaseRunner
+from babi.base_model import BaseTower, BaseRunner
 from my.tensorflow.nn import linear
 import numpy as np
 
@@ -96,8 +96,6 @@ class ReductionLayer(object):
             left = L * tf.exp(tf.batch_matmul(L, logb * sL))  # [N, M, M]
             right = a * u_t  # [N, M, d]
             u = tf.batch_matmul(left, right)  # [N, M, d]
-            print ("B : %s\nb : %s\nlogb*sL : %s" %(logb, b, logb*sL))
-            assert False
         return u
 
 

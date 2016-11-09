@@ -9,7 +9,7 @@ import tensorflow as tf
 
 from my.tensorflow import average_gradients
 from my.utils import get_pbar
-from mybabi.read_data import DataSet
+from babi.read_data import DataSet
 
 
 class BaseRunner(object):
