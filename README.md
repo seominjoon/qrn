@@ -1,16 +1,13 @@
-# Query-Regression Networks (QRN)
+# Query-Reduction Networks (QRN)
 ![Teaser figure for QRN](assets/teaser.png)
 [QRN][qrn] is a purely sequential model like LSTM or GRU (but simpler than them) for story-based question answering ([bAbI QA tasks][babi]).
 [QRN][qrn] is implemented using [TensorFlow][tensorflow].
-Here are some notable results (error rates in %) on bAbI QA 1k dataset:
+Here are some notable results (error rates in %) on bAbI QA dataset:
 
-| Task | [LSTM][lstm] | [MemN2N][memn2n] | Ours (2rb) |
-| ---- |:------------:|:----------------:|:----------:|
-| 2    | 80.0         | 18.8             | 0.7        |
-| 3    | 80.0         | 31.7             | 5.7        |
-| 4    | 39.0         | 17.5             | 0.0        |
-| 5    | 30.0         | 12.9             | 1.1        |
-| avg  | 51.3         | 15.2             | 9.9        |
+| Task    | [LSTM][lstm] | [MemN2N][memn2n] | Ours (2rb) |
+| ------- |:------------:|:----------------:|:----------:|
+| 1k avg  | 51.3         | 15.2             | 9.9        |
+| 10k avg | 36.4         | 4.2              | 0.7        |
 
 See model details and more results in [this paper][qrn].
 
