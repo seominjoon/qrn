@@ -4,7 +4,7 @@
 [QRN][qrn] is implemented using [TensorFlow][tensorflow].
 Here are some notable results (error rates in %) on bAbI QA dataset:
 
-| Task    | [LSTM][lstm] | [MemN2N][memn2n] | Ours (2rb) |
+| Task    | [LSTM][lstm] | [MemN2N][memn2n] | Ours       |
 | ------- |:------------:|:----------------:|:----------:|
 | 1k avg  | 51.3         | 15.2             | 9.9        |
 | 10k avg | 36.4         | 4.2              | 0.7        |
