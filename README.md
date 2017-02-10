@@ -13,7 +13,7 @@ See model details and more results in [this paper][qrn].
 
 ## 1. Quick Start
 We are assuming you are working in a Linux environment. 
-Make sure that you have Python (developed on 3.5), and you installed these Python packages: `tensorflow` (0.8 or higher, get it [here][tensorflow]), and `progressbar2`.
+Make sure that you have Python (verified on 3.5, issues have been reported with 2.x), and you installed these Python packages: `tensorflow` (>=0.8, <=0.11, issues have been reported with >=0.12) and `progressbar2`.
 
 First, download bAbI QA dataset (note that this downloads the dataset to `$HOME/data/babi`):
 
