@@ -67,7 +67,7 @@ Then train the model with `large` flag as well:
 ```bash
 python -m babi.main --noload --task 2 --large True --batch_size 128 --init_lr 0.1 --wd 0.0005 --hidden_size 200
 ```
-Note that the batch size, init_lr, and wd are changed.
+Note that the batch size, init_lr, wd, and hidden_size changed.
 
 Finally, visualization requires the `large`  flag:
 ```bash
