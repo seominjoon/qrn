@@ -46,8 +46,6 @@ def prepro(args):
     elif tasks == 'joint': tasks = [[str(i) for i in range(1, 6)]]
 
     for curr_tasks in tasks:
-        print ("Preprocessing for %s"%(curr_tasks))
-
         if args.use_rnn:
             save_tasks = ['1'+curr_task for curr_task in curr_tasks]
         elif args.use_match:
@@ -179,8 +177,6 @@ def _save_data(word2idx_dicts, data, target_dir):
                 'max_sent_size': max(max_fact_size, max_ques_size),
                 'max_num_sents': max(len(para) for para in X),
                 'eos_idx': word2idx_dicts[0][EOS]}
-    print ("EOS_idx : %d"%(word2idx_dicts[0][EOS]))
-
     word2idx_path = os.path.join(target_dir, "word2idx.json")
     data_path = os.path.join(target_dir, "data.json")
     metadata_path = os.path.join(target_dir, "metadata.json")
@@ -217,10 +213,6 @@ def _get_word2idx_dict(data, use_rnn):
     word2idx_dict_a = []
     for vocab_set in vocab_sets:
         word2idx_dict_a.append(OrderedDict((word, idx) for idx, word in enumerate(list(vocab_set))))
-    print (len(word2idx_dict_a))
-    for dic in word2idx_dict_a:
-        print (len(dic))
-
     return word2idx_dict_fact, word2idx_dict_a
 
  

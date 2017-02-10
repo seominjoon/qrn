@@ -47,34 +47,35 @@ def prepro(args):
 
     all_tasks = list(map(str, range(1, 21)))
     tasks = all_tasks if task == 'all' else task.split(",")
-    target_parent_dir = os.path.join(target_dir, lang + ("-10k" if is_large else ""), task.zfill(2))
-    train_raw_data_list = []
-    test_raw_data_list = []
-    train_size, test_size = 0, 0
 
-    for cur_task in tasks:
-        source_train_path, source_test_path = _get_source_paths(source_dir, lang, is_large, cur_task)
-        train_raw_data_list.append(_get_data(source_train_path, cur_task))
-        test_raw_data_list.append(_get_data(source_test_path, cur_task))
+    for task in tasks:
+        target_parent_dir = os.path.join(target_dir, lang + ("-10k" if is_large else ""), task.zfill(2))
+        train_raw_data_list = []
+        test_raw_data_list = []
+        train_size, test_size = 0, 0
+
+        source_train_path, source_test_path = _get_source_paths(source_dir, lang, is_large, task)
+        train_raw_data_list.append(_get_data(source_train_path, task))
+        test_raw_data_list.append(_get_data(source_test_path, task))
         train_size += len(train_raw_data_list[-1][0])
         test_size += len(test_raw_data_list[-1][0])
 
-    raw_data = [list(itertools.chain(*each)) for each in zip(*(train_raw_data_list + test_raw_data_list))]
-    dev_size = int(train_size * dev_ratio)
-    dev_idxs = sorted(random.sample(list(range(train_size)), dev_size))
-    train_idxs = [a for a in range(train_size) if a not in dev_idxs]
-    test_idxs = list(range(train_size, train_size + test_size))
+        raw_data = [list(itertools.chain(*each)) for each in zip(*(train_raw_data_list + test_raw_data_list))]
+        dev_size = int(train_size * dev_ratio)
+        dev_idxs = sorted(random.sample(list(range(train_size)), dev_size))
+        train_idxs = [a for a in range(train_size) if a not in dev_idxs]
+        test_idxs = list(range(train_size, train_size + test_size))
 
-    mode2idxs_dict = {'dev': dev_idxs,
+        mode2idxs_dict = {'dev': dev_idxs,
                       'train': train_idxs,
                       'test': test_idxs}
-    word2idx_dict = _get_word2idx_dict(raw_data)
-    data = _apply_word2idx(word2idx_dict, raw_data)
-    if not os.path.exists(target_parent_dir):
-        os.makedirs(target_parent_dir)
-    _save_data(word2idx_dict, data, target_parent_dir)
-    mode2idxs_path = os.path.join(target_parent_dir, "mode2idxs.json")
-    with open(mode2idxs_path, 'w') as fh: json.dump(mode2idxs_dict, fh)
+        word2idx_dict = _get_word2idx_dict(raw_data)
+        data = _apply_word2idx(word2idx_dict, raw_data)
+        if not os.path.exists(target_parent_dir):
+            os.makedirs(target_parent_dir)
+        _save_data(word2idx_dict, data, target_parent_dir)
+        mode2idxs_path = os.path.join(target_parent_dir, "mode2idxs.json")
+        with open(mode2idxs_path, 'w') as fh: json.dump(mode2idxs_dict, fh)
 
 
 def _apply_word2idx(word2idx_dict, raw_data):

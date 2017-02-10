@@ -7,6 +7,7 @@ import json
 import os
 import numpy as np
 from jinja2 import Environment, FileSystemLoader
+from IPython import embed
 
 def bool_(string):
     if string == 'True':
@@ -64,7 +65,9 @@ def list_results(args):
 
     _id = 0
     html_dir = "visualize/%s-%s" %(task, trial_num)
-    
+    if not os.path.exists(html_dir):
+        os.makedirs(html_dir)
+ 
     """
     while os.path.exists(html_dir):
         _id += 1
@@ -85,12 +88,12 @@ def list_results(args):
     word2idx_path = os.path.join(target_dir, 'word2idx.json')
     metadata_path = os.path.join(target_dir, 'metadata.json')
     data = json.load(open(data_path, 'r'))
-    X, Q, Y, Y1, Y2, Y3, Y4, Y5, Y6, Y7 = data[:10]
+    X, Q, Y = data[:3]
     mode2idxs_dict = json.load(open(mode2idxs_path, 'r'))
     word2idx_dicts = json.load(open(word2idx_path, 'r'))
+    word2idx_dicts = [word2idx_dicts[0]] + word2idx_dicts[1]
     idx2word_dicts = [{idx: word for word, idx in word2idx_dict.items()}
 		for word2idx_dict in word2idx_dicts]
-    print (len(idx2word_dicts))
     idx2word_dict_fact, idx2word_dict_a, idx2word_dict_a1, idx2word_dict_a2, idx2word_dict_a3, idx2word_dict_a4, idx2word_dict_a5, idx2word_dict_a6 = tuple(idx2word_dicts[:8])
 
     metadata = json.load(open(metadata_path, 'r'))
@@ -101,7 +104,6 @@ def list_results(args):
         for name, d in list(evals['values'].items()):
             eval_d[name] = d[idx]
         eval_dd[id_] = eval_d
-
     rows = []
     for i, (id_, eval_d) in enumerate(eval_dd.items()):
         question = _decode(idx2word_dict_fact, Q[id_])
@@ -120,15 +122,11 @@ def list_results(args):
 
         y = []
         yp = []
-        Ylist = [Y, Y1, Y2, Y3, Y4, Y5, Y6, Y7]
         YP = eval_d['yp']
         Dlist = idx2word_dicts[1:6] + idx2word_dicts[5:]
-        for (Y_, yp_, dict_) in zip(Ylist, YP, Dlist):
-            y.append(dict_.get(Y_[id_], None))
+        for j, (Y_, yp_, dict_) in enumerate(zip(Y[i], YP, Dlist)):
+            y.append(dict_.get(Y_, None))
             yp.append(yp_)
-        if y[0].endswith('you are welcome'):
-            print ("you are welcome")
-            continue
         row = {'id': id_,
                'facts': facts,
                'question': question,

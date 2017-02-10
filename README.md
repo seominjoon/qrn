@@ -7,7 +7,7 @@ Here are some notable results (error rates in %) on bAbI QA dataset:
 | Task    | [LSTM][lstm] | [MemN2N][memn2n] | Ours       |
 | ------- |:------------:|:----------------:|:----------:|
 | 1k avg  | 51.3         | 15.2             | 9.9        |
-| 10k avg | 36.4         | 4.2              | 0.7        |
+| 10k avg | 36.4         | 4.2              | 0.3        |
 
 See model details and more results in [this paper][qrn].
 
@@ -65,9 +65,9 @@ python -m prepro --task 2 --large True
 
 Then train the model with `large` flag as well:
 ```bash
-python -m babi.main --noload --task 2 --large True --batch_size 128
+python -m babi.main --noload --task 2 --large True --batch_size 128 --init_lr 0.1 --wd 0.0005 --hidden_size 200
 ```
-Note that the batch size is increased to 128.
+Note that the batch size, init_lr, and wd are changed.
 
 Finally, visualization requires the `large`  flag:
 ```bash

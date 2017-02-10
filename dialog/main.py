@@ -54,10 +54,10 @@ flags.DEFINE_boolean("draft", False, "Draft? (quick initialize) [False]")
 
 # App-specific options
 # TODO : Any other options
-flags.DEFINE_string("task", "all1", "Task number. [all]")
+flags.DEFINE_string("task", "all", "Task number. [all]")
 flags.DEFINE_integer("hidden_size", 50, "Hidden size. [20]")
 flags.DEFINE_float("keep_prob", 1.0, "Keep probability of RNN inputs [1.0]")
-flags.DEFINE_integer("mem_num_layers", 1, "Number of memory layers [2]")
+flags.DEFINE_integer("mem_num_layers", 2, "Number of memory layers [2]")
 flags.DEFINE_float("att_forget_bias", 2.5, "Attention gate forget bias [2.5]")
 flags.DEFINE_integer("max_mem_size", 100, "Maximum memory size (from most recent) [50]")
 flags.DEFINE_string("class_mode", "h", "classification mode: h | uh | hs | hss [h]")
@@ -160,12 +160,8 @@ def main(_):
             configs_path = os.path.join(this_dir, "configs_new%s" % FLAGS.config_ext)
             config = get_config_from_file(FLAGS.__flags, configs_path, config_id)
         
-        if config.task == "all1":
-            tasks = list(map(str, range(11, 16)))
-        elif config.task == "all2":
-            tasks = list(map(str, range(4, 7)))
-        elif config.task == "5+":
-            tasks = list(map(str, [5, 15]))
+        if config.task == "all":
+            tasks = list(map(str, range(1, 6)))
         else:
             tasks = [config.task]
         for task in tasks:

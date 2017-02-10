@@ -17,15 +17,15 @@ flags.DEFINE_string("data_dir", "data/babi", "Data directory [data/babi]")
 
 # Training parameters
 # These affect result performance
-flags.DEFINE_integer("batch_size", 128, "Batch size for each tower. [32]")
+flags.DEFINE_integer("batch_size", 32, "Batch size for each tower. [32]")
 flags.DEFINE_float("init_mean", 0, "Initial weight mean [0]")
 flags.DEFINE_float("init_std", 1.0, "Initial weight std [1.0]")
-flags.DEFINE_float("init_lr", 0.1, "Initial learning rate [0.5]")
+flags.DEFINE_float("init_lr", 0.5, "Initial learning rate [0.5]")
 flags.DEFINE_integer("lr_anneal_period", 100, "Anneal period [100]")
 flags.DEFINE_float("lr_anneal_ratio", 0.5, "Anneal ratio [0.5")
 flags.DEFINE_integer("num_epochs", 500, "Total number of epochs for training [100]")
 flags.DEFINE_string("opt", 'adadelta', 'Optimizer: basic | adagrad | adam [basic]')
-flags.DEFINE_float("wd", 0.0005, "Weight decay [0.001]")
+flags.DEFINE_float("wd", 0.001, "Weight decay [0.001]")
 flags.DEFINE_integer("max_grad_norm", 0, "Max grad norm. 0 for no clipping [0]")
 flags.DEFINE_float("max_val_loss", 0.0, "Max val loss [0.0]")
 
@@ -55,9 +55,9 @@ flags.DEFINE_boolean("draft", False, "Draft? (quick initialize) [False]")
 # App-specific options
 # TODO : Any other options
 flags.DEFINE_string("task", "all", "Task number. [all]")
-flags.DEFINE_bool("large", True, "1k (False) | 10k (True) [False]")
+flags.DEFINE_bool("large", False, "1k (False) | 10k (True) [False]")
 flags.DEFINE_string("lang", "en", "en | something")
-flags.DEFINE_integer("hidden_size", 200, "Hidden size. [20]")
+flags.DEFINE_integer("hidden_size", 50, "Hidden size. [20]")
 flags.DEFINE_float("keep_prob", 1.0, "Keep probability of RNN inputs [1.0]")
 flags.DEFINE_integer("mem_num_layers", 2, "Number of memory layers [2]")
 flags.DEFINE_float("att_forget_bias", 2.5, "Attention gate forget bias [2.5]")

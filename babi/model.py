@@ -45,9 +45,7 @@ class PositionEncoder(object):
             # l = self.b + self.w/length_aug
             l = self.b + self.w/self.max_sent_size
             mask_aug = tf.expand_dims(mask, -1)
-            mask_aug_cast = tf.cast(mask_aug, 'float')
-            l_cast = tf.cast(l, 'float')
-            f = tf.reduce_sum(Ax * l_cast * mask_aug_cast, length_dim_index, name='f')  # [N, S, d]
+            f = tf.reduce_sum(Ax * l * tf.cast(mask_aug, 'float'), length_dim_index, name='f')  # [N, S, d]
 
             return f
 
@@ -107,7 +105,6 @@ class VectorReductionLayer(object):
         N, M, d = batch_size, mem_size, hidden_size
         self.L = np.tril(np.ones([M, M], dtype='float32'))
         self.sL = np.tril(np.ones([M, M], dtype='float32'), k=-1)
-        print (N, M, d)
 
     def __call__(self, u_t, a, b, scope=None):
         """
@@ -131,8 +128,6 @@ class VectorReductionLayer(object):
             right = tf.expand_dims(tf.transpose(right, [0, 2, 1]), -1)  # [N, d, M, 1]
             u = tf.batch_matmul(left, right)  # [N, d, M, 1]
             u = tf.transpose(tf.squeeze(u, [3]), [0, 2, 1])  # [N, M, d]
-            print ("L : %s\nsL: %s,\nlogb : %s\na : %s, b : %s, u_t : %s, left : %s, right : %s" % (L,sL, logb, a, b, u_t, left, right))
-            assert False
         return u
 
 
@@ -183,17 +178,15 @@ class Tower(BaseTower):
             h = None  # [N, M, d]
             as_, rfs, rbs = [], [], []
             hs = []
-             
             for layer_idx in range(L):
                 with tf.name_scope("layer_{}".format(layer_idx)):
-                    dr_prev_u = tf.nn.dropout(prev_u, 0.7) if params.use_dropout else prev_u
-                    u_t = tf.tanh(linear([dr_prev_u, m], d, True, wd=wd, scope='u_t'))
-                    a = tf.cast(gate_mask, 'float') * tf.sigmoid(linear([dr_prev_u * m], gate_size, True, initializer=initializer, wd=wd, scope='a') - att_forget_bias)
+                    u_t = tf.tanh(linear([prev_u, m], d, True, wd=wd, scope='u_t'))
+                    a = tf.cast(gate_mask, 'float') * tf.sigmoid(linear([prev_u * m], gate_size, True, initializer=initializer, wd=wd, scope='a') - att_forget_bias)
                     h = reg_layer(u_t, a, 1.0-a, scope='h')
                     if layer_idx + 1 < L:
                         if params.use_reset:
                             rf, rb = tf.split(2, 2, tf.cast(gate_mask, 'float') *
-                                tf.sigmoid(linear([dr_prev_u * m], 2 * gate_size, True, initializer=initializer, wd=wd, scope='r')))
+                                tf.sigmoid(linear([prev_u * m], 2 * gate_size, True, initializer=initializer, wd=wd, scope='r')))
                         else:
                             rf = rb = tf.ones(a.get_shape().as_list())
                         u_t_rev = tf.reverse_sequence(u_t, m_length, 1)
