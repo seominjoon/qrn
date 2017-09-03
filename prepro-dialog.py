@@ -270,14 +270,13 @@ def _get_data(file_path, cur_task):
             a_ = _tokenize(answer[0])
             for phase in answer[1:]:
                 if phase is not None: a_.append(phase)
+            paragraph.append(question)
             paragraph.append(a_)
         else:
             words = sents[0].split(' ')
             paragraph.append(words)
-
     print("Loaded %d examples" % (len(paragraphs)))
     tasks = [cur_task] * len(paragraphs)
-
     data = [paragraphs, questions, answers, tasks]
     return data
 
